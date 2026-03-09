@@ -1,0 +1,27 @@
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Electron
+builder-debug.yml
+builder-effective-config.yaml
+dist/
+
+# Database
+database/
+*.db
+*.db-journal
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+*.code-workspace
