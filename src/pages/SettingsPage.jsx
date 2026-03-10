@@ -181,6 +181,38 @@ function SettingsPage() {
                         </div>
                     </div>
                 </section>
+
+                {/* Danger Zone */}
+                <section className="glass rounded-[3rem] p-10 border border-red-500/10 shadow-2xl" style={{ animationDelay: '200ms' }}>
+                    <div className="flex items-center gap-6 mb-8">
+                        <div className="p-5 bg-red-500/10 rounded-3xl border border-red-500/20">
+                            <Trash2 className="text-red-500" size={32} strokeWidth={2.5} />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-black text-white tracking-tight">Zona de Peligro</h2>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1 opacity-60">Acciones irreversibles de mantenimiento</p>
+                        </div>
+                    </div>
+
+                    <div className="p-8 bg-black/20 border border-white/5 rounded-[2rem] flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div>
+                            <h3 className="text-lg font-black text-white mb-2 uppercase tracking-tighter">Limpiar Bóveda Completa</h3>
+                            <p className="text-xs text-slate-500 font-bold max-w-sm">Elimina permanentemente todas las películas indexadas y las carpetas de origen. Útil si quieres empezar desde cero.</p>
+                        </div>
+                        <button
+                            onClick={async () => {
+                                if (confirm('¿Estás seguro de que quieres borrar TODA tu biblioteca? Esta acción no se puede deshacer.')) {
+                                    await window.electronAPI.clearLibrary();
+                                    fetchConfig();
+                                    alert('Bóveda limpiada correctamente.');
+                                }
+                            }}
+                            className="px-10 py-5 bg-red-500/10 text-red-500 border border-red-500/20 rounded-[1.5rem] font-black uppercase tracking-widest text-[10px] hover:bg-red-500 hover:text-white transition-all duration-500 shadow-xl"
+                        >
+                            Limpiar Biblioteca
+                        </button>
+                    </div>
+                </section>
             </div>
         </div>
     );

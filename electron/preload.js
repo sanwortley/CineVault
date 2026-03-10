@@ -6,6 +6,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     removeFolder: (folderPath) => ipcRenderer.invoke('library:removeFolder', folderPath),
     refreshLibrary: () => ipcRenderer.invoke('library:refresh'),
     getMovies: () => ipcRenderer.invoke('library:getMovies'),
+    clearLibrary: () => ipcRenderer.invoke('library:clear'),
     getTMDBKey: () => ipcRenderer.invoke('config:getTMDBKey'),
     playVideo: (filePath) => ipcRenderer.invoke('player:play', filePath),
+    openExternal: (filePath) => ipcRenderer.invoke('player:openExternal', filePath),
+    checkAudio: (filePath) => ipcRenderer.invoke('player:checkAudio', filePath),
 });

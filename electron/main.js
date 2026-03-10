@@ -1,6 +1,15 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, protocol } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, protocol, net } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const { Readable, PassThrough } = require('stream');
 const { pathToFileURL } = require('url');
+const ffmpeg = require('fluent-ffmpeg');
+const ffmpegPath = require('ffmpeg-static');
+const ffprobePath = require('ffprobe-static').path;
+
+ffmpeg.setFfmpegPath(ffmpegPath);
+ffmpeg.setFfprobePath(ffprobePath);
+
 const isDev = process.env.NODE_ENV === 'development';
 
 if (process.platform === 'win32') {
@@ -11,6 +20,9 @@ if (process.platform === 'win32') {
 protocol.registerSchemesAsPrivileged([
     { scheme: 'cine', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, bypassCSP: true } }
 ]);
+
+// Allow autoplay with sound
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 function createWindow() {
     const win = new BrowserWindow({
@@ -33,11 +45,151 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-    // Register custom protocol for local video files (Modern API)
-    protocol.handle('cine', (request) => {
-        const filePath = decodeURIComponent(request.url.replace('cine://', ''));
-        console.log('[Main] Protocol: serving file:', filePath);
-        return pathToFileURL(filePath);
+    // 1. Register cine protocol
+    protocol.handle('cine', async (request) => {
+        try {
+            const url = new URL(request.url);
+            let filePath = decodeURIComponent(url.pathname);
+            
+            // Bulletproof Windows Path Resolution
+            if (process.platform === 'win32') {
+                // Combine host (drive) if it exists (cine://c/path)
+                if (url.host) {
+                    const host = url.host.length === 1 ? url.host + ':' : url.host;
+                    filePath = host + filePath;
+                }
+                
+                // Clean up leading slashes: /C:/ -> C:/, /C/ -> C/
+                filePath = filePath.replace(/^[\\\/]+([a-zA-Z])[:\\\/]/, '$1:/');
+                
+                // Ensure colon exists: C/Wortfly -> C:/Wortfly
+                if (filePath.length > 1 && filePath[1] !== ':' && (filePath[1] === '/' || filePath[1] === '\\')) {
+                    filePath = filePath[0] + ':' + filePath.substring(1);
+                }
+                
+                // Ensure absolute: C:Wortfly -> C:/Wortfly
+                if (filePath.length > 2 && filePath[1] === ':' && filePath[2] !== '/' && filePath[2] !== '\\') {
+                    filePath = filePath.substring(0, 2) + '/' + filePath.substring(2);
+                }
+
+                // Final normalization
+                filePath = filePath.replace(/\\/g, '/');
+            }
+
+            const shouldTranscode = url.searchParams.get('transcode') === 'true';
+            const startTime = parseFloat(url.searchParams.get('t') || 0);
+
+            if (!fs.existsSync(filePath)) {
+                console.error('[Main] Protocol: File NOT found at:', filePath);
+                return new Response(null, { status: 404 });
+            }
+
+            if (shouldTranscode) {
+                console.log(`[Main] Protocol: Transcoding "${filePath}" from ${startTime}s`);
+                const passThrough = new PassThrough();
+                
+                let command = ffmpeg(filePath);
+                if (startTime > 0) {
+                    command = command.seekInput(startTime);
+                }
+
+                command
+                    .videoCodec('copy')
+                    .audioCodec('aac')
+                    .format('matroska')
+                    .outputOptions([
+                        '-movflags frag_keyframe+empty_moov+default_base_moof',
+                        '-preset ultrafast',
+                        '-tune zerolatency'
+                    ])
+                    .on('error', (err) => {
+                        console.error('[Main] FFmpeg Stream Error:', err.message);
+                        passThrough.end();
+                    })
+                    .pipe(passThrough);
+
+                return new Response(Readable.toWeb(passThrough), {
+                    status: 200,
+                    headers: {
+                        'Content-Type': 'video/x-matroska',
+                        'Cache-Control': 'no-cache',
+                        'Accept-Ranges': 'none'
+                    }
+                });
+            }
+
+            const stats = fs.statSync(filePath);
+            const fileSize = stats.size;
+            const range = request.headers.get('range');
+
+            const getMimeType = (file) => {
+                const ext = path.extname(file).toLowerCase();
+                const map = {
+                    '.mp4': 'video/mp4',
+                    '.mkv': 'video/x-matroska',
+                    '.webm': 'video/webm'
+                };
+                return map[ext] || 'video/mp4';
+            };
+
+            if (range) {
+                const parts = range.replace(/bytes=/, "").split("-");
+                const start = parseInt(parts[0], 10);
+                const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+                const chunksize = (end - start) + 1;
+                
+                const fileStream = fs.createReadStream(filePath, { start, end });
+                return new Response(Readable.toWeb(fileStream), {
+                    status: 206,
+                    headers: {
+                        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+                        'Accept-Ranges': 'bytes',
+                        'Content-Length': chunksize.toString(),
+                        'Content-Type': getMimeType(filePath)
+                    }
+                });
+            } else {
+                const fileStream = fs.createReadStream(filePath);
+                return new Response(Readable.toWeb(fileStream), {
+                    status: 200,
+                    headers: {
+                        'Content-Length': fileSize.toString(),
+                        'Content-Type': getMimeType(filePath),
+                        'Accept-Ranges': 'bytes'
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('[Main] Protocol Fatal Error:', error);
+            return new Response(null, { status: 500 });
+        }
+    });
+
+    // 2. Register IPC Handlers (Safe duplication prevention)
+    ipcMain.removeHandler('player:checkAudio');
+    ipcMain.handle('player:checkAudio', async (event, filePath) => {
+        return new Promise((resolve) => {
+            ffmpeg.ffprobe(filePath, (err, metadata) => {
+                if (err) return resolve({ needsTranscode: false });
+                const audioStream = metadata.streams.find(s => s.codec_type === 'audio');
+                if (!audioStream) return resolve({ needsTranscode: false });
+                const codec = (audioStream.codec_name || '').toLowerCase();
+                const unsupported = ['ac3', 'dts', 'truehd', 'eac3', 'opus'].includes(codec);
+                const duration = metadata.format.duration || 0;
+                resolve({ needsTranscode: unsupported, codec, duration });
+            });
+        });
+    });
+
+    ipcMain.removeHandler('player:openExternal');
+    ipcMain.handle('player:openExternal', async (event, filePath) => {
+        try {
+            await shell.openPath(filePath);
+            return { success: true };
+        } catch (error) {
+            console.error('[Main] OpenExternal Error:', error);
+            return { success: false, error: error.message };
+        }
     });
 
     createWindow();
@@ -96,6 +248,18 @@ ipcMain.handle('library:getFolders', async () => {
 });
 
 ipcMain.handle('library:removeFolder', async (event, folderPath) => {
+    // Normalize path to ensure consistency (especially for Windows)
+    const normalizedPath = path.normalize(folderPath);
+    console.log('[Main] Removing folder and associated movies:', normalizedPath);
+
+    // 1. Delete associated movies first
+    // We use LIKE 'path\%' to match all files inside that folder
+    // Note: path.join appends the platform separator
+    const matchPath = normalizedPath.endsWith(path.sep) ? normalizedPath : normalizedPath + path.sep;
+    const deleteMovies = db.prepare('DELETE FROM movies WHERE file_path LIKE ?');
+    await deleteMovies.run(`${matchPath}%`);
+
+    // 2. Delete the folder entry
     return await db.prepare('DELETE FROM folders WHERE folder_path = ?').run(folderPath);
 });
 
@@ -151,6 +315,13 @@ ipcMain.handle('library:refresh', async () => {
     }
 
     return await db.prepare('SELECT * FROM movies ORDER BY created_at DESC').all();
+});
+
+ipcMain.handle('library:clear', async () => {
+    console.log('[Main] Clearing entire library...');
+    await db.prepare('DELETE FROM movies').run();
+    await db.prepare('DELETE FROM folders').run();
+    return { success: true };
 });
 
 ipcMain.handle('library:getMovies', async () => {
