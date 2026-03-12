@@ -47,6 +47,7 @@ async function getMovieDetails(movieId) {
             genres: data.genres.map(g => g.name).join(', '),
             runtime: data.runtime,
             director: data.credits?.crew?.find(c => c.job === 'Director')?.name || 'Desconocido',
+            cast: data.credits?.cast?.slice(0, 5).map(a => a.name).join(', ') || 'N/A',
             rating: data.vote_average,
             release_date: data.release_date
         };

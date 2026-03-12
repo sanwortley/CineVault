@@ -1,38 +1,103 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Volume2, VolumeX, Maximize, X, SkipForward, SkipBack, Loader2 } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, X, RotateCcw, RotateCw, Loader2, Lock, Unlock } from 'lucide-react';
 
 function VideoPlayer({ movie, onClose }) {
     const videoRef = useRef(null);
     const containerRef = useRef(null);
     const [isPlaying, setIsPlaying] = useState(false);
-    const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [volume, setVolume] = useState(1);
     const [isMuted, setIsMuted] = useState(false);
     const [showControls, setShowControls] = useState(true);
+    const [isLocked, setIsLocked] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
     const [audioTrackStatus, setAudioTrackStatus] = useState('checking'); // 'checking', 'unsupported', 'ok', 'transcoding'
     const [audioDiagnostic, setAudioDiagnostic] = useState("Iniciando...");
     const [useTranscoding, setUseTranscoding] = useState(false);
-    const [seekOffset, setSeekOffset] = useState(0);
+    
+    // Initialize seekOffset with watched_duration to resume transcoded streams properly
+    const initialSeek = (movie && movie.watched_duration && movie.watched_duration > 0) ? Math.floor(movie.watched_duration) : 0;
+    const [seekOffset, setSeekOffset] = useState(initialSeek);
+    const [currentTime, setCurrentTime] = useState(initialSeek); // Default UI to resume time
+
     const [totalDuration, setTotalDuration] = useState(0);
     const controlsTimeoutRef = useRef(null);
     const isPlayingRef = useRef(false);
     const isLoadingRef = useRef(true);
     const lastTimeRef = useRef(0);
+    const [streamSource, setStreamSource] = useState('checking'); // 'checking', 'local', 'drive'
 
-    const videoUrl = `cine:///${movie.file_path}${useTranscoding ? `?transcode=true&t=${seekOffset}` : ''}`;
+    const [audioOutput, setAudioOutput] = useState(null); // stores codec, channels, etc.
+
+    const watchedDurationRef = useRef(movie.watched_duration || 0);
+    const currentTimeRef = useRef(currentTime);
+    
+    useEffect(() => {
+        currentTimeRef.current = currentTime;
+    }, [currentTime]);
+
+    useEffect(() => {
+        const resolveSource = async () => {
+            if (!window.electronAPI) return;
+            
+            // Check stream source
+            let source = 'error';
+            let pathOrUrl = '';
+            if (movie.file_path && await window.electronAPI.checkFileExists(movie.file_path)) {
+                source = 'local';
+                pathOrUrl = movie.file_path;
+            } else if (movie.drive_file_id) {
+                source = 'drive';
+                pathOrUrl = `http://localhost:19998/stream/${movie.drive_file_id}`;
+            }
+
+            setStreamSource(source);
+
+            if (source !== 'error') {
+                // Check audio codec unconditionally BEFORE playing
+                const status = await window.electronAPI.checkAudio(pathOrUrl);
+                setAudioOutput(status);
+
+                if (status.duration) {
+                    setTotalDuration(status.duration);
+                    setDuration(status.duration);
+                }
+                
+                if (status.needsTranscode) {
+                    setAudioTrackStatus('transcoding');
+                    setUseTranscoding(true);
+                } else {
+                    setAudioTrackStatus('ok');
+                }
+            } else {
+                setError('No se pudo encontrar el archivo localmente ni en Google Drive.');
+            }
+            
+            setIsLoading(false);
+        };
+        
+        resolveSource();
+    }, [movie]);
+
+    const videoUrl = streamSource === 'checking' || streamSource === 'error'
+        ? ''
+        : streamSource === 'drive'
+            ? `http://localhost:19998/stream/${movie.drive_file_id}${useTranscoding ? `?transcode=true&t=${seekOffset}` : ''}`
+            : `cine:///${movie.file_path}${useTranscoding ? `?transcode=true&t=${seekOffset}` : ''}`;
+
 
     const handleVideoError = (e) => {
+        if (streamSource === 'checking' || !videoUrl) return;
         const videoElement = e.target;
         const errorCode = videoElement.error ? videoElement.error.code : 'Desconocido';
         console.error('Video Error:', e, 'Code:', errorCode);
         setIsLoading(false);
+
         if (movie.file_size === 0) {
             setError('El archivo de video está vacío (0 KB). Agrega una película real para probar.');
         } else {
-            setError(`No se puede reproducir este video (Error ${errorCode}). Es posible que el códec no sea compatible con el navegador integrado o que el archivo esté dañado.`);
+            setError(`Error de Reproducción (${errorCode}). Es posible que el códec no sea compatible.`);
         }
     };
 
@@ -59,15 +124,23 @@ function VideoPlayer({ movie, onClose }) {
 
     useEffect(() => {
         const handleKeyDown = (e) => {
+            if (isLocked) {
+                if (e.code === 'Escape' && document.fullscreenElement) {
+                    document.exitFullscreen();
+                }
+                return;
+            }
             switch (e.code) {
                 case 'Space':
                     e.preventDefault();
                     togglePlay();
                     break;
                 case 'ArrowRight':
+                    e.preventDefault();
                     skipTime(10);
                     break;
                 case 'ArrowLeft':
+                    e.preventDefault();
                     skipTime(-10);
                     break;
                 case 'KeyF':
@@ -77,7 +150,7 @@ function VideoPlayer({ movie, onClose }) {
                     if (document.fullscreenElement) {
                         document.exitFullscreen();
                     } else {
-                        onClose();
+                        onClose(currentTimeRef.current);
                     }
                     break;
                 default:
@@ -98,37 +171,21 @@ function VideoPlayer({ movie, onClose }) {
     }, [isLoading]);
 
     const togglePlay = () => {
-        if (videoRef.current.paused) {
+        if (videoRef.current && videoRef.current.paused) {
             videoRef.current.play();
-        } else {
+        } else if (videoRef.current) {
             videoRef.current.pause();
         }
     };
 
     const handleTimeUpdate = () => {
+        if (!videoRef.current) return;
         if (useTranscoding) {
             setCurrentTime(seekOffset + videoRef.current.currentTime);
         } else {
             setCurrentTime(videoRef.current.currentTime);
         }
     };
-
-    useEffect(() => {
-        const initAudio = async () => {
-            const status = await window.electronAPI.checkAudio(movie.file_path);
-            if (status.duration) {
-                setTotalDuration(status.duration);
-                setDuration(status.duration);
-            }
-            if (status.needsTranscode) {
-                console.log('[Player] Unsupported codec detected:', status.codec, '. Activating live transcoding.');
-                setAudioTrackStatus('transcoding');
-                setUseTranscoding(true);
-            }
-        };
-        initAudio();
-    }, [movie.file_path]);
-
     const handleLoadedMetadata = () => {
         // If transcoding, the browser thinks duration is Infinity, so we keep the ffprobe duration
         if (!useTranscoding) {
@@ -140,9 +197,33 @@ function VideoPlayer({ movie, onClose }) {
         videoRef.current.muted = false;
         setIsMuted(false);
         
+        // RESUME LOGIC: If movie has watched_duration, seek to it
+        if (movie.watched_duration && movie.watched_duration > 0 && !useTranscoding) {
+            videoRef.current.currentTime = movie.watched_duration;
+            setCurrentTime(movie.watched_duration);
+        }
+
         if (!useTranscoding) checkAudioStatus();
         setIsLoading(false);
     };
+
+    // Auto-save progress every 10 seconds
+    useEffect(() => {
+        if (!isPlaying || !movie.id || !window.electronAPI) return;
+
+        const interval = setInterval(() => {
+            if (videoRef.current) {
+                const current = useTranscoding ? currentTimeRef.current : videoRef.current.currentTime;
+                // Only save if we've moved significantly from the LAST saved position
+                if (Math.abs(current - watchedDurationRef.current) > 5) {
+                    window.electronAPI.updateMovieProgress(movie.id, current);
+                    watchedDurationRef.current = current; // update ref so we don't save duplicate data
+                }
+            }
+        }, 10000);
+
+        return () => clearInterval(interval);
+    }, [isPlaying, movie.id, useTranscoding]);
 
     const checkAudioStatus = () => {
         setTimeout(() => {
@@ -221,7 +302,7 @@ function VideoPlayer({ movie, onClose }) {
         <div
             ref={containerRef}
             onMouseMove={resetTimer}
-            className={`fixed inset-0 z-[100] bg-black flex items-center justify-center overflow-hidden animate-fade-in select-none ${!showControls ? 'cursor-none' : ''}`}
+            className={`fixed inset-0 z-[200] bg-black flex items-center justify-center overflow-hidden animate-fade-in select-none ${!showControls ? 'cursor-none' : ''}`}
         >
             {isLoading && (
                 <div className="absolute inset-0 flex items-center justify-center z-50 bg-black/60 backdrop-blur-sm">
@@ -245,6 +326,27 @@ function VideoPlayer({ movie, onClose }) {
                 muted={false}
             />
 
+            {/* Center Overlay Skip Buttons */}
+            {!isLocked && (
+                <div className={`absolute inset-0 flex items-center justify-center gap-20 pointer-events-none transition-opacity duration-300 ${showControls && !isLoading ? 'opacity-100' : 'opacity-0'}`}>
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); skipTime(-10); }}
+                        className="group/skip pointer-events-auto p-6 rounded-full bg-black/20 hover:bg-cyan-500/20 text-white/40 hover:text-cyan-400 transition-all duration-300 transform hover:scale-110 active:scale-90 border border-white/5 hover:border-cyan-500/30"
+                    >
+                        <RotateCcw size={48} strokeWidth={1} className="group-hover/skip:rotate-[-15deg] transition-transform" />
+                        <span className="absolute inset-0 flex items-center justify-center text-xs font-black mt-1">10</span>
+                    </button>
+
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); skipTime(10); }}
+                        className="group/skip pointer-events-auto p-6 rounded-full bg-black/20 hover:bg-cyan-500/20 text-white/40 hover:text-cyan-400 transition-all duration-300 transform hover:scale-110 active:scale-90 border border-white/5 hover:border-cyan-500/30"
+                    >
+                        <RotateCw size={48} strokeWidth={1} className="group-hover/skip:rotate-[15deg] transition-transform" />
+                        <span className="absolute inset-0 flex items-center justify-center text-xs font-black mt-1">10</span>
+                    </button>
+                </div>
+            )}
+
             {error && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center z-50 bg-black/80 backdrop-blur-md p-12 text-center">
                     <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mb-8">
@@ -262,15 +364,27 @@ function VideoPlayer({ movie, onClose }) {
             )}
 
             {/* Close Button */}
+            {!isLocked && (
+                <button
+                    onClick={() => onClose(currentTimeRef.current)}
+                    className={`absolute top-8 right-8 p-4 glass-card rounded-full text-white/40 hover:text-white hover:bg-red-500/20 transition-all duration-500 z-[110] ${showControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}
+                >
+                    <X size={24} />
+                </button>
+            )}
+
+            {/* Lock Button - Now auto-hiding and more subtle */}
             <button
-                onClick={onClose}
-                className={`absolute top-8 right-8 p-4 glass-card rounded-full text-white/40 hover:text-white hover:bg-red-500/20 transition-all duration-500 z-[110] ${showControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}
+                onClick={(e) => { e.stopPropagation(); setIsLocked(!isLocked); }}
+                className={`absolute top-6 left-6 p-3 glass-card rounded-full transition-all duration-700 z-[210] ${showControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'} ${isLocked ? 'bg-cyan-500/80 text-black border-cyan-400/50 shadow-lg' : 'text-white/20 hover:text-white hover:bg-white/5'}`}
+                title={isLocked ? "Desbloquear pantalla" : "Bloquear pantalla"}
             >
-                <X size={24} />
+                {isLocked ? <Lock size={18} strokeWidth={2.5} /> : <Unlock size={18} />}
             </button>
 
             {/* Controls Overlay */}
-            <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent transition-opacity duration-700 pointer-events-none ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+            {!isLocked && (
+                <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent transition-opacity duration-700 pointer-events-none ${showControls ? 'opacity-100' : 'opacity-0'}`}>
                 <div className="absolute inset-x-0 bottom-0 p-8 pb-12 pointer-events-none">
                     <div className="max-w-6xl mx-auto pointer-events-auto">
                         {/* Progress Bar Container */}
@@ -298,14 +412,24 @@ function VideoPlayer({ movie, onClose }) {
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-8">
                                 <div className="flex items-center gap-4">
-                                    <button onClick={() => skipTime(-10)} className="text-white/40 hover:text-white transition-colors">
-                                        <SkipBack size={20} />
+                                    <button 
+                                        onClick={() => skipTime(-10)} 
+                                        className="relative p-2 text-white/40 hover:text-white transition-all transform active:scale-90"
+                                        title="Retroceder 10s"
+                                    >
+                                        <RotateCcw size={22} strokeWidth={2.5} />
+                                        <span className="absolute inset-0 flex items-center justify-center text-[7px] font-black mt-0.5">10</span>
                                     </button>
-                                    <button onClick={togglePlay} className="w-12 h-12 flex items-center justify-center text-white hover:text-cyan-500 transition-colors bg-white/5 rounded-full hover:bg-white/10">
+                                    <button onClick={togglePlay} className="w-12 h-12 flex items-center justify-center text-white hover:text-cyan-500 transition-colors bg-white/5 rounded-full hover:bg-white/10 group">
                                         {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} className="ml-0.5" fill="currentColor" />}
                                     </button>
-                                    <button onClick={() => skipTime(10)} className="text-white/40 hover:text-white transition-colors">
-                                        <SkipForward size={20} />
+                                    <button 
+                                        onClick={() => skipTime(10)} 
+                                        className="relative p-2 text-white/40 hover:text-white transition-all transform active:scale-90"
+                                        title="Adelantar 10s"
+                                    >
+                                        <RotateCw size={22} strokeWidth={2.5} />
+                                        <span className="absolute inset-0 flex items-center justify-center text-[7px] font-black mt-0.5">10</span>
                                     </button>
                                 </div>
 
@@ -328,14 +452,26 @@ function VideoPlayer({ movie, onClose }) {
                                     <div className="flex flex-col items-center gap-2 animate-fade-in z-[60]">
                                         <div className="bg-red-500 text-white text-[9px] font-black px-4 py-2 rounded uppercase tracking-wider animate-bounce shadow-2xl flex items-center gap-2 border border-red-400/50">
                                             <VolumeX size={12} />
-                                            Audio No Soportado (AC3/DTS)
+                                            Audio No Soportado ({audioOutput?.codec?.toUpperCase() || 'AC3/DTS'})
                                         </div>
-                                        <button 
-                                            onClick={handleOpenExternal}
-                                            className="bg-white text-black text-[9px] font-black px-5 py-2.5 rounded uppercase tracking-widest hover:bg-cyan-500 hover:text-white transition-all shadow-2xl active:scale-95 border border-white/20"
-                                        >
-                                            🔊 Abrir en VLC / Sistema
-                                        </button>
+                                        <div className="flex gap-2">
+                                            <button 
+                                                onClick={handleOpenExternal}
+                                                className="bg-white text-black text-[9px] font-black px-5 py-2.5 rounded uppercase tracking-widest hover:bg-cyan-500 hover:text-white transition-all shadow-2xl active:scale-95 border border-white/20"
+                                            >
+                                                🔊 Abrir en VLC
+                                            </button>
+                                            <button 
+                                                onClick={() => {
+                                                    setUseTranscoding(true);
+                                                    setAudioTrackStatus('transcoding');
+                                                    setSeekOffset(currentTime);
+                                                }}
+                                                className="bg-netflix-red text-white text-[9px] font-black px-5 py-2.5 rounded uppercase tracking-widest hover:bg-red-600 transition-all shadow-2xl active:scale-95 border border-white/20"
+                                            >
+                                                🛠️ Reparar Audio
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -369,6 +505,7 @@ function VideoPlayer({ movie, onClose }) {
                     </div>
                 </div>
             </div>
+            )}
         </div>
     );
 }

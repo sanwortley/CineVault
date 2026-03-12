@@ -1,105 +1,120 @@
-const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
-const fs = require('fs');
-const { app } = require('electron');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
-const dbPath = process.env.NODE_ENV === 'development'
-  ? path.join(__dirname, '../database/app.db')
-  : path.join(app.getPath('userData'), 'app.db');
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
-// Ensure directory exists
-const dbDir = path.dirname(dbPath);
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.warn('[DB] SUPABASE_URL or SUPABASE_ANON_KEY is not set in .env');
 }
 
-const db = new sqlite3.Database(dbPath);
-
-// Promised-based wrapper
-const database = {
-  run: (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-      db.run(sql, params, function (err) {
-        if (err) reject(err);
-        else resolve({ lastID: this.lastID, changes: this.changes });
-      });
-    });
-  },
-  get: (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-      db.get(sql, params, (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
-  },
-  all: (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-      db.all(sql, params, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
-  },
-  exec: (sql) => {
-    return new Promise((resolve, reject) => {
-      db.exec(sql, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-  },
-  // Dummy prepare to keep some compatibility, but returns an object with promised methods
-  prepare: (sql) => {
-    return {
-      run: (...params) => database.run(sql, params),
-      get: (...params) => database.get(sql, params),
-      all: (...params) => database.all(sql, params),
-    };
-  }
+const headers = {
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    'Content-Type': 'application/json'
 };
 
-// Initialize tables
-database.exec(`
-  CREATE TABLE IF NOT EXISTS folders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    folder_path TEXT UNIQUE,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+async function supabaseFetch(endpoint, options = {}) {
+    if (!SUPABASE_URL) return null;
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, {
+            ...options,
+            headers: { ...headers, ...(options.headers || {}) }
+        });
+        
+        if (!res.ok) {
+            let err;
+            try { err = await res.json(); } catch(e) { err = { message: res.statusText }; }
+            console.error(`[Supabase Error] ${options.method || 'GET'} ${endpoint}:`, err);
+            // Ignore duplicate key errors gracefully
+            if (err.code === '23505') return null;
+            throw new Error(err.message || JSON.stringify(err));
+        }
+        
+        if (res.status === 204) return null; // No content (like DELETE)
+        
+        const text = await res.text();
+        if (!text) return null;
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            console.warn(`[Supabase] Failed to parse JSON response from ${endpoint}:`, text);
+            return null;
+        }
+    } catch (err) {
+        console.error(`[Supabase Fetch Error] on ${endpoint}:`, err.message);
+        throw err;
+    }
+}
 
-  CREATE TABLE IF NOT EXISTS movies (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    file_name TEXT,
-    file_path TEXT UNIQUE,
-    file_size INTEGER,
-    extension TEXT,
-    detected_title TEXT,
-    detected_year INTEGER,
-    official_title TEXT,
-    overview TEXT,
-    spoiler_free_summary TEXT,
-    poster_url TEXT,
-    backdrop_url TEXT,
-    genres TEXT,
-    runtime INTEGER,
-    director TEXT,
-    rating REAL,
-    identified_status TEXT DEFAULT 'pending', 
-    needs_manual_confirmation INTEGER DEFAULT 0,
-    is_favorite INTEGER DEFAULT 0,
-    is_watched INTEGER DEFAULT 0,
-    last_played DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+const database = {
+    getFolders: async () => {
+        return await supabaseFetch('folders?select=*') || [];
+    },
+    addFolder: async (folder_path) => {
+        return await supabaseFetch('folders', { 
+            method: 'POST', 
+            body: JSON.stringify({ folder_path }),
+            headers: { 'Prefer': 'resolution=ignore-duplicates' }
+        });
+    },
+    removeFolder: async (folder_path) => {
+        return await supabaseFetch(`folders?folder_path=eq.${encodeURIComponent(folder_path)}`, { method: 'DELETE' });
+    },
+    getMovies: async () => {
+        return await supabaseFetch('movies?select=*&order=created_at.desc') || [];
+    },
+    findMovies: async (filters = {}) => {
+        // Build query string from filters
+        const queryParams = Object.entries(filters)
+            .map(([key, val]) => `${key}=eq.${encodeURIComponent(val)}`)
+            .join('&');
+        const endpoint = `movies?select=*${queryParams ? '&' + queryParams : ''}`;
+        return await supabaseFetch(endpoint) || [];
+    },
+    addMovie: async (movieData) => {
+        return await supabaseFetch('movies', { 
+            method: 'POST', 
+            body: JSON.stringify(movieData),
+            headers: { 'Prefer': 'resolution=ignore-duplicates' }
+        });
+    },
+    setDriveFileId: async (id, drive_file_id) => {
+        return await supabaseFetch(`movies?id=eq.${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ drive_file_id })
+        });
+    },
+    updateMovieProgress: async (id, watched_duration) => {
+        return await supabaseFetch(`movies?id=eq.${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ 
+                watched_duration,
+                last_watched_at: new Date().toISOString()
+            })
+        });
+    },
+    deleteMovie: async (id) => {
+        return await supabaseFetch(`movies?id=eq.${id}`, { method: 'DELETE' });
+    },
+    removeMoviesLike: async (matchPath) => {
+        return await supabaseFetch(`movies?file_path=like.${encodeURIComponent(matchPath)}`, { method: 'DELETE' });
+    },
+    clearMovies: async () => {
+        return await supabaseFetch('movies?id=gt.0', { method: 'DELETE' });
+    },
+    clearFolders: async () => {
+        return await supabaseFetch('folders?id=gt.0', { method: 'DELETE' });
+    }
+};
 
-  CREATE TABLE IF NOT EXISTS settings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    key TEXT UNIQUE,
-    value TEXT
-  );
-`).then(() => {
-  console.log('[DB] Database initialized successfully');
-});
+// Quick connection test
+if (SUPABASE_URL) {
+    supabaseFetch('folders?select=id&limit=1').then(() => {
+        // Connected successfully
+    }).catch(err => {
+        console.error('[DB] Cloud Database connection failed:', err.message);
+    });
+}
 
 module.exports = database;
