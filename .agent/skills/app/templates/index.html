@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Movie Library Starter</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #111827; color: #f9fafb; margin: 0; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .card { background: #1f2937; border-radius: 16px; padding: 20px; margin-bottom: 18px; }
+    input[type=text] { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #374151; background: #0f172a; color: #fff; }
+    button { margin-top: 12px; padding: 12px 16px; border: 0; border-radius: 10px; background: #f59e0b; color: #111827; font-weight: bold; cursor: pointer; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+    .movie { background: #0f172a; border-radius: 14px; padding: 16px; border: 1px solid #374151; }
+    .muted { color: #9ca3af; }
+    .error { color: #fecaca; background: #7f1d1d; padding: 12px; border-radius: 10px; }
+    code { background: #111827; padding: 2px 6px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>Biblioteca local de películas</h1>
+      <p class="muted">Escaneá una carpeta local. Esta base no copia archivos pesados: solo indexa nombre, ruta, tamaño y detección inicial.</p>
+      <form action="/scan" method="post">
+        <label for="folder_path">Ruta de carpeta</label>
+        <input id="folder_path" name="folder_path" type="text" placeholder="Ej: D:\\Peliculas o /home/santi/Peliculas" value="{{ selected_path }}" required />
+        <button type="submit">Escanear carpeta</button>
+      </form>
+      {% if error %}
+        <p class="error">{{ error }}</p>
+      {% endif %}
+    </div>
+
+    {% if movies %}
+    <div class="card">
+      <h2>Resultados ({{ movies|length }})</h2>
+      <div class="grid">
+        {% for movie in movies %}
+          <div class="movie">
+            <h3>{{ movie.detected_title }}</h3>
+            <p class="muted">Año detectado: {{ movie.detected_year or 'No detectado' }}</p>
+            <p><strong>Archivo:</strong> {{ movie.file_name }}</p>
+            <p><strong>Ruta:</strong> <code>{{ movie.file_path }}</code></p>
+            <p><strong>Tamaño:</strong> {{ movie.file_size_mb }} MB</p>
+            <p>{{ movie.safe_summary }}</p>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</body>
+</html>

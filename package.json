@@ -1,0 +1,75 @@
+{
+  "name": "cinevault",
+  "version": "1.0.0",
+  "description": "Personal movie library manager",
+  "main": "electron/main.js",
+  "scripts": {
+    "vite": "vite",
+    "dev": "node kill_ports.js && concurrently \"npm run vite\" \"wait-on tcp:5173 && npm run electron\"",
+    "web": "vite",
+    "backend": "node backend/server.js",
+    "web:dev": "node kill_ports.js && concurrently \"npm run backend\" \"npm run vite\"",
+    "build": "vite build",
+    "preview": "vite preview",
+    "electron": "cross-env NODE_ENV=development .\\node_modules\\.bin\\electron .",
+    "start": "node backend/server.js",
+    "dist": "npm run build && electron-builder"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.102.1",
+    "axios": "^1.6.0",
+    "cors": "^2.8.6",
+    "dotenv": "^16.3.0",
+    "express": "^5.2.1",
+    "ffmpeg-static": "^5.3.0",
+    "ffprobe-static": "^3.1.0",
+    "fluent-ffmpeg": "^2.1.3",
+    "framer-motion": "^10.16.0",
+    "google-auth-library": "^10.6.1",
+    "googleapis": "^171.4.0",
+    "lucide-react": "^0.292.0",
+    "mime-types": "^3.0.2",
+    "multer": "^2.1.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.30.3",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.0.0",
+    "autoprefixer": "^10.4.0",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^27.0.0",
+    "electron-builder": "^26.8.1",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.3.0",
+    "vite": "^4.4.0",
+    "wait-on": "^9.0.4"
+  },
+  "build": {
+    "appId": "com.wortfly.cinevault",
+    "productName": "CineVault",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "backend/**/*",
+      "package.json",
+      ".env"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "CineVault"
+    }
+  }
+}

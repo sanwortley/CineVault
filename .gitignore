@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+
+# Environment variables (SECRETOS - nunca subir a GitHub)
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+release/
+
+# Electron build cache
+.webpack/
+
+# Movie files and media (son muy pesados para GitHub)
+Peliculas/
+*.mp4
+*.mkv
+*.avi
+*.webm
+*.mov
+*.m4v
+
+# Subtitles and media extras
+*.srt
+*.vtt
+*.sub
+*.idx
+*.zip
+*.rar
+*.cab
+*.msi
+*.exe
+*.dll
+*.pak
+*.bin
+
+# Temp files
+tmp/
+*.tmp
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Vite cache
+.vite/
+
+# Editor
+.vscode/
+*.swp

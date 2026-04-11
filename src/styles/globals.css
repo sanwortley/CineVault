@@ -1,0 +1,220 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --netflix-red: #E50914;
+  --netflix-black: #141414;
+  --netflix-dark: #000000;
+}
+
+body {
+  @apply bg-black text-white overflow-x-hidden;
+  font-family: 'Outfit', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+::selection {
+  background-color: rgba(229, 9, 20, 0.3);
+}
+
+/* Glassmorphism utility */
+.glass {
+  background-color: rgba(20, 20, 20, 0.7);
+  @apply backdrop-blur-3xl border border-white/[0.05] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)];
+}
+
+.glass-card {
+  background-color: rgba(30, 30, 30, 0.5);
+  @apply backdrop-blur-xl border border-white/[0.08] shadow-2xl;
+}
+
+.sticky-nav {
+  @apply sticky top-0 z-[100] transition-colors duration-500;
+  background-image: linear-gradient(to bottom, rgba(0,0,0,0.7) 10%, transparent);
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top) !important;
+}
+
+.sticky-nav.scrolled {
+  background-color: #000000;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.1);
+  @apply rounded-full transition-all cursor-pointer;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--netflix-red);
+}
+
+/* Row utilities */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Netflix Animations */
+.netflix-hover {
+  @apply transition-transform duration-300 ease-out hover:scale-105 hover:z-50;
+}
+
+/* Gradient text */
+.text-gradient {
+  @apply bg-clip-text text-transparent;
+  background-image: linear-gradient(to right, var(--netflix-red), #ffffff);
+}
+
+@keyframes ken-burns {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.1); }
+}
+
+@keyframes fade-in-up {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Subtitles Styling */
+video::cue {
+    background: rgba(0, 0, 0, 0.75);
+    color: #ffd700; /* Premium Golden Yellow */
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.85em;
+    font-weight: 800;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.9);
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
+@keyframes scale-up {
+    from { opacity: 0; transform: scale(0.95) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.animate-ken-burns {
+  animation: ken-burns 10s ease-out forwards;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 1s ease-out forwards;
+}
+
+.animate-scale-up {
+    animation: scale-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in {
+  animation: fade-in 1s ease-out forwards;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .sticky-nav {
+    @apply px-4 py-3;
+  }
+  
+  .text-5xl {
+    @apply text-3xl;
+  }
+  
+  .gap-8 {
+    @apply gap-4;
+  }
+  
+  .gap-12 {
+    @apply gap-6;
+  }
+  
+  .mt-16 {
+    @apply mt-8;
+  }
+  
+  .pb-40 {
+    @apply pb-24;
+  }
+
+  /* Full screen player mobile fix */
+  .mobile-fullscreen {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 9999 !important;
+    background: black !important;
+  }
+}
+
+/* Extra small mobile fixes (iPhone Mini, SE) */
+@media (max-width: 400px) {
+  .sticky-nav {
+    @apply px-3 py-2;
+  }
+  
+  .glass {
+    @apply p-4 rounded-[1.5rem] !important;
+  }
+
+  .gap-6 {
+    @apply gap-3 !important;
+  }
+
+  .px-4 {
+      @apply px-2 !important;
+  }
+  
+  input {
+      @apply text-[10px] !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .grid {
+    @apply gap-3;
+  }
+  
+  .px-8 {
+    @apply px-4;
+  }
+
+  .text-3xl {
+    @apply text-2xl;
+  }
+}
