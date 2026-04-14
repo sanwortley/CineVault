@@ -283,11 +283,9 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
                                      document.msFullscreenElement;
 
         if (isCurrentlyFullscreen) {
-            if (document.exitFullscreen) document.exitFullscreen();
-            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-            else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
-            else if (document.msExitFullscreen) document.msExitFullscreen();
-
+            if (document.exitFullscreen) await document.exitFullscreen();
+            else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
+            
             if (window.screen.orientation && window.screen.orientation.unlock) {
                 window.screen.orientation.unlock().catch(() => {});
             }
@@ -295,52 +293,54 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
             const videoEl = videoRef.current;
             const containerEl = playerRef.current;
             
-            // iOS Safari needs the video element to request fullscreen
-            // and must have playsInline=false or use webkitBeginFullscreen
-            if (videoEl) {
-                // Try iOS iPhone native video fullscreen
-                if (videoEl.webkitEnterFullscreen) {
-                    try {
-                        await videoEl.webkitEnterFullscreen();
-                        if (window.screen.orientation?.lock) {
-                            window.screen.orientation.lock('landscape').catch(() => {});
-                        }
-                        return;
-                    } catch (err) {}
-                }
-                
-                // Try video webkit fullscreen first (iOS Safari / Mac)
-                if (videoEl.webkitRequestFullscreen) {
-                    try {
-                        await videoEl.webkitRequestFullscreen();
-                        if (window.screen.orientation?.lock) {
-                            window.screen.orientation.lock('landscape').catch(() => {});
-                        }
-                        return;
-                    } catch (err) {}
-                }
-                
-                // Try HTML5 video enterFullscreen (newer iOS)
-                if (videoEl.enterFullscreen) {
-                    try {
-                        await videoEl.enterFullscreen();
-                        return;
-                    } catch (err) {}
+            // Priority 1: Native Video Fullscreen (Mandatory for iPhone)
+            if (isMobile && videoEl && videoEl.webkitEnterFullscreen) {
+                try {
+                    await videoEl.webkitEnterFullscreen();
+                    return;
+                } catch (err) {
+                    console.warn('[VideoPlayer] webkitEnterFullscreen failed:', err.message);
                 }
             }
             
-            // Try container fullscreen (Android/Desktop)
-            if (containerEl?.requestFullscreen) {
+            // Priority 2: Standard Fullscreen API (iPad, Android, Desktop)
+            const requestFS = containerEl.requestFullscreen || 
+                               containerEl.webkitRequestFullscreen || 
+                               containerEl.mozRequestFullScreen || 
+                               containerEl.msRequestFullscreen;
+                               
+            if (requestFS) {
                 try {
-                    await containerEl.requestFullscreen();
+                    await requestFS.call(containerEl);
                     if (window.screen.orientation?.lock) {
-                        window.screen.orientation.lock('landscape').catch(() => {});
+                        try {
+                            await window.screen.orientation.lock('landscape');
+                        } catch (e) {}
                     }
-                    return;
-                } catch (err) {}
+                } catch (err) {
+                    // Fallback to video element if container fails
+                    if (videoEl && videoEl.webkitRequestFullscreen) {
+                        await videoEl.webkitRequestFullscreen();
+                    }
+                }
             }
         }
     };
+
+    // Auto-landscape suggestion/handling
+    useEffect(() => {
+        const handleOrientationChange = () => {
+            if (isMobile && window.screen.orientation?.type.startsWith('landscape')) {
+                // If user rotated to landscape, maybe they want fullscreen?
+                // But we can't force it without user gesture.
+                // We'll just ensure controls are visible to help them.
+                resetTimer();
+            }
+        };
+
+        window.screen.orientation?.addEventListener('change', handleOrientationChange);
+        return () => window.screen.orientation?.removeEventListener('change', handleOrientationChange);
+    }, [isMobile]);
 
     const formatTime = (seconds) => {
         if (!seconds || isNaN(seconds)) return '0:00';
@@ -763,12 +763,12 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
                                 </div>
                                 
                                 
-                                <button onClick={() => { setShowSubtitleMenu(!showSubtitleMenu); setShowControls(true); }} className={'p-2 rounded-full transition-colors ' + (selectedSubtitle ? 'text-cyan-400 bg-cyan-400/20' : 'text-white/70 hover:text-white')}>
-                                    <Subtitles size={isMobile ? 20 : 24} />
+                                <button onClick={() => { setShowSubtitleMenu(!showSubtitleMenu); setShowControls(true); }} className={'p-3 rounded-full transition-colors ' + (selectedSubtitle ? 'text-cyan-400 bg-cyan-400/20' : 'text-white/70 hover:text-white')}>
+                                    <Subtitles size={isMobile ? 24 : 28} />
                                 </button>
                                 
-                                <button onClick={toggleFullscreen} className="text-white/70 hover:text-white transition-colors">
-                                    <Maximize size={isMobile ? 20 : 24} />
+                                <button onClick={toggleFullscreen} className="p-3 text-white/70 hover:text-white transition-colors active:scale-90">
+                                    <Maximize size={isMobile ? 24 : 28} />
                                 </button>
                             </div>
                         </div>
