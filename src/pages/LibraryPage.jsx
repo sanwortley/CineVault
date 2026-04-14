@@ -138,6 +138,10 @@ function LibraryPage({
                     <div className="flex flex-wrap items-center gap-3 md:gap-6 bg-white/5 p-3 md:p-4 rounded-2xl md:rounded-3xl backdrop-blur-3xl border border-white/10 shadow-2xl w-full lg:w-auto" onClick={e => e.stopPropagation()}>
                         <div className="flex-1 min-w-[120px]">
                             <SelectField 
+                                label="Género"
+                                value={selectedGenre}
+                                options={allGenres}
+                                isOpen={isGenreOpen}
                                 onToggle={() => { setIsGenreOpen(!isGenreOpen); setIsYearOpen(false); setIsSortOpen(false); }}
                                 onSelect={(v) => { setSelectedGenre(v); setIsGenreOpen(false); }}
                             />
