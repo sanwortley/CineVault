@@ -47,8 +47,10 @@ function LibraryPage({
     // UI State for filtering and featured movie
     const [selectedGenre, setSelectedGenre] = useState('All');
     const [selectedYear, setSelectedYear] = useState('All');
+    const [selectedSort, setSelectedSort] = useState('A-Z');
     const [isGenreOpen, setIsGenreOpen] = useState(false);
     const [isYearOpen, setIsYearOpen] = useState(false);
+    const [isSortOpen, setIsSortOpen] = useState(false);
     const [featuredMovies, setFeaturedMovies] = useState([]);
 
     // Data fetching removed - now managed by parent (App.jsx)
@@ -66,6 +68,21 @@ function LibraryPage({
         const matchesGenre = selectedGenre === 'All' || (m.genres && m.genres.includes(selectedGenre));
         const matchesYear = selectedYear === 'All' || m.detected_year?.toString() === selectedYear.toString();
         return matchesSearch && matchesGenre && matchesYear;
+    });
+
+    const sortedMovies = [...filteredMovies].sort((a, b) => {
+        if (selectedSort === 'A-Z') {
+            const titleA = (a.official_title || a.detected_title || a.file_name || '').toLowerCase();
+            const titleB = (b.official_title || b.detected_title || b.file_name || '').toLowerCase();
+            return titleA.localeCompare(titleB);
+        }
+        if (selectedSort === 'Z-A') {
+            const titleA = (a.official_title || a.detected_title || a.file_name || '').toLowerCase();
+            const titleB = (b.official_title || b.detected_title || b.file_name || '').toLowerCase();
+            return titleB.localeCompare(titleA);
+        }
+        // Default: Recientes (assume backend already sorted by created_at.desc or preserve original order)
+        return 0;
     });
 
     const isFiltering = selectedGenre !== 'All' || selectedYear !== 'All';
@@ -89,6 +106,7 @@ function LibraryPage({
     const closeDropdowns = () => {
         setIsGenreOpen(false);
         setIsYearOpen(false);
+        setIsSortOpen(false);
     };
 
     return (
@@ -120,11 +138,7 @@ function LibraryPage({
                     <div className="flex flex-wrap items-center gap-3 md:gap-6 bg-white/5 p-3 md:p-4 rounded-2xl md:rounded-3xl backdrop-blur-3xl border border-white/10 shadow-2xl w-full lg:w-auto" onClick={e => e.stopPropagation()}>
                         <div className="flex-1 min-w-[120px]">
                             <SelectField 
-                                label="Género"
-                                value={selectedGenre}
-                                options={allGenres}
-                                isOpen={isGenreOpen}
-                                onToggle={() => { setIsGenreOpen(!isGenreOpen); setIsYearOpen(false); }}
+                                onToggle={() => { setIsGenreOpen(!isGenreOpen); setIsYearOpen(false); setIsSortOpen(false); }}
                                 onSelect={(v) => { setSelectedGenre(v); setIsGenreOpen(false); }}
                             />
                         </div>
@@ -135,14 +149,25 @@ function LibraryPage({
                                 value={selectedYear}
                                 options={allYears}
                                 isOpen={isYearOpen}
-                                onToggle={() => { setIsYearOpen(!isYearOpen); setIsGenreOpen(false); }}
+                                onToggle={() => { setIsYearOpen(!isYearOpen); setIsGenreOpen(false); setIsSortOpen(false); }}
                                 onSelect={(v) => { setSelectedYear(v); setIsYearOpen(false); }}
                             />
                         </div>
+                        <div className="hidden sm:block w-[1px] h-8 bg-white/10 self-center"></div>
+                        <div className="flex-1 min-w-[120px]">
+                            <SelectField 
+                                label="Orden"
+                                value={selectedSort}
+                                options={['A-Z', 'Z-A', 'Recientes']}
+                                isOpen={isSortOpen}
+                                onToggle={() => { setIsSortOpen(!isSortOpen); setIsGenreOpen(false); setIsYearOpen(false); }}
+                                onSelect={(v) => { setSelectedSort(v); setIsSortOpen(false); }}
+                            />
+                        </div>
                         
-                        {(isFiltering || search !== '') && (
+                        {(isFiltering || search !== '' || selectedSort !== 'A-Z') && (
                             <button 
-                                onClick={(e) => { e.stopPropagation(); setSelectedGenre('All'); setSelectedYear('All'); }}
+                                onClick={(e) => { e.stopPropagation(); setSelectedGenre('All'); setSelectedYear('All'); setSelectedSort('A-Z'); }}
                                 className="w-full sm:w-auto px-6 py-2 bg-netflix-red text-white text-[10px] font-black uppercase rounded-xl hover:bg-white hover:text-netflix-red transition-all shadow-xl active:scale-95"
                             >
                                 Limpiar
@@ -164,7 +189,7 @@ function LibraryPage({
                             <span className="text-white/40 text-[10px] uppercase font-black tracking-widest animate-pulse">Cargando Bóveda...</span>
                         </div>
                     </div>
-                ) : filteredMovies.length === 0 ? (
+                ) : sortedMovies.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-48 text-center animate-fade-in">
                         <FolderOpen size={80} className="text-netflix-red/20 mb-6" />
                         <h2 className="text-4xl font-black text-white mb-4 tracking-tighter uppercase whitespace-pre-line">
@@ -209,9 +234,8 @@ function LibraryPage({
                             }
                         )()}
 
-                        {/* UNIFIED GRID MODE: All movies, Search, Filters, or MyList */}
                         <div className="px-4 md:px-16 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 md:gap-8 animate-fade-in">
-                            {filteredMovies.map(movie => movie && (
+                            {sortedMovies.map(movie => movie && (
                                 <MovieCard 
                                     key={movie.id || Math.random()}
                                     movie={movie}

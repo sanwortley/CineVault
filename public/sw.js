@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cinevault-v4'; // Increment to clear old caches
+const CACHE_NAME = 'cinevault-v5'; // Increment to clear old caches
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

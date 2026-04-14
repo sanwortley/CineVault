@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Play, Pause, Volume2, VolumeX, Maximize, X, 
     Loader2, Subtitles, SkipBack, SkipForward, Lock, Unlock
@@ -74,21 +74,25 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
         resolveSource();
     }, [movie.id]);
 
-    // Build video URL after streamSource is determined
-    let videoUrl = '';
-    if (streamSource === 'drive') {
-        const baseUrl = api.isElectron() ? `http://localhost:19998/stream/${movie.drive_file_id}` : `${BACKEND_URL}/api/drive/stream/${movie.drive_file_id}`;
-        videoUrl = `${baseUrl}${useTranscoding ? `?transcode=true&t=${seekOffset}` : ''}`;
-    } else if (streamSource === 'local') {
-        if (api.isElectron()) {
-            const normalized = movie.file_path.replace(/\\/g, '/');
-            const match = normalized.match(/^([a-zA-Z]):(.*)/);
-            const basePath = match ? `cine://${match[1]}${match[2]}` : `cine://${normalized}`;
-            videoUrl = `${basePath}${useTranscoding ? `?transcode=true&t=${seekOffset}` : ''}`;
-        } else {
-            videoUrl = `${BACKEND_URL}/api/stream/local?path=${encodeURIComponent(movie.file_path)}${useTranscoding ? `&transcode=true&t=${seekOffset}` : ''}`;
+    // Build video URL after streamSource is determined - Stable reference
+    const videoUrl = useMemo(() => {
+        if (streamSource === 'checking' || streamSource === 'error') return '';
+        
+        if (streamSource === 'drive') {
+            const baseUrl = api.isElectron() ? `http://localhost:19998/stream/${movie.drive_file_id}` : `${BACKEND_URL}/api/drive/stream/${movie.drive_file_id}`;
+            return `${baseUrl}${useTranscoding ? `?transcode=true&t=${seekOffset}` : ''}`;
+        } else if (streamSource === 'local') {
+            if (api.isElectron()) {
+                const normalized = movie.file_path.replace(/\\/g, '/');
+                const match = normalized.match(/^([a-zA-Z]):(.*)/);
+                const basePath = match ? `cine://${match[1]}${match[2]}` : `cine://${normalized}`;
+                return `${basePath}${useTranscoding ? `?transcode=true&t=${seekOffset}` : ''}`;
+            } else {
+                return `${BACKEND_URL}/api/stream/local?path=${encodeURIComponent(movie.file_path)}${useTranscoding ? `&transcode=true&t=${seekOffset}` : ''}`;
+            }
         }
-    }
+        return '';
+    }, [movie.id, movie.drive_file_id, movie.file_path, streamSource, useTranscoding, seekOffset]);
 
     const isDisplayLoading = isInitializing || isLoading;
 
@@ -111,7 +115,9 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
         setIsLoading(false);
         
         // If we get a source error and were NOT transcoding, try transcoding as a fallback
-        if (!useTranscoding && (errorCode === 4 || errorCode === 'MEDIA_ERR_SRC_NOT_SUPPORTED' || videoElement.readyState === 0)) {
+        // If it was a decoding error or source not supported, and we are NOT yet transcoding, try enabling it
+        if (!useTranscoding && (errorCode === 3 || errorCode === 4 || errorCode === 'MEDIA_ERR_SRC_NOT_SUPPORTED' || errorCode === 'MEDIA_ERR_DECODE' || videoElement.readyState === 0)) {
+            console.log('[VideoPlayer] Fallback to transcoding due to error:', errorCode);
             setUseTranscoding(true);
             setError(null);
             setIsLoading(true);
@@ -119,11 +125,16 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
         }
 
         if (errorCode === 4 || errorCode === 'MEDIA_ERR_SRC_NOT_SUPPORTED') {
-            // Try to fetch the actual error message from the server if it was a 500 error
+            // Try to fetch the actual error message from the server if it was a 401 or 500 error
             fetch(videoUrl, { method: 'HEAD' }).then(res => {
-                if (res.status === 500) {
+                if (res.status === 401 || res.status === 500) {
                     fetch(videoUrl).then(r => r.json()).then(data => {
-                        setError(data.message || data.error || 'Error de servidor al cargar el video.');
+                        const msg = data.message || data.error || '';
+                        if (msg.includes('invalid_grant') || res.status === 401) {
+                            setError('Tu sesión de Google Drive ha expirado. Por favor, reconéctate en Ajustes.');
+                        } else {
+                            setError(data.message || data.error || 'Error de servidor al cargar el video.');
+                        }
                     }).catch(() => {
                         setError('Formato de video no compatible o error de servidor.');
                     });
@@ -172,12 +183,16 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
 
     const togglePlay = () => {
         if (videoRef.current) {
-            if (isPlaying) {
-                videoRef.current.pause();
+            if (videoRef.current.paused) {
+                videoRef.current.play().catch(err => {
+                    console.warn('[VideoPlayer] Play blocked:', err.message);
+                    setIsPlaying(false);
+                });
             } else {
-                videoRef.current.play();
+                videoRef.current.pause();
             }
-            setIsPlaying(!isPlaying);
+            // We don't set state here manually, we wait for onPlay/onPause events
+            // to ensure React state and DOM state are in sync.
         }
     };
 
@@ -246,7 +261,18 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
             // iOS Safari needs the video element to request fullscreen
             // and must have playsInline=false or use webkitBeginFullscreen
             if (videoEl) {
-                // Try video webkit fullscreen first (iOS Safari)
+                // Try iOS iPhone native video fullscreen
+                if (videoEl.webkitEnterFullscreen) {
+                    try {
+                        await videoEl.webkitEnterFullscreen();
+                        if (window.screen.orientation?.lock) {
+                            window.screen.orientation.lock('landscape').catch(() => {});
+                        }
+                        return;
+                    } catch (err) {}
+                }
+                
+                // Try video webkit fullscreen first (iOS Safari / Mac)
                 if (videoEl.webkitRequestFullscreen) {
                     try {
                         await videoEl.webkitRequestFullscreen();
@@ -430,12 +456,21 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
                     </div>
                     <p className="text-white text-lg mb-6">{error}</p>
                     <div className="flex flex-col gap-3">
-                        <button 
-                            onClick={() => { setError(null); setIsLoading(true); setStreamSource('checking'); }}
-                            className="px-6 py-3 bg-cyan-500 text-black font-bold rounded-full"
-                        >
-                            Reintentar
-                        </button>
+                        {error.includes('Ajustes') ? (
+                            <button 
+                                onClick={() => { window.location.hash = '#settings'; onClose(0); }}
+                                className="px-6 py-3 bg-netflix-red text-white font-bold rounded-full"
+                            >
+                                Ir a Ajustes
+                            </button>
+                        ) : (
+                            <button 
+                                onClick={() => { setError(null); setIsLoading(true); setStreamSource('checking'); }}
+                                className="px-6 py-3 bg-cyan-500 text-black font-bold rounded-full"
+                            >
+                                Reintentar
+                            </button>
+                        )}
                         <button 
                             onClick={() => onClose(0)} 
                             className="px-6 py-3 bg-white/10 text-white font-bold rounded-full"
@@ -451,7 +486,7 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
     return (
         <div 
             ref={playerRef}
-            className="fixed inset-0 bg-black z-[1000] flex flex-col overflow-hidden select-none touch-none h-[100dvh] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+            className="fixed inset-0 bg-black z-[1000] flex flex-col overflow-hidden select-none touch-none h-full w-full pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
             onMouseMove={resetTimer}
             onClick={resetTimer}
             onTouchStart={resetTimer}
@@ -564,7 +599,7 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
                         setIsLocked(true);
                         setShowControls(false);
                     }}
-                    className={`absolute left-6 top-1/2 -translate-y-1/2 p-4 bg-black/60 backdrop-blur-xl rounded-full text-white/80 hover:text-cyan-400 hover:scale-110 transition-all z-[1001] border border-white/10 shadow-2xl ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                    className={`absolute left-[max(1.5rem,env(safe-area-inset-left))] top-1/2 -translate-y-1/2 p-4 bg-black/60 backdrop-blur-xl rounded-full text-white/80 hover:text-cyan-400 hover:scale-110 transition-all z-[1001] border border-white/10 shadow-2xl ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 >
                     <Unlock size={28} />
                 </button>
@@ -595,7 +630,7 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
                     }
                     onClose(currentTime);
                 }}
-                className={`absolute top-4 right-4 p-3 bg-black/50 backdrop-blur-sm rounded-full text-white/80 hover:text-white transition-all z-[1001] active:scale-90 ${showControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}
+                className={`absolute top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] p-3 bg-black/50 backdrop-blur-sm rounded-full text-white/80 hover:text-white transition-all z-[1001] active:scale-90 ${showControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}
             >
                 <X size={isMobile ? 24 : 28} />
             </button>
