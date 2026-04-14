@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Folder, ChevronRight, HardDrive, Search, X, Home, Monitor, Download, Files, Film, CheckCircle2, AlertCircle } from 'lucide-react';
-import api from '../api';
+import { api } from '../api';
 
 const SYSTEM_FOLDERS = [
     '/bin', '/boot', '/dev', '/etc', '/lib', '/lib64', '/proc', '/run', '/sbin', '/sys', '/usr', '/var'

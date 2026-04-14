@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, FileVideo, CheckCircle2, AlertCircle, Loader2, FolderOpen, ChevronRight, X, Files } from 'lucide-react';
-import api from '../api';
+import { api } from '../api';
 
 export default function UploadPage({ onUploadComplete }) {
     const [dragActive, setDragActive] = useState(false);

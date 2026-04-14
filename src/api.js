@@ -414,5 +414,3 @@ export const api = {
     isElectron,
     isWeb: () => !isElectron(),
 };
-
-export default api;

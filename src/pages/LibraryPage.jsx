@@ -3,7 +3,7 @@ import { FolderOpen, ChevronDown } from 'lucide-react';
 import Hero from '../components/Hero';
 import MovieRow from '../components/MovieRow';
 import MovieCard from '../components/MovieCard';
-import api from '../api';
+import { api } from '../api';
 
 // Custom Dropdown Component moved outside to prevent re-mounting issues
 const SelectField = ({ label, value, options, isOpen, onToggle, onSelect }) => (

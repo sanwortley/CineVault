@@ -52,3 +52,5 @@ Thumbs.db
 # Editor
 .vscode/
 *.swp
+# Scratch
+scratch/
