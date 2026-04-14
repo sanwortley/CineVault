@@ -14,11 +14,12 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
     const [duration, setDuration] = useState(0);
     const [currentTime, setCurrentTime] = useState(0);
     const [volume, setVolume] = useState(1);
-    const [isMuted, setIsMuted] = useState(false);
+    const [isMuted, setIsMuted] = useState(isMobile);
     const [showControls, setShowControls] = useState(true);
     const [isLocked, setIsLocked] = useState(false);
     const [isUnlocking, setIsUnlocking] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [isStuckAtZero, setIsStuckAtZero] = useState(false);
     const [isInitializing, setIsInitializing] = useState(true);
     const [lastTap, setLastTap] = useState(0);
     const [error, setError] = useState(null);
@@ -39,7 +40,29 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
     const initialSeek = movieUserProgress > 0 ? Math.floor(movieUserProgress) : 0;
     const [seekOffset] = useState(initialSeek);
 
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    const isMobile = typeof window !== 'undefined' && (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768);
+
+    // Initial mute logic for mobile
+    useEffect(() => {
+        if (isMobile) {
+            setIsMuted(true);
+            if (videoRef.current) videoRef.current.muted = true;
+        }
+    }, [isMobile]);
+
+    // Stuck detection logic
+    useEffect(() => {
+        let timer;
+        if (isPlaying && currentTime === 0 && !isLoading && !isInitializing) {
+            timer = setTimeout(() => {
+                setIsStuckAtZero(true);
+                console.log('[VideoPlayer] Playback seems stuck at 0:00. Showing overlay.');
+            }, 3000);
+        } else {
+            setIsStuckAtZero(false);
+        }
+        return () => clearTimeout(timer);
+    }, [isPlaying, currentTime, isLoading, isInitializing]);
 
     useEffect(() => {
         const resolveSource = async () => {
@@ -158,10 +181,24 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
         }
     };
 
-    const handleCanPlay = () => {
+    const handleCanPlay = async () => {
         setIsLoading(false);
         if (videoRef.current) {
-            videoRef.current.play().catch(() => {});
+            try {
+                // Pre-set muted state on the element to satisfy mobile policies
+                if (isMobile) {
+                    videoRef.current.muted = true;
+                    setIsMuted(true);
+                }
+                const playPromise = videoRef.current.play();
+                if (playPromise !== undefined) {
+                    await playPromise;
+                    setIsPlaying(true);
+                }
+            } catch (err) {
+                console.warn('[VideoPlayer] Autoplay blocked, waiting for interaction:', err.message);
+                setIsPlaying(false);
+            }
         }
     };
 
@@ -613,12 +650,51 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
                 </div>
             )}
 
+            {isMuted && !isLocked && !isDisplayLoading && (
+                <div className="absolute inset-x-0 bottom-[env(safe-area-inset-bottom)] pb-24 md:pb-0 pointer-events-none flex justify-center z-50">
+                    <button 
+                        onClick={() => {
+                            if (videoRef.current) {
+                                videoRef.current.muted = false;
+                                setIsMuted(false);
+                                setVolume(1);
+                                videoRef.current.volume = 1;
+                                videoRef.current.play().catch(() => {});
+                            }
+                        }}
+                        className="pointer-events-auto flex items-center gap-2 px-6 py-3 bg-cyan-500 text-black text-xs font-black uppercase rounded-full shadow-[0_0_30px_rgba(6,182,212,0.4)] animate-in slide-in-from-bottom-5 duration-500"
+                    >
+                        <Volume2 size={18} fill="currentColor" />
+                        Activar Sonido
+                    </button>
+                </div>
+            )}
+
+            {isStuckAtZero && isPlaying && !isLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-[1001] animate-in fade-in duration-300">
+                    <div className="text-center p-8">
+                        <div 
+                            onClick={togglePlay}
+                            className="w-24 h-24 bg-cyan-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_50px_rgba(6,182,212,0.6)] cursor-pointer active:scale-95 transition-transform"
+                        >
+                            <Play size={40} className="text-black ml-2" fill="currentColor" />
+                        </div>
+                        <h2 className="text-white text-xl font-black uppercase tracking-widest mb-2 font-netflix">Toca para Iniciar</h2>
+                        <p className="text-white/60 text-xs font-bold uppercase tracking-widest leading-loose">Tu navegador bloqueó la reproducción automática</p>
+                    </div>
+                </div>
+            )}
 
             {isDisplayLoading && !error && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
+                <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10 transition-colors">
                     <div className="text-center">
-                        <Loader2 className="text-cyan-500 animate-spin w-16 h-16 mx-auto mb-4" />
-                        <p className="text-white/60 text-sm">Cargando...</p>
+                        <div className="relative">
+                            <Loader2 className="text-cyan-500 animate-spin w-20 h-20 mx-auto mb-4" />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <Film size={24} className="text-cyan-500/40" />
+                            </div>
+                        </div>
+                        <p className="text-white font-black uppercase tracking-[0.3em] text-[10px] animate-pulse">Iniciando Bóveda...</p>
                     </div>
                 </div>
             )}

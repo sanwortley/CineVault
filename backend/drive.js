@@ -280,6 +280,8 @@ const driveApi = {
                 
                 res.writeHead(200, {
                     'Content-Type': 'video/mp4',
+                    'Accept-Ranges': 'bytes',
+                    'Access-Control-Allow-Origin': '*',
                     'Transfer-Encoding': 'chunked'
                 });
 

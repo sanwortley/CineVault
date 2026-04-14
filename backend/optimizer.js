@@ -57,15 +57,15 @@ function getTranscodeStream(input, startTime = 0) {
         .audioChannels(2)
         .format('mp4')
         .outputOptions([
-            '-preset ultrafast',
+            '-preset faster', // Balanced for speed and stability
             '-tune zerolatency',
-            '-movflags frag_keyframe+empty_moov+default_base_moof', // Required for fragmented MP4 streaming
-            '-crf 28', // Optimized for mobile bandwidth
-            '-maxrate 1.5M', // Tighter cap for mobile stability
+            '-movflags frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset', // Added omit_tfhd_offset for better iPhone compatibility
+            '-crf 28', 
+            '-maxrate 1.5M', 
             '-bufsize 3M',
-            '-profile:v main', // Maximum compatibility with iPhone/Safari
+            '-profile:v main', 
             '-level 3.1',
-            '-pix_fmt yuv420p' // Standard pixel format for web players
+            '-pix_fmt yuv420p'
         ])
         .on('start', (cmd) => console.log(`[Optimizer] FFmpeg Stream: ${cmd}`))
         .on('error', (err) => {

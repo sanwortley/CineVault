@@ -242,34 +242,21 @@ app.get('/api/stream/local', (req, res) => {
     console.log(`[Stream] Streaming ${filePath} (transcode=${transcode}, start=${startTime}s)`);
 
     if (transcode) {
-        // Transcoding stream using FFmpeg
-        res.setHeader('Content-Type', 'video/mp4');
+        const { getTranscodeStream } = require('./optimizer');
         
-        ffmpeg(filePath)
-            .setStartTime(startTime)
-            .videoCodec('libx264')
-            .audioCodec('aac')
-            .audioChannels(2)
-            .format('mp4')
-            .outputOptions([
-                '-movflags frag_keyframe+empty_moov', 
-                '-preset ultrafast',
-                '-tune zerolatency',
-                '-crf 28',
-                '-maxrate 1.5M',
-                '-bufsize 3M',
-                '-profile:v main',
-                '-level 3.1',
-                '-pix_fmt yuv420p'
-            ])
-            .on('start', (cmd) => console.log('[FFmpeg] Started:', cmd))
-            .on('error', (err) => {
-                if (err.message.includes('Output connection closed')) return;
-                console.error('[FFmpeg] Error:', err.message);
-                if (!res.headersSent) res.status(500).send('FFmpeg error');
-            })
-            .pipe(res, { end: true });
+        res.writeHead(200, {
+            'Content-Type': 'video/mp4',
+            'Accept-Ranges': 'bytes',
+            'Access-Control-Allow-Origin': '*',
+            'Transfer-Encoding': 'chunked'
+        });
+        
+        const transcodeStream = getTranscodeStream(filePath, startTime);
+        transcodeStream.pipe(res);
 
+        res.on('close', () => {
+           if (transcodeStream.ffmpegCommand) transcodeStream.ffmpegCommand.kill();
+        });
     } else {
         // Direct stream with range support
         try {
