@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Play, Pause, Volume2, VolumeX, Maximize, X, 
-    Loader2, Subtitles, SkipBack, SkipForward, Lock, Unlock
+    Loader2, Subtitles, SkipBack, SkipForward, Lock, Unlock, Film
 } from 'lucide-react';
 import { api, BACKEND_URL } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +10,7 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
     const { user, saveUserProgress } = useAuth();
     const videoRef = useRef(null);
     const playerRef = useRef(null);
+    const isMobile = typeof window !== 'undefined' && (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768);
     const [isPlaying, setIsPlaying] = useState(true);
     const [duration, setDuration] = useState(0);
     const [currentTime, setCurrentTime] = useState(0);
@@ -40,7 +41,6 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
     const initialSeek = movieUserProgress > 0 ? Math.floor(movieUserProgress) : 0;
     const [seekOffset] = useState(initialSeek);
 
-    const isMobile = typeof window !== 'undefined' && (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768);
 
     // Initial mute logic for mobile
     useEffect(() => {
