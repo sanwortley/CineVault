@@ -11,6 +11,7 @@ import {
 import VideoPlayer from './VideoPlayer';
 import MovieDetailsModal from './MovieDetailsModal';
 import UploadQueuePanel from './UploadQueuePanel';
+import Disclaimer from './Disclaimer';
 
 // Lazy loaded pages to break dependency chains
 const LibraryPage = React.lazy(() => import('../pages/LibraryPage'));
@@ -364,6 +365,8 @@ export default function AppContent() {
                 )}
                 </React.Suspense>
             </main>
+
+            {!playingMovie && !detailMovie && <Disclaimer />}
 
             {isChangePasswordOpen && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-6 animate-in fade-in duration-300">
