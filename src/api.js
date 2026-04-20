@@ -210,6 +210,17 @@ export const api = {
         return backendFetch(`/api/admin/sessions/${sessionId}`, { method: 'DELETE' });
     },
 
+    getRDToken: () => {
+        return backendFetch('/api/admin/config/rd-token');
+    },
+
+    saveRDToken: (token) => {
+        return backendFetch('/api/admin/config/rd-token', {
+            method: 'POST',
+            body: JSON.stringify({ token })
+        });
+    },
+
     // ── Discovery ─────────────────────────────────────────────────────────────
     exploreTrending: () => {
         return backendFetch('/api/discover/trending');
@@ -223,10 +234,17 @@ export const api = {
         return backendFetch(`/api/discover/torrents/${encodeURIComponent(title)}`);
     },
 
-    downloadMovie: (tmdbId, title, magnet, year) => {
+    downloadMovie: (tmdbId, title, magnet, year, options = {}) => {
         return backendFetch('/api/discover/download', {
             method: 'POST',
-            body: JSON.stringify({ movieId: tmdbId, title, magnet, year })
+            body: JSON.stringify({ 
+                movieId: tmdbId, 
+                title, 
+                magnet, 
+                year,
+                isPage: options.isPage,
+                isHash: options.isHash
+            })
         });
     },
 

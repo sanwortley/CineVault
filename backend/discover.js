@@ -1,19 +1,10 @@
-const express = require('express');
-const router = express.Router();
-const torrentSearch = require('torrent-search-api');
 const axios = require('axios');
 const db = require('./db');
-const torrentManager = require('./torrentManager');
+const movieSearcher = require('./movieSearcher');
+const debridManager = require('./debridManager');
 const uploadManager = require('./uploadManager');
 const { adminMiddleware } = require('./middleware');
-
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
-const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
-
-// Initialize torrent providers
-torrentSearch.enableProvider('1337x');
-torrentSearch.enableProvider('ThePirateBay');
-torrentSearch.enableProvider('Yts');
+const cheerio = require('cheerio');
 
 // --- Helper Functions ---
 const fetchTMDB = async (endpoint, params = {}) => {
@@ -47,82 +38,83 @@ router.get('/search', async (req, res) => {
     }
 });
 
-// Find torrents for a specific TMDB movie
+// Find sources for a specific movie
 router.get('/torrents/:title', async (req, res) => {
     const title = req.params.title;
     try {
-        // Search across enabled providers
-        // We try a few search queries: Title original, and "Title Dual"
-        let results = await torrentSearch.search(title, 'Movies', 20);
-        
-        // Filter and sort by quality and "Dual" tags
-        const formatted = results.map(t => ({
-            title: t.title,
-            size: t.size,
-            seeds: t.seeds,
-            peers: t.peers,
-            time: t.time,
-            link: t.desc || t.magnet || t.link, // Magnet/Link
-            provider: t.provider
-        }))
-        .filter(t => t.seeds > 0)
-        .sort((a, b) => b.seeds - a.seeds);
-
-        res.json(formatted);
+        const results = await movieSearcher.searchAll(title);
+        res.json(results);
     } catch (err) {
-        console.error('[Discover] Torrent search error:', err.message);
-        res.status(500).json({ error: 'Error al buscar torrents' });
+        console.error('[Discover] Search error:', err.message);
+        res.status(500).json({ error: 'Error al buscar fuentes' });
     }
 });
 
 // Download a movie (Admin only)
 router.post('/download', adminMiddleware, async (req, res) => {
-    const { movieId, title, magnet, year } = req.body;
+    const { movieId, title, magnet, isPage, isHash, year } = req.body;
     
     if (!movieId || !title || !magnet) {
         return res.status(400).json({ error: 'Datos insuficientes' });
     }
 
     try {
-        // 1. Add to local database if not exists (as a "shadow" entry until it's downloaded)
-        // We might want get more details from TMDB first to have poster_url etc.
+        // 1. Initial Shadow Record
         const tmdbDetails = await fetchTMDB(`/movie/${movieId}`);
         let movie = await db.addMovie({
             title: tmdbDetails.title,
             year: year || tmdbDetails.release_date?.substring(0, 4),
-            drive_file_id: 'pending_download', // Flag to show it's being fetched
+            drive_file_id: 'pending_cloud', 
             poster_url: tmdbDetails.poster_path ? `https://image.tmdb.org/t/p/w500${tmdbDetails.poster_path}` : null,
             tmdb_id: movieId
         });
 
-        // 2. Resolve Magnet Link if needed
+        // 2. Add to Queue as 'converting'
+        uploadManager.enqueue(movie.id, title, 'pending', 'video/mp4', { status: 'converting' });
+
+        // 3. Resolve Magnet if it's a page link
         let finalMagnet = magnet;
-        if (!magnet.startsWith('magnet:')) {
-            const searchAgain = await torrentSearch.search(title, 'Movies', 10);
-            const match = searchAgain.find(t => t.title === title) || searchAgain[0];
-            if (match) {
-                finalMagnet = await torrentSearch.getMagnet(match);
-            }
+        if (isHash) {
+            finalMagnet = `magnet:?xt=urn:btih:${magnet}&dn=${encodeURIComponent(title)}`;
+        } else if (isPage) {
+            console.log('[Discover] Resolviendo magnet desde página...');
+            const pageResp = await axios.get(magnet);
+            const $ = cheerio.load(pageResp.data);
+            finalMagnet = $('a[href^="magnet:"]').first().attr('href');
         }
-        
-        // 3. Add to UploadManager queue as 'downloading'
-        uploadManager.enqueue(movie.id, title, 'pending', 'video/mp4', { status: 'downloading' });
 
-        // 4. Start Torrent Download
-        torrentManager.addDownload(movie.id, title, finalMagnet, async (localPath, filename) => {
-            // Callback when done: Update job to 'pending' with actual path
-            console.log(`[Discover] Descarga terminada para ${title}. Iniciando proceso de subida...`);
-            uploadManager.updateJob(movie.id, { 
-                status: 'pending', 
-                filePath: localPath,
-                options: { deleteAfter: true, optimize: true }
-            });
-        });
+        if (!finalMagnet) throw new Error('No se pudo resolver el enlace magnet');
 
-        res.json({ message: 'Descarga iniciada', movieId: movie.id });
+        // 4. Trigger Real-Debrid Flow in background
+        (async () => {
+            try {
+                const debridResult = await debridManager.processMagnet(finalMagnet, (progress, status) => {
+                    uploadManager.updateJob(movie.id, { 
+                        progress, 
+                        status: `converting (${status})` 
+                    });
+                });
+
+                console.log(`[Discover] Enlace listo: ${debridResult.downloadUrl}`);
+                
+                // 5. Update job to 'pending-fetch' (Now uploadManager will download from URL)
+                uploadManager.updateJob(movie.id, { 
+                    status: 'pending', 
+                    filePath: debridResult.downloadUrl, // URL instead of local path
+                    isUrl: true,
+                    options: { deleteAfter: true, optimize: true }
+                });
+
+            } catch (err) {
+                console.error('[Discover] Debrid process failed:', err.message);
+                uploadManager.updateJob(movie.id, { status: 'error', error: err.message });
+            }
+        })();
+
+        res.json({ message: 'Proceso iniciado vía Real-Debrid', movieId: movie.id });
     } catch (err) {
         console.error('[Discover] Download error:', err);
-        res.status(500).json({ error: 'Error al iniciar descarga: ' + err.message });
+        res.status(500).json({ error: 'Error al iniciar proceso Cloud: ' + err.message });
     }
 });
 

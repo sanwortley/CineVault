@@ -69,7 +69,8 @@ export default function ExplorePage() {
                 selectedMovie.id, 
                 selectedMovie.title || selectedMovie.original_title, 
                 torrent.link,
-                selectedMovie.release_date?.substring(0, 4)
+                selectedMovie.release_date?.substring(0, 4),
+                { isPage: torrent.isPage, isHash: torrent.isHash }
             );
             alert('¡Descarga iniciada! Puedes ver el progreso en la consola de administración.');
             setSelectedMovie(null);

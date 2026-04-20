@@ -5,6 +5,8 @@
  */
 
 require('dotenv').config();
+const movieSearcher = require('./movieSearcher');
+const debridManager = require('./debridManager');
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
@@ -963,7 +965,38 @@ if (fs.existsSync(distPath)) {
     console.warn('[Server] Frontend build (dist/) not found. Static serving disabled.');
 }
 
-// ─── Start ────────────────────────────────────────────────────────────────────
+// --- Config Management ---
+app.get('/api/admin/config/rd-token', adminMiddleware, (req, res) => {
+    res.json({ token: process.env.REAL_DEBRID_API_TOKEN || '' });
+});
+
+app.post('/api/admin/config/rd-token', adminMiddleware, (req, res) => {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ error: 'Token requerido' });
+    
+    // In a real app we'd save to DB, for now we update process.env and ideally the .env file
+    process.env.REAL_DEBRID_API_TOKEN = token;
+    
+    // Save to .env file for persistence
+    const fs = require('fs');
+    const path = require('path');
+    const envPath = path.resolve(__dirname, '../.env');
+    let envContent = '';
+    if (fs.existsSync(envPath)) {
+        envContent = fs.readFileSync(envPath, 'utf8');
+        if (envContent.includes('REAL_DEBRID_API_TOKEN=')) {
+            envContent = envContent.replace(/REAL_DEBRID_API_TOKEN=.*/, `REAL_DEBRID_API_TOKEN=${token}`);
+        } else {
+            envContent += `\nREAL_DEBRID_API_TOKEN=${token}`;
+        }
+    } else {
+        envContent = `REAL_DEBRID_API_TOKEN=${token}`;
+    }
+    fs.writeFileSync(envPath, envContent);
+    
+    res.json({ message: 'Token de Real-Debrid actualizado correctamente' });
+});
+
 const server = app.listen(PORT, () => {
     console.log(`[CineVault Backend] Running on http://localhost:${PORT}`);
     console.log(`[CineVault Backend] Frontend allowed from: ${FRONTEND_URL}`);

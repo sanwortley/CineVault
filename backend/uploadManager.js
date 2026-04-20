@@ -127,8 +127,47 @@ class UploadManager extends EventEmitter {
         this.emit('queue_updated', this.queue);
 
         try {
+            let workingFilePath = nextJob.filePath;
+
+            // 1. If it's a URL, download it first
+            if (nextJob.isUrl) {
+                console.log(`[UploadManager] Descargando desde nube: ${nextJob.title}`);
+                const tempDir = path.join(process.cwd(), 'temp_downloads');
+                if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+                
+                const tempFilePath = path.join(tempDir, `fetch_${Date.now()}.mp4`);
+                const response = await axios({
+                    method: 'get',
+                    url: nextJob.filePath,
+                    responseType: 'stream'
+                });
+
+                const totalLength = response.headers['content-length'];
+                let downloadedLength = 0;
+
+                const writer = fs.createWriteStream(tempFilePath);
+                response.data.on('data', (chunk) => {
+                    downloadedLength += chunk.length;
+                    const progress = totalLength ? Math.round((downloadedLength / totalLength) * 100) : 0;
+                    this.emit('job_progress', {
+                        movieId: nextJob.movieId,
+                        progress,
+                        status: 'fetching'
+                    });
+                });
+
+                response.data.pipe(writer);
+
+                await new Promise((resolve, reject) => {
+                    writer.on('finish', resolve);
+                    writer.on('error', reject);
+                });
+
+                workingFilePath = tempFilePath;
+            }
+
             console.log(`[UploadManager] Procesando subida: ${nextJob.title}`);
-            const result = await driveApi.uploadVideo(nextJob.filePath, nextJob.mimeType, (progress, uploaded, total) => {
+            const result = await driveApi.uploadVideo(workingFilePath, nextJob.mimeType, (progress, uploaded, total) => {
                 nextJob.progress = progress;
                 // Emitir progreso por SSE
                 this.emit('job_progress', {
@@ -145,8 +184,8 @@ class UploadManager extends EventEmitter {
             
             nextJob.status = 'done';
             nextJob.progress = 100;
-            if (nextJob.options.deleteAfter) {
-                try { fs.unlinkSync(nextJob.filePath); } catch(e){}
+            if (nextJob.options.deleteAfter || nextJob.isUrl) {
+                try { fs.unlinkSync(workingFilePath); } catch(e){}
             }
 
             console.log(`[UploadManager] Subida exitosa: ${nextJob.title}`);

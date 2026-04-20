@@ -12,6 +12,8 @@ function SettingsPage({ onClose, onTabChange }) {
     const [isSaved, setIsSaved] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
     const [isDriveConnected, setIsDriveConnected] = useState(false);
+    const [rdToken, setRdToken] = useState('');
+    const [isRDSaved, setIsRDSaved] = useState(false);
 
     const fetchConfig = async () => {
         try {
@@ -23,6 +25,11 @@ function SettingsPage({ onClose, onTabChange }) {
 
             const connected = await api.checkDriveAuth();
             setIsDriveConnected(connected);
+
+            if (isAdmin) {
+                const rdData = await api.getRDToken();
+                if (rdData.token) setRdToken(rdData.token);
+            }
         } catch (error) {
             console.error('Error fetching config:', error);
         }
@@ -59,6 +66,15 @@ function SettingsPage({ onClose, onTabChange }) {
             setTimeout(() => setIsSaved(false), 3000);
         } catch (error) {
             alert('Error al guardar la API Key');
+        }
+    };
+    const handleSaveRDToken = async () => {
+        try {
+            await api.saveRDToken(rdToken);
+            setIsRDSaved(true);
+            setTimeout(() => setIsRDSaved(false), 3000);
+        } catch (error) {
+            alert('Error al guardar el Token de Real-Debrid');
         }
     };
 
@@ -149,42 +165,85 @@ function SettingsPage({ onClose, onTabChange }) {
                         </button>
                     </section>
 
-                    {/* Metadata Engine */}
-                    <section className="glass rounded-[1.5rem] md:rounded-[3rem] p-5 md:p-10 border border-white/5">
-                        <div className="flex items-center gap-4 mb-8">
-                            <div className="p-4 bg-netflix-red/10 rounded-2xl">
-                                <ShieldCheck className="text-netflix-red" size={24} />
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-black text-white tracking-tight">Motor de Metadatos</h3>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Conexión con TMDB</p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-6">
-                            <div>
-                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">TMDB API KEY</label>
-                                <div className="flex gap-2">
-                                    <input 
-                                        type="password"
-                                        value={apiKey}
-                                        onChange={(e) => setApiKey(e.target.value)}
-                                        placeholder="Tu clave de API..."
-                                        className="flex-1 bg-black/40 border border-white/5 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none focus:border-netflix-red transition-colors min-w-0"
-                                    />
-                                    <button 
-                                        onClick={handleSaveKey}
-                                        className={`flex items-center justify-center rounded-2xl font-black uppercase tracking-widest transition-all shrink-0 ${isSaved ? 'bg-green-500 text-white w-14' : 'bg-white text-black hover:bg-neutral-200 px-8'}`}
-                                    >
-                                        {isSaved ? <Check size={18} strokeWidth={3} /> : <span className="text-[10px]">Guardar</span>}
-                                    </button>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Metadata Engine */}
+                        <section className="glass rounded-[1.5rem] md:rounded-[3rem] p-5 md:p-10 border border-white/5">
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="p-4 bg-netflix-red/10 rounded-2xl">
+                                    <ShieldCheck className="text-netflix-red" size={24} />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black text-white tracking-tight">Metadatos</h3>
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">TMDB API</p>
                                 </div>
                             </div>
-                            <p className="text-[10px] text-slate-600 leading-relaxed px-1">
-                                Necesaria para obtener pósters, tráilers y descripciones automáticamente. Consigue una en <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer" className="text-netflix-red hover:underline">themoviedb.org</a>.
-                            </p>
-                        </div>
-                    </section>
+
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">API KEY</label>
+                                    <div className="flex gap-2">
+                                        <input 
+                                            type="password"
+                                            value={apiKey}
+                                            onChange={(e) => setApiKey(e.target.value)}
+                                            placeholder="Clave..."
+                                            className="flex-1 bg-black/40 border border-white/5 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none focus:border-netflix-red transition-colors min-w-0"
+                                        />
+                                        <button 
+                                            onClick={handleSaveKey}
+                                            className={`flex items-center justify-center rounded-2xl font-black uppercase tracking-widest transition-all shrink-0 ${isSaved ? 'bg-green-500 text-white w-14' : 'bg-white text-black hover:bg-neutral-200 px-8'}`}
+                                        >
+                                            {isSaved ? <Check size={18} strokeWidth={3} /> : <span className="text-[10px]">OK</span>}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                    {/* Real-Debrid / Bóveda Cloud Section */}
+                    {isAdmin() && (
+                        <section className="glass rounded-[1.5rem] md:rounded-[3rem] p-5 md:p-10 border border-white/5 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+                                <Cloud size={100} strokeWidth={1} />
+                            </div>
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-4 mb-8">
+                                    <div className="p-3 bg-netflix-red/10 rounded-2xl">
+                                        <Cloud className="text-netflix-red" size={24} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-black text-white tracking-tight">Real-Debrid</h3>
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Bóveda Cloud</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">PRIVATE TOKEN</label>
+                                        <div className="flex gap-2">
+                                            <input 
+                                                type="password"
+                                                value={rdToken}
+                                                onChange={(e) => setRdToken(e.target.value)}
+                                                placeholder="Tu Private Token..."
+                                                className="flex-1 bg-black/40 border border-white/5 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none focus:border-netflix-red transition-colors min-w-0"
+                                            />
+                                            <button 
+                                                onClick={handleSaveRDToken}
+                                                className={`flex items-center justify-center rounded-2xl font-black uppercase tracking-widest transition-all shrink-0 ${isRDSaved ? 'bg-green-500 text-white w-14' : 'bg-white text-black hover:bg-neutral-200 px-8'}`}
+                                            >
+                                                {isRDSaved ? <Check size={18} strokeWidth={3} /> : <span className="text-[10px]">Vincular</span>}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] text-slate-600 leading-relaxed px-1">
+                                        Permite descargas seguras y ultra-rápidas directamente a tu Drive. Consigue el tuyo en <a href="https://real-debrid.com/apitoken" target="_blank" rel="noreferrer" className="text-netflix-red hover:underline">real-debrid.com/apitoken</a>.
+                                    </p>
+                                </div>
+                            </div>
+                        </section>
+                    )}
+                    </div>
                 </div>
 
                 {/* Admin-only Session Control */}

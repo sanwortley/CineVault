@@ -7,8 +7,8 @@ export default function UploadQueuePanel() {
 
     if (queue.length === 0) return null;
 
-    const uploadingItem = queue.find(j => j.status === 'uploading');
-    const activeCount = queue.filter(j => j.status === 'pending' || j.status === 'uploading').length;
+    const uploadingItem = queue.find(j => j.status === 'uploading' || j.status === 'fetching' || j.status.includes('converting'));
+    const activeCount = queue.filter(j => ['pending', 'uploading', 'fetching', 'downloading'].some(s => j.status.includes(s))).length;
     const errorItems = queue.filter(j => j.status === 'error');
 
     // Hide if nothing is actively uploading or pending, except if there are errors to show
@@ -33,7 +33,9 @@ export default function UploadQueuePanel() {
                     <div className="flex-1 min-w-0">
                         <p className="text-[10px] font-black uppercase tracking-[0.1em] text-white/90 truncate">
                             {uploadingItem 
-                                ? `Syncing Drive (${activeCount} left)`
+                                ? (uploadingItem.status === 'fetching' ? `Cloud Fetching (${activeCount})` : 
+                                   uploadingItem.status.includes('converting') ? `Cloud Converting (${activeCount})` :
+                                   `Syncing Drive (${activeCount} left)`)
                                 : errorItems.length > 0 
                                     ? `${errorItems.length} Sync Errors` 
                                     : 'Subiendo Biblioteca...'}
