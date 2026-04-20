@@ -17,6 +17,7 @@ export default function ExplorePage() {
     const [downloadingMovieId, setDownloadingMovieId] = useState(null);
     const [searchMode, setSearchMode] = useState('catalog'); // 'catalog' or 'global'
     const [globalResults, setGlobalResults] = useState([]);
+    const [hasSearched, setHasSearched] = useState(false);
 
     useEffect(() => {
         const fetchTrending = async () => {
@@ -36,6 +37,7 @@ export default function ExplorePage() {
         e.preventDefault();
         if (!query.trim()) return;
         setIsSearching(true);
+        setHasSearched(true);
         try {
             if (searchMode === 'catalog') {
                 const data = await api.searchMoviesGlobal(query);
@@ -145,26 +147,47 @@ export default function ExplorePage() {
 
             {/* Search Results / Trending / Global Results */}
             <main>
-                {searchMode === 'global' && globalResults.length > 0 ? (
+                {searchMode === 'global' ? (
                     <section className="mb-20">
                         <div className="flex items-center justify-between mb-8">
                             <div className="flex items-center gap-3">
                                 <Globe className="text-cyan-400" size={24} />
                                 <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Bóveda Global</h2>
                             </div>
-                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest hidden md:block">Resultados sin filtrar directo de la red</p>
+                            {isSearching && <Loader className="animate-spin text-cyan-400" size={20} />}
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {globalResults.map((res, idx) => (
-                                <GlobalResultCard 
-                                    key={idx} 
-                                    result={res} 
-                                    isAdmin={isAdmin()}
-                                    isDownloading={downloadingMovieId === `global-${idx}`}
-                                    onDownload={() => handleDownload(res, { id: `global-${idx}`, title: res.title })} 
-                                />
-                            ))}
-                        </div>
+
+                        {isSearching ? (
+                            <div className="py-20 flex flex-col items-center justify-center text-center">
+                                <Loader className="animate-spin text-cyan-400 mb-4" size={48} />
+                                <h3 className="text-lg font-black text-white uppercase tracking-widest">Buscando en la red...</h3>
+                                <p className="text-slate-500 text-xs mt-2 font-bold uppercase tracking-widest">Esto podría tardar unos segundos</p>
+                            </div>
+                        ) : globalResults.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {globalResults.map((res, idx) => (
+                                    <GlobalResultCard 
+                                        key={idx} 
+                                        result={res} 
+                                        isAdmin={isAdmin()}
+                                        isDownloading={downloadingMovieId === `global-${idx}`}
+                                        onDownload={() => handleDownload(res, { id: `global-${idx}`, title: res.title })} 
+                                    />
+                                ))}
+                            </div>
+                        ) : hasSearched ? (
+                            <div className="py-20 border border-dashed border-white/5 rounded-[3rem] flex flex-col items-center justify-center text-center bg-white/[0.01]">
+                                <Globe className="text-slate-700 mb-6" size={64} strokeWidth={1} />
+                                <h3 className="text-xl font-black text-white uppercase tracking-tighter">Sin resultados en la red</h3>
+                                <p className="text-slate-500 text-xs mt-2 font-bold uppercase tracking-widest">Intenta con otros términos de búsqueda (ej: nombre en inglés)</p>
+                            </div>
+                        ) : (
+                            <div className="py-20 border border-white/5 rounded-[3rem] flex flex-col items-center justify-center text-center bg-gradient-to-b from-white/[0.02] to-transparent">
+                                <Globe className="text-slate-500 mb-6" size={64} strokeWidth={1} />
+                                <h3 className="text-xl font-black text-white/40 uppercase tracking-tighter">Explora la Web Profunda</h3>
+                                <p className="text-slate-600 text-[10px] mt-2 font-black uppercase tracking-[0.2em]">Busca cualquier torrent directamente aquí</p>
+                            </div>
+                        )}
                     </section>
                 ) : (isSearching || searchResults.length > 0) ? (
                     <section className="mb-20">
