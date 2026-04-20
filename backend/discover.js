@@ -67,14 +67,23 @@ router.post('/download', adminMiddleware, async (req, res) => {
     }
 
     try {
-        // 1. Initial Shadow Record
-        const tmdbDetails = await fetchTMDB(`/movie/${movieId}`);
+        let tmdbDetails = null;
+        const isNumericId = !isNaN(parseInt(movieId)) && /^\d+$/.test(String(movieId));
+
+        if (isNumericId) {
+            try {
+                tmdbDetails = await fetchTMDB(`/movie/${movieId}`);
+            } catch (tmdbErr) {
+                console.warn(`[Discover] Failed to fetch TMDB details for ID ${movieId}:`, tmdbErr.message);
+            }
+        }
+
         let movie = await db.addMovie({
-            title: tmdbDetails.title,
-            year: year || tmdbDetails.release_date?.substring(0, 4),
+            title: tmdbDetails?.title || title,
+            year: year || tmdbDetails?.release_date?.substring(0, 4) || new Date().getFullYear().toString(),
             drive_file_id: 'pending_cloud', 
-            poster_url: tmdbDetails.poster_path ? `https://image.tmdb.org/t/p/w500${tmdbDetails.poster_path}` : null,
-            tmdb_id: movieId
+            poster_url: tmdbDetails?.poster_path ? `https://image.tmdb.org/t/p/w500${tmdbDetails.poster_path}` : null,
+            tmdb_id: isNumericId ? movieId : null
         });
 
         // 2. Add to Queue as 'converting'
