@@ -997,6 +997,15 @@ app.post('/api/admin/config/rd-token', adminMiddleware, (req, res) => {
     res.json({ message: 'Token de Real-Debrid actualizado correctamente' });
 });
 
+// Add this to support SPA routing (must be AFTER static and API routes)
+app.get('*', (req, res) => {
+    // Prevent redirecting asset requests to index.html to avoid MIME errors
+    if (req.path.startsWith('/assets/')) {
+        return res.status(404).send('Asset not found');
+    }
+    res.sendFile(path.join(__dirname, '../dist/index.html'));
+});
+
 const server = app.listen(PORT, () => {
     console.log(`[CineVault Backend] Running on http://localhost:${PORT}`);
 });
