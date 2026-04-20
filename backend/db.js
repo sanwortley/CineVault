@@ -93,13 +93,13 @@ const database = {
             if (res && res.id) return res;
             
             // If it returned null (duplicate handled in supabaseFetch), try to find it
-            console.log(`[DB] Movie creation returned null (likely duplicate), finding existing: ${payload.title}`);
-            const existing = await database.findMovies({ title: payload.title, year: payload.year });
+            console.log(`[DB] Movie creation returned null (likely duplicate), finding existing: ${payload.official_title}`);
+            const existing = await database.findMovies({ official_title: payload.official_title, year: payload.year });
             return existing.length > 0 ? existing[0] : null;
         } catch (err) {
             console.error('[DB] addMovie error:', err.message);
             // Fallback: search for existing movie
-            const existing = await database.findMovies({ title: payload.title, year: payload.year });
+            const existing = await database.findMovies({ official_title: payload.official_title, year: payload.year });
             return existing.length > 0 ? existing[0] : null;
         }
     },

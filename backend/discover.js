@@ -80,17 +80,18 @@ router.post('/download', adminMiddleware, async (req, res) => {
 
         // --- Step 1: Create or Get Movie Entry ---
         let movie = await db.addMovie({
-            title: tmdbDetails?.title || title,
+            official_title: tmdbDetails?.official_title || tmdbDetails?.title || title,
+            detected_title: title,
             year: year || tmdbDetails?.release_date?.substring(0, 4) || new Date().getFullYear().toString(),
             drive_file_id: 'pending_cloud', 
-            poster_url: tmdbDetails?.poster_path ? `https://image.tmdb.org/t/p/w500${tmdbDetails.poster_path}` : null,
+            poster_url: tmdbDetails?.poster_url || tmdbDetails?.poster_path ? `https://image.tmdb.org/t/p/w500${tmdbDetails.poster_path}` : null,
             tmdb_id: isNumericId ? movieId : null
         });
 
         if (!movie || !movie.id) {
             // Last ditch effort: try finding by title if addMovie failed (though it should handle it now)
             console.log('[Discover] Movie creation failed, searching as last resort:', title);
-            const search = await db.findMovies({ title: title });
+            const search = await db.findMovies({ official_title: title });
             movie = search.length > 0 ? search[0] : null;
         }
 
