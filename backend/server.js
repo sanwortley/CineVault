@@ -19,6 +19,7 @@ const driveApi = require('./drive');
 const db = require('./db');
 const uploadManager = require('./uploadManager');
 const optimizer = require('./optimizer');
+const discoverRouter = require('./discover');
 
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
@@ -31,10 +32,8 @@ const { addMovie } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const SESSION_TIMEOUT_MINUTES = parseInt(process.env.SESSION_TIMEOUT_MINUTES) || 60;
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@cinevault.local';
-const isAdmin = (email) => email === ADMIN_EMAIL;
+const isAdmin = (email) => email === (process.env.ADMIN_EMAIL || 'admin@cinevault.local');
+const { sessionMiddleware, adminMiddleware } = require('./middleware');
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(cors({
@@ -45,38 +44,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '../dist')));
 
-const getSessionId = (req) => req.headers['x-session-id'] || req.query.sessionId || req.cookies?.sessionId;
-
-const sessionMiddleware = async (req, res, next) => {
-    const sessionId = getSessionId(req);
-    if (!sessionId) {
-        return res.status(401).json({ error: 'No se encontró sesión activa' });
-    }
-
-    try {
-        const session = await db.validateSession(sessionId, SESSION_TIMEOUT_MINUTES);
-        if (!session) {
-            return res.status(401).json({ error: 'Sesión expirada o inválida' });
-        }
-        req.session = session;
-        next();
-    } catch (err) {
-        console.error('[SessionMiddleware] Error:', err.message);
-        res.status(500).json({ error: 'Error validando sesión' });
-    }
-};
-
-const adminMiddleware = (req, res, next) => {
-    const adminEmail = process.env.VITE_ADMIN_EMAIL?.trim().toLowerCase() || ADMIN_EMAIL;
-    const userEmail = req.session?.email?.trim().toLowerCase() || 
-                      req.headers['x-user-email']?.trim().toLowerCase();
-                      
-    if (adminEmail && userEmail === adminEmail) {
-        next();
-    } else {
-        res.status(403).json({ error: 'Acceso restringido a administradores' });
-    }
-};
+// Middlewares moved to middleware.js
 
 // ─── Multer Config for Movie Uploads ─────────────────────────────────────────
 const storage = multer.diskStorage({
@@ -709,6 +677,23 @@ app.post('/api/library/refresh', sessionMiddleware, adminMiddleware, async (req,
         res.status(500).json({ error: e.message });
     }
 });
+
+// Scanning & Library
+app.get('/api/library/scan', sessionMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const { path: scanPath } = req.query;
+        const results = await scanDirectory(scanPath);
+        for (const movie of results) {
+            await addMovie(movie);
+        }
+        res.json({ message: 'Escaneo completado', count: results.length });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Discovey & Download
+app.use('/api/discover', sessionMiddleware, discoverRouter);
 
 app.post('/api/library/clear', sessionMiddleware, adminMiddleware, async (req, res) => {
     try {

@@ -74,7 +74,7 @@ class UploadManager extends EventEmitter {
                 title: title || `Película ${movieId}`,
                 filePath,
                 mimeType,
-                status: 'pending', // pending, uploading, done, error
+                status: options.status || 'pending', // downloading, pending, uploading, done, error
                 progress: 0,
                 error: null,
                 options
@@ -116,6 +116,7 @@ class UploadManager extends EventEmitter {
     async processNext() {
         if (this.isProcessing) return;
 
+        // Solo procesar si hay algo 'pending'. Si está 'downloading', esperamos a que discover.js lo pase a 'pending'.
         const nextJob = this.queue.find(j => j.status === 'pending');
         if (!nextJob) return; // Nada más que procesar
 
@@ -165,6 +166,15 @@ class UploadManager extends EventEmitter {
         
         // Timeout ligero para no colapsar peticiones y seguir con el proximo
         setTimeout(() => this.processNext(), 2000);
+    }
+
+    updateJob(movieId, updates) {
+        const job = this.queue.find(j => String(j.movieId) === String(movieId));
+        if (job) {
+            Object.assign(job, updates);
+            this.saveQueue();
+            this.emit('queue_updated', this.queue);
+        }
     }
 }
 

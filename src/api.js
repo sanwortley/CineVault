@@ -210,6 +210,30 @@ export const api = {
         return backendFetch(`/api/admin/sessions/${sessionId}`, { method: 'DELETE' });
     },
 
+    // ── Discovery ─────────────────────────────────────────────────────────────
+    exploreTrending: () => {
+        return backendFetch('/api/discover/trending');
+    },
+
+    searchMoviesGlobal: (query) => {
+        return backendFetch(`/api/discover/search?query=${encodeURIComponent(query)}`);
+    },
+
+    findTorrents: (title) => {
+        return backendFetch(`/api/discover/torrents/${encodeURIComponent(title)}`);
+    },
+
+    downloadMovie: (tmdbId, title, magnet, year) => {
+        return backendFetch('/api/discover/download', {
+            method: 'POST',
+            body: JSON.stringify({ movieId: tmdbId, title, magnet, year })
+        });
+    },
+
+    getDownloadProgress: (movieId) => {
+        return backendFetch(`/api/discover/download-status/${movieId}`);
+    },
+
     // ── Drive Streaming URL ───────────────────────────────────────────────────
     getStreamUrl: (fileId, filePath, options = {}) => {
         if (filePath && isElectron()) {

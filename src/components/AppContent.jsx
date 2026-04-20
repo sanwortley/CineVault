@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import { 
     Search, RefreshCw, Settings as SettingsIcon, Key, LogOut, 
-    Home, Bookmark, Upload, ShieldCheck, Check, Lock, AlertCircle, Loader2 
+    Home, Bookmark, Upload, ShieldCheck, Check, Lock, AlertCircle, Loader2, Compass 
 } from 'lucide-react';
 
 // Components
@@ -17,6 +17,7 @@ import Disclaimer from './Disclaimer';
 const LibraryPage = React.lazy(() => import('../pages/LibraryPage'));
 const SettingsPage = React.lazy(() => import('../pages/SettingsPage'));
 const UploadPage = React.lazy(() => import('../pages/UploadPage'));
+const ExplorePage = React.lazy(() => import('../pages/ExplorePage'));
 
 export default function AppContent() {
     const { user, isAdmin, logout, getUserMylist, getUserProgress, addToMylist, removeFromMylist, isInMylist, changePassword } = useAuth();
@@ -213,6 +214,12 @@ export default function AppContent() {
                                 Inicio
                             </button>
                             <button 
+                                onClick={() => { setActiveTab('explore'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                className={`text-sm font-black uppercase tracking-widest transition-colors hover:text-white ${activeTab === 'explore' ? 'text-white' : 'text-slate-400'}`}
+                            >
+                                Explorar
+                            </button>
+                            <button 
                                 onClick={() => { setActiveTab('mylist'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                                 className={`text-sm font-black uppercase tracking-widest transition-colors hover:text-white ${activeTab === 'mylist' ? 'text-white' : 'text-slate-400'}`}
                             >
@@ -345,6 +352,11 @@ export default function AppContent() {
                         userProgress={userProgress}
                     />
                 )}
+                {activeTab === 'explore' && (
+                    <div className="pt-24">
+                        <ExplorePage />
+                    </div>
+                )}
                 {activeTab === 'upload' && (
                     <UploadPage 
                         onUploadComplete={() => {
@@ -447,6 +459,14 @@ export default function AppContent() {
                             <span className="text-[9px] font-black uppercase tracking-widest">{activeTab === 'library' ? 'Inicio' : ''}</span>
                         </button>
                         
+                        <button 
+                            onClick={() => { setActiveTab('explore'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                            className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'explore' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                            <Compass size={22} strokeWidth={activeTab === 'explore' ? 2.5 : 2} />
+                            <span className="text-[9px] font-black uppercase tracking-widest">{activeTab === 'explore' ? 'Explorar' : ''}</span>
+                        </button>
+
                         <button 
                             onClick={() => { setActiveTab('mylist'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                             className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'mylist' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
