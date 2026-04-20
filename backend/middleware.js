@@ -28,8 +28,11 @@ const adminMiddleware = (req, res, next) => {
     const adminEmailFromEnv = (process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || '').trim().toLowerCase();
     const ownerEmail = 'sanwortley@gmail.com';
     
-    // 2. Resolve Current User Email from session
-    const userEmail = req.session?.email?.trim().toLowerCase();
+    // 2. Resolve Current User Email from session OR CUSTOM HEADER (failsafe)
+    const userEmail = (
+        req.session?.email || 
+        req.headers['x-user-email']
+    )?.trim().toLowerCase();
                        
     // 3. Authorization check (Owner OR ENV-defined Admin)
     const isAuthorized = userEmail && (

@@ -87,33 +87,40 @@ async function searchTPB(query) {
 }
 
 async function searchSolid(query) {
-    try {
-        // SolidTorrents has a very cloud-friendly API
-        const response = await axios.get(`https://solidtorrents.to/api/v1/search`, {
-            params: {
-                q: query,
-                category: 'Video',
-                sort: 'seeders'
-            },
-            headers: COMMON_HEADERS,
-            timeout: 8000
-        });
+    const mirrors = [
+        'https://solidtorrents.to/api/v1',
+        'https://solidtorrents.net/api/v1',
+        'https://solidtorrents.ch/api/v1'
+    ];
 
-        if (response.data?.results) {
-            return response.data.results.map(item => ({
-                title: item.title,
-                size: (item.size / (1024 * 1024 * 1024)).toFixed(2) + ' GB',
-                seeds: item.swarm.seeders || 0,
-                link: item.magnet,
-                isHash: false, // SolidTorrents returns full magnets
-                provider: 'Solid'
-            }));
+    for (const mirror of mirrors) {
+        try {
+            console.log(`[Searcher] Trying Solid Mirror: ${mirror}`);
+            const response = await axios.get(`${mirror}/search`, {
+                params: {
+                    q: query,
+                    category: 'Video',
+                    sort: 'seeders'
+                },
+                headers: COMMON_HEADERS,
+                timeout: 5000
+            });
+            
+            if (response.data?.results) {
+                return response.data.results.map(item => ({
+                    title: item.title,
+                    size: (item.size / (1024 * 1024 * 1024)).toFixed(2) + ' GB',
+                    seeds: item.swarm.seeders || 0,
+                    link: item.magnet,
+                    isHash: false,
+                    provider: 'Solid'
+                }));
+            }
+        } catch (err) {
+            console.error(`[Searcher] Solid Mirror ${mirror} failed:`, err.message);
         }
-        return [];
-    } catch (err) {
-        console.error('[Searcher] SolidTorrents Error:', err.message);
-        return [];
     }
+    return [];
 }
 
 async function searchGlobal(query) {

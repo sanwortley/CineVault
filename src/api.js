@@ -33,12 +33,22 @@ async function supabaseFetch(endpoint, options = {}) {
 // ─── Backend fetch (for Drive operations in web mode) ─────────────────────────
 async function backendFetch(path, options = {}, customHeaders = {}) {
     const sessionId = localStorage.getItem('cinevault_session_id');
+    const storedUser = localStorage.getItem('cinevault_user');
+    let userEmail = '';
+    if (storedUser) {
+        try {
+            const u = JSON.parse(storedUser);
+            userEmail = u.email || '';
+        } catch (e) {}
+    }
+
     const res = await fetch(`${BACKEND_URL}${path}`, {
         credentials: 'include',
         ...options,
         headers: { 
             'Content-Type': 'application/json', 
             'x-session-id': sessionId || '',
+            'x-user-email': userEmail,
             ...(options.headers || {}),
             ...customHeaders
         }
