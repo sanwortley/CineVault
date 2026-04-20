@@ -220,7 +220,14 @@ app.get('/api/drive/stream/:fileId', async (req, res) => {
     const transcode = req.query.transcode === 'true';
     const startTime = req.query.t || 0;
     
-    await driveApi.streamVideo(fileId, range, res, { transcode, t: startTime });
+    try {
+        await driveApi.streamVideo(fileId, range, res, { transcode, t: startTime });
+    } catch (err) {
+        console.error('[Server] Drive streaming route error:', err.message);
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'Error interno de servidor', message: err.message });
+        }
+    }
 });
 
 // ─── Local Streaming ──────────────────────────────────────────────────────────

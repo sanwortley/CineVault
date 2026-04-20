@@ -120,25 +120,24 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
     const isDisplayLoading = isInitializing || isLoading;
 
     const handleVideoError = (e) => {
+        const videoElement = e.target;
+        const errorCode = videoElement.error ? videoElement.error.code : 'Unknown';
+
         console.error('[VideoPlayer] Video Error:', {
-            errorCode: e.target.error?.code,
-            errorMessage: e.target.error?.message,
-            src: e.target.currentSrc?.substring(0, 100),
-            networkState: e.target.networkState,
-            readyState: e.target.readyState
+            errorCode,
+            errorMessage: videoElement.error?.message,
+            src: videoElement.currentSrc?.substring(0, 100),
+            networkState: videoElement.networkState,
+            readyState: videoElement.readyState
         });
         
         if (!videoUrl || videoUrl === '' || streamSource === 'checking') {
             return;
         }
         
-        const videoElement = e.target;
-        const errorCode = videoElement.error ? videoElement.error.code : 'Unknown';
-        
         setIsLoading(false);
         
         // If we get a source error and were NOT transcoding, try transcoding as a fallback
-        // If it was a decoding error or source not supported, and we are NOT yet transcoding, try enabling it
         if (!useTranscoding && (errorCode === 3 || errorCode === 4 || errorCode === 'MEDIA_ERR_SRC_NOT_SUPPORTED' || errorCode === 'MEDIA_ERR_DECODE' || videoElement.readyState === 0)) {
             console.log('[VideoPlayer] Fallback to transcoding due to error:', errorCode);
             setUseTranscoding(true);
@@ -147,31 +146,31 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
             return;
         }
 
-        if (errorCode === 4 || errorCode === 'MEDIA_ERR_SRC_NOT_SUPPORTED') {
-            // Try to fetch the actual error message from the server if it was a 401 or 500 error
-            fetch(videoUrl, { method: 'HEAD' }).then(res => {
-                if (res.status === 401 || res.status === 500) {
-                    fetch(videoUrl).then(r => r.json()).then(data => {
-                        const msg = data.message || data.error || '';
-                        if (msg.includes('invalid_grant') || res.status === 401) {
-                            setError('Tu sesión de Google Drive ha expirado. Por favor, reconéctate en Ajustes.');
-                        } else {
-                            setError(data.message || data.error || 'Error de servidor al cargar el video.');
-                        }
-                    }).catch(() => {
-                        setError('Formato de video no compatible o error de servidor.');
-                    });
-                } else {
-                    setError('Formato de video no compatible con este navegador.');
+        // Try to fetch the actual error message from the server
+        fetch(videoUrl, { method: 'GET' }).then(async (res) => {
+            if (res.status === 401 || res.status === 500) {
+                try {
+                    const data = await res.json();
+                    const msg = data.message || data.error || '';
+                    
+                    if (res.status === 401 || msg.includes('invalid_grant') || msg.includes('Sesión de Google Drive expirada')) {
+                        setError('Tu sesión de Google Drive ha expirado o es inválida. Por favor, reconéctate en Ajustes.');
+                    } else if (msg.includes('403') || msg.includes('limit')) {
+                        setError('Google Drive ha limitado el acceso a este archivo (posible exceso de cuota). Intenta más tarde.');
+                    } else {
+                        setError(data.error || data.message || 'Error de servidor al cargar el video.');
+                    }
+                } catch (jsonErr) {
+                    setError('Error de servidor (500). El archivo podría estar corrupto o no disponible.');
                 }
-            }).catch(() => {
+            } else if (!res.ok) {
+                setError(`Error de red (${res.status}). Verifica tu conexión.`);
+            } else {
                 setError('Formato de video no compatible con este navegador.');
-            });
-        } else if (videoElement.currentSrc?.includes('401') || videoElement.currentSrc?.includes('Unauthorized')) {
-            setError('Acceso denegado (Drive no conectado o sesión expirada)');
-        } else {
-            setError('Error de reproducción (' + errorCode + '). Intenta recargar.');
-        }
+            }
+        }).catch(() => {
+            setError('No se pudo conectar con el servidor de video.');
+        });
     };
 
     const handleLoadedData = () => {

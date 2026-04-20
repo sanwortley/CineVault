@@ -234,13 +234,24 @@ const driveApi = {
         }
         return res.data;
     } catch (error) {
+            const isAuthError = error.message?.includes('invalid_grant') || 
+                              error.message?.includes('invalid_token') || 
+                              error.code === 401;
+
             let msg = error.message;
             if (msg.includes('<!DOCTYPE html>') || msg.includes('<title>')) {
                 const titleMatch = msg.match(/<title>(.*?)<\/title>/);
                 msg = `Google API returned HTML error: ${titleMatch ? titleMatch[1] : 'Unknown Server Error (502/500)'}`;
             }
-            console.error('[Drive Upload] Fatal Error:', msg);
-            throw new Error(msg);
+            
+            console.error('[Drive Upload] Fatal Error:', { msg, isAuthError });
+
+            if (isAuthError) {
+                console.warn('[Drive Upload] Auth Error detected. Clearing stale token...');
+                await driveApi.disconnect();
+            }
+
+            throw new Error(isAuthError ? 'Sesión de Google Drive expirada. Reconecta en Ajustes.' : msg);
         }
     },
 
@@ -334,9 +345,14 @@ const driveApi = {
                 // For HEAD requests (Safari probes), don't send the body
                 if (res.req.method === 'HEAD') return res.end();
 
-                const options = { fileId, alt: 'media', headers: { Range: `bytes=${start}-${end}` } };
                 if (hasToken) {
-                    const response = await drive.files.get(options, { responseType: 'stream' });
+                    const response = await drive.files.get(
+                        { fileId, alt: 'media' }, 
+                        { 
+                            responseType: 'stream', 
+                            headers: { Range: `bytes=${start}-${end}` } 
+                        }
+                    );
                     response.data.on('error', e => !res.headersSent && res.status(500).end()).pipe(res);
                 } else {
                     const mediaUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media${apiKey ? `&key=${apiKey}` : ''}`;
@@ -362,20 +378,29 @@ const driveApi = {
             }
 
         } catch (error) {
+            const isAuthError = error.message?.includes('invalid_grant') || 
+                              error.message?.includes('invalid_token') || 
+                              error.code === 401;
+
             console.error('[Drive Stream] Fatal Error:', { 
                 fileId, 
                 message: error.message, 
-                stack: error.stack?.split('\n')[0],
+                code: error.code,
                 hasToken,
-                apiKey: apiKey ? 'Present' : 'Missing'
+                isAuthError
             });
             
+            if (isAuthError) {
+                console.warn('[Drive Stream] Auth Error detected. Clearing stale token...');
+                await driveApi.disconnect();
+            }
+
             if (!res.headersSent) {
-                // Return descriptive error message to help debugging on the client
-                res.status(500).json({ 
-                    error: 'Error de servidor en streaming de Drive',
+                res.status(isAuthError ? 401 : 500).json({ 
+                    error: isAuthError ? 'Sesión de Google Drive expirada' : 'Error de servidor en streaming de Drive',
                     message: error.message,
-                    help: error.message.includes('403') ? 'Posible límite de cuota o archivo restringido por Google.' : 'Intenta reconectar Google Drive en Ajustes.'
+                    code: error.code,
+                    help: isAuthError ? 'Por favor, reconecta tu cuenta en Ajustes.' : (error.message.includes('403') ? 'Posible límite de cuota alcanzarlo o acceso restringido.' : 'Intenta recargar la página.')
                 });
             }
         }
