@@ -8,13 +8,16 @@ const uploadManager = require('./uploadManager');
 const { adminMiddleware } = require('./middleware');
 const cheerio = require('cheerio');
 
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
+const getTMDBKey = () => process.env.TMDB_API_KEY || '';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
 // --- Helper Functions ---
 const fetchTMDB = async (endpoint, params = {}) => {
+    const key = getTMDBKey();
+    if (!key) throw new Error('TMDB_API_KEY no configurada');
+    
     const response = await axios.get(`${TMDB_BASE_URL}${endpoint}`, {
-        params: { api_key: TMDB_API_KEY, language: 'es-ES', ...params }
+        params: { api_key: key, language: 'es-ES', ...params }
     });
     return response.data;
 };

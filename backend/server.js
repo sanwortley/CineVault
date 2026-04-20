@@ -1047,6 +1047,8 @@ app.post('/api/admin/config/tmdb-key', sessionMiddleware, adminMiddleware, (req,
     res.json({ message: 'API Key de TMDB actualizada' });
 });
 
+app.use('/api/discover', discoverRouter);
+
 // Support SPA routing (must be AFTER static and API routes)
 app.get('*splat', (req, res) => {
     if (req.path.includes('.') || req.path.startsWith('/assets/')) {
