@@ -42,7 +42,9 @@ const adminMiddleware = (req, res, next) => {
     } else {
         console.warn(`[AdminMiddleware] Access Denied: User(${userEmail}) is not authorized as Admin. Expected: ${ownerEmail} or ${adminEmailFromEnv}`);
         res.status(403).json({ 
-            error: 'Acceso restringido a administradores'
+            error: 'Acceso restringido a administradores',
+            current_user: userEmail || 'No se detectó email en la sesión',
+            hint: 'Cierra sesión y vuelve a entrar si el email es incorrecto.'
         });
     }
 };
