@@ -1,13 +1,15 @@
 const axios = require('axios');
 require('dotenv').config();
 
-const API_TOKEN = process.env.REAL_DEBRID_API_TOKEN;
 const BASE_URL = 'https://api.real-debrid.com/rest/1.0';
 
-const rd = axios.create({
-    baseURL: BASE_URL,
-    headers: { 'Authorization': `Bearer ${API_TOKEN}` }
-});
+const getRD = () => {
+    const token = process.env.REAL_DEBRID_API_TOKEN;
+    return axios.create({
+        baseURL: BASE_URL,
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+};
 
 class DebridManager {
     constructor() {
@@ -19,25 +21,25 @@ class DebridManager {
     async addMagnet(magnet) {
         const params = new URLSearchParams();
         params.append('magnet', magnet);
-        const response = await rd.post('/torrents/addMagnet', params);
+        const response = await getRD().post('/torrents/addMagnet', params);
         return response.data; // { id, uri }
     }
 
     async getTorrentInfo(id) {
-        const response = await rd.get(`/torrents/info/${id}`);
+        const response = await getRD().get(`/torrents/info/${id}`);
         return response.data;
     }
 
     async selectAllFiles(id) {
         const params = new URLSearchParams();
         params.append('files', 'all');
-        await rd.post(`/torrents/selectFiles/${id}`, params);
+        await getRD().post(`/torrents/selectFiles/${id}`, params);
     }
 
     async unrestrictLink(link) {
         const params = new URLSearchParams();
         params.append('link', link);
-        const response = await rd.post('/unrestrict/link', params);
+        const response = await getRD().post('/unrestrict/link', params);
         return response.data.download; // Direct HTTPS URL
     }
 
