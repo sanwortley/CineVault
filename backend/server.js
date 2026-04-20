@@ -996,11 +996,11 @@ app.post('/api/admin/config/rd-token', adminMiddleware, (req, res) => {
 });
 
 // --- Config Management ---
-app.get('/api/admin/config/rd-token', adminMiddleware, (req, res) => {
+app.get('/api/admin/config/rd-token', sessionMiddleware, adminMiddleware, (req, res) => {
     res.json({ token: process.env.REAL_DEBRID_API_TOKEN || '' });
 });
 
-app.post('/api/admin/config/rd-token', adminMiddleware, (req, res) => {
+app.post('/api/admin/config/rd-token', sessionMiddleware, adminMiddleware, (req, res) => {
     const { token } = req.body;
     if (!token) return res.status(400).json({ error: 'Token requerido' });
     process.env.REAL_DEBRID_API_TOKEN = token;
@@ -1018,11 +1018,11 @@ app.post('/api/admin/config/rd-token', adminMiddleware, (req, res) => {
     res.json({ message: 'Token de Real-Debrid actualizado' });
 });
 
-app.get('/api/admin/config/tmdb-key', adminMiddleware, (req, res) => {
+app.get('/api/admin/config/tmdb-key', sessionMiddleware, adminMiddleware, (req, res) => {
     res.json({ key: process.env.TMDB_API_KEY || '' });
 });
 
-app.post('/api/admin/config/tmdb-key', adminMiddleware, (req, res) => {
+app.post('/api/admin/config/tmdb-key', sessionMiddleware, adminMiddleware, (req, res) => {
     const { key } = req.body;
     if (!key) return res.status(400).json({ error: 'Key requerida' });
     process.env.TMDB_API_KEY = key;
