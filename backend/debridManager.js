@@ -13,8 +13,8 @@ const getRD = () => {
 
 class DebridManager {
     constructor() {
-        if (!API_TOKEN) {
-            console.warn('[DebridManager] No REAL_DEBRID_API_TOKEN found in .env');
+        if (!process.env.REAL_DEBRID_API_TOKEN) {
+            console.warn('[DebridManager] No REAL_DEBRID_API_TOKEN found in environment');
         }
     }
 
