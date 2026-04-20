@@ -44,9 +44,33 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, '../dist')));
 
-// Middlewares moved to middleware.js
+// Robust Static Serving (Railway/Production)
+const distPath = path.resolve(__dirname, '../dist');
+console.log(`[Server] Static assets directory: ${distPath}`);
+
+if (fs.existsSync(distPath)) {
+    console.log('[Server] Initializing static routes for:', distPath);
+    
+    // Serve static assets with long-term caching (since Vite hashes them)
+    app.use('/assets', express.static(path.join(distPath, 'assets'), {
+        immutable: true,
+        maxAge: '1y',
+        index: false
+    }));
+
+    // Serve other public files (favicon, robots.txt, etc.)
+    app.use(express.static(distPath));
+    
+    const assetsPath = path.join(distPath, 'assets');
+    if (fs.existsSync(assetsPath)) {
+        console.log(`[Server] Assets confirmed in: ${assetsPath}`);
+    } else {
+        console.warn(`[Server] WARNING: No /assets folder found in dist yet.`);
+    }
+} else {
+    console.error(`[CRITICAL] Static directory NOT FOUND: ${distPath}. Front-end will not load (502/404).`);
+}
 
 // ─── Multer Config for Movie Uploads ─────────────────────────────────────────
 const storage = multer.diskStorage({
@@ -936,34 +960,8 @@ app.post('/api/movies/upload', sessionMiddleware, adminMiddleware, movieUpload.a
 // ─── Health ────────────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => res.json({ status: 'ok', version: '1.0.0' }));
 
-// ─── Frontend Serving (Railway/Production) ────────────────────────────────────
-const distPath = path.resolve(__dirname, '../dist');
-if (fs.existsSync(distPath)) {
-    console.log('[Server] Serving static frontend from:', distPath);
-    
-    // Serve static assets with long-term caching (since Vite hashes them)
-    app.use('/assets', express.static(path.join(distPath, 'assets'), {
-        immutable: true,
-        maxAge: '1y',
-        index: false
-    }));
 
-    // Serve other public files with shorter cache
-    app.use(express.static(distPath, { 
-        index: false 
-    }));
-
-    // Fallback to index.html with NO CACHE to ensure updates are seen
-    app.use((req, res, next) => {
-        if (req.path.startsWith('/api')) return next();
-        if (req.method !== 'GET') return next();
-        
-        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
-        res.sendFile(path.join(distPath, 'index.html'));
-    });
-} else {
-    console.warn('[Server] Frontend build (dist/) not found. Static serving disabled.');
-}
+// --- Config Management ---
 
 // --- Config Management ---
 app.get('/api/admin/config/rd-token', adminMiddleware, (req, res) => {
@@ -997,13 +995,20 @@ app.post('/api/admin/config/rd-token', adminMiddleware, (req, res) => {
     res.json({ message: 'Token de Real-Debrid actualizado correctamente' });
 });
 
-// Add this to support SPA routing (must be AFTER static and API routes)
+// Support SPA routing (must be AFTER static and API routes)
 app.get('*', (req, res) => {
-    // Prevent redirecting asset requests to index.html to avoid MIME errors
-    if (req.path.startsWith('/assets/')) {
-        return res.status(404).send('Asset not found');
+    // SECURITY: Prevent serving index.html for missing asset files (avoids MIME errors)
+    // If it has a file extension or starts with /assets/, it's a file request that failed in express.static
+    if (req.path.includes('.') || req.path.startsWith('/assets/')) {
+        return res.status(404).send('Not Found');
     }
-    res.sendFile(path.join(__dirname, '../dist/index.html'));
+    
+    const indexPath = path.join(__dirname, '../dist/index.html');
+    if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    } else {
+        res.status(502).send('Frontend not built yet. Please wait for the build process to finish on Railway.');
+    }
 });
 
 const server = app.listen(PORT, () => {
