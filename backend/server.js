@@ -215,6 +215,11 @@ app.post('/api/auth/register-session', async (req, res) => {
     }
 });
 
+app.get('/api/auth/session-check', sessionMiddleware, (req, res) => {
+    // sessionMiddleware already validated and updated last_active
+    res.json({ status: 'ok', session: req.session });
+});
+
 // Admin Session Management
 app.get('/api/admin/sessions', sessionMiddleware, adminMiddleware, async (req, res) => {
     try {

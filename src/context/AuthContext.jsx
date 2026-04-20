@@ -22,6 +22,37 @@ export function AuthProvider({ children }) {
         return () => window.removeEventListener('session-expired', handleSessionExpired);
     }, []);
 
+    // Heartbeat & Visibility Session Check
+    useEffect(() => {
+        if (!user || !sessionId) return;
+
+        const performCheck = async () => {
+            try {
+                await api.checkSession();
+            } catch (err) {
+                // api.js backendFetch will auto-trigger 'session-expired' event on 401
+                console.warn('[Heartbeat] Session check failed:', err.message);
+            }
+        };
+
+        // Check every 30 seconds
+        const interval = setInterval(performCheck, 30000);
+
+        // Check when tab becomes visible
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                performCheck();
+            }
+        };
+
+        window.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [user, sessionId]);
+
     const checkAuth = async () => {
         try {
             const stored = localStorage.getItem('cinevault_user');

@@ -198,6 +198,10 @@ export const api = {
         });
     },
 
+    checkSession: () => {
+        return backendFetch('/api/auth/session-check');
+    },
+
     listSessions: () => {
         return backendFetch('/api/admin/sessions');
     },
