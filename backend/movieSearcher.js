@@ -42,29 +42,48 @@ async function searchYTS(query) {
 }
 
 async function searchTPB(query) {
-    try {
-        const response = await axios.get(`https://apibay.org/q.php?q=${encodeURIComponent(query)}`, {
-            headers: COMMON_HEADERS,
-            timeout: 8000
-        });
-        
-        if (Array.isArray(response.data)) {
-            return response.data
-                .filter(item => item.id !== '0' && item.info_hash !== '0000000000000000000000000000000000000000')
-                .map(item => ({
-                    title: item.name,
-                    size: (parseInt(item.size) / (1024 * 1024 * 1024)).toFixed(2) + ' GB',
-                    seeds: parseInt(item.seeders) || 0,
-                    link: item.info_hash,
-                    isHash: true,
-                    provider: 'PirateBay'
-                }));
+    const mirrors = [
+        'https://apibay.org',
+        'https://thepiratebay0.org',
+        'https://piratebay.party',
+        'https://tpblist.info'
+    ];
+
+    for (const mirror of mirrors) {
+        try {
+            console.log(`[Searcher] Trying TPB mirror: ${mirror}`);
+            const url = mirror.includes('apibay') 
+                ? `${mirror}/q.php?q=${encodeURIComponent(query)}`
+                : `${mirror}/search/${encodeURIComponent(query)}/1/99/0`;
+            
+            const response = await axios.get(url, {
+                headers: COMMON_HEADERS,
+                timeout: 6000
+            });
+            
+            if (mirror.includes('apibay')) {
+                if (Array.isArray(response.data) && response.data.length > 0 && response.data[0].id !== '0') {
+                    return response.data
+                        .filter(item => item.id !== '0' && item.info_hash !== '0000000000000000000000000000000000000000')
+                        .map(item => ({
+                            title: item.name,
+                            size: (parseInt(item.size) / (1024 * 1024 * 1024)).toFixed(2) + ' GB',
+                            seeds: parseInt(item.seeders) || 0,
+                            link: item.info_hash,
+                            isHash: true,
+                            provider: 'PirateBay'
+                        }));
+                }
+            } else {
+                // Basic scraper for mirrors if needed, but for now we focus on APIS
+                // Most mirrors are HTML only, so we'd need cheerio here if we really want them.
+                // For now, let's stick to Solid and YTS as primary and TPB apibay as secondary.
+            }
+        } catch (err) {
+            console.error(`[Searcher] TPB Mirror ${mirror} failed:`, err.message);
         }
-        return [];
-    } catch (err) {
-        console.error('[Searcher] TPB Error:', err.message);
-        return [];
     }
+    return [];
 }
 
 async function searchSolid(query) {

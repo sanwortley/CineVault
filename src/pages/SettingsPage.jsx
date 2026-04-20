@@ -119,38 +119,37 @@ function SettingsPage({ onClose, onTabChange }) {
                 </section>
 
                 {/* 2. Secondary Settings Grid */}
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
-                    
-                    {/* Storage Management */}
+                <div className="grid grid-cols-1 gap-12">
+                    {/* Storage Management (Full Width for list visibility) */}
                     <section className="glass rounded-[3rem] p-8 md:p-12 border border-white/5 flex flex-col min-h-[400px]">
                         <div className="flex items-center gap-6 mb-12">
-                            <div className="p-5 bg-netflix-red/10 rounded-3xl border border-netflix-red/20">
+                            <div className="p-5 bg-netflix-red/10 rounded-3xl border border-netflix-red/20 shadow-inner">
                                 <Database className="text-netflix-red" size={32} />
                             </div>
                             <div>
-                                <h3 className="text-2xl font-black text-white tracking-tight uppercase italic">Vault Storage</h3>
-                                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Carpetas locales vinculadas</p>
+                                <h3 className="text-3xl font-black text-white tracking-tight uppercase italic underline decoration-netflix-red decoration-4 transition-all hover:decoration-white">Vault Storage</h3>
+                                <p className="text-xs font-bold text-slate-500 uppercase tracking-[0.3em] mt-1">Carpetas locales vinculadas al servidor</p>
                             </div>
                         </div>
 
-                        <div className="flex-1 space-y-4 mb-12 bg-black/20 rounded-[2rem] p-6 border border-white/[0.03]">
+                        <div className="flex-1 space-y-4 mb-12 bg-black/40 rounded-[2.5rem] p-8 border border-white/[0.03] shadow-inner">
                             {folders.length === 0 ? (
-                                <div className="h-full flex flex-col items-center justify-center text-center py-12 opacity-30">
-                                    <Folder size={48} strokeWidth={1} className="mb-4" />
-                                    <p className="text-xs font-black uppercase tracking-widest">Sin carpetas activas</p>
+                                <div className="h-full flex flex-col items-center justify-center text-center py-20 opacity-30">
+                                    <Folder size={64} strokeWidth={1} className="mb-6" />
+                                    <p className="text-sm font-black uppercase tracking-[0.5em]">La bóveda está vacía</p>
                                 </div>
                             ) : (
                                 folders.map((folder, index) => (
-                                    <div key={index} className="flex justify-between items-center p-5 bg-white/[0.03] border border-white/5 rounded-2xl group hover:bg-white/10 transition-all duration-300">
-                                        <div className="flex items-center gap-4 min-w-0">
-                                            <Folder size={18} className="text-slate-500 group-hover:text-white transition-colors" />
-                                            <span className="text-xs font-bold text-slate-400 group-hover:text-slate-200 truncate tracking-tight">{folder}</span>
+                                    <div key={index} className="flex justify-between items-center p-6 bg-white/[0.02] border border-white/5 rounded-2xl group hover:bg-white/[0.06] transition-all duration-500">
+                                        <div className="flex items-center gap-6 min-w-0">
+                                            <Folder size={20} className="text-slate-600 group-hover:text-netflix-red transition-colors" />
+                                            <span className="text-sm font-bold text-slate-400 group-hover:text-white truncate tracking-tight">{folder}</span>
                                         </div>
                                         <button 
                                             onClick={() => handleDeleteFolder(folder)}
-                                            className="p-3 text-slate-600 hover:text-netflix-red transition-colors"
+                                            className="p-4 text-slate-600 hover:text-netflix-red hover:bg-netflix-red/10 rounded-xl transition-all"
                                         >
-                                            <Trash2 size={20} />
+                                            <Trash2 size={24} />
                                         </button>
                                     </div>
                                 ))
@@ -160,93 +159,100 @@ function SettingsPage({ onClose, onTabChange }) {
                         <button 
                             onClick={handleAddFolder}
                             disabled={isAdding}
-                            className="w-full py-6 bg-white/5 text-white border border-white/10 text-xs font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-white/10 active:scale-95 transition-all shadow-xl flex items-center justify-center gap-3"
+                            className="w-full py-8 bg-white/5 text-white border border-white/10 text-xs md:text-sm font-black uppercase tracking-[0.4em] rounded-[2rem] hover:bg-white/10 active:scale-95 transition-all shadow-[0_0_40px_rgba(0,0,0,0.5)] flex items-center justify-center gap-4"
                         >
-                            <Plus size={20} />
-                            Vincular Nueva Carpeta
+                            <Plus size={24} />
+                            Añadir Disco o Carpeta Local
                         </button>
                     </section>
 
-                    {/* API & Cloud Dashboard */}
+                    {/* API & Cloud Dashboard - FULL WIDTH STACKED */}
                     <div className="flex flex-col gap-12">
                         {/* TMDB Metadatos */}
-                        <section className="glass rounded-[3rem] p-8 md:p-12 border border-white/5 relative overflow-hidden group">
-                           <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
-                                <ShieldCheck size={180} strokeWidth={1} />
+                        <section className="glass rounded-[3rem] p-8 md:p-14 border border-white/5 relative overflow-hidden group">
+                           <div className="absolute top-0 right-0 p-12 opacity-[0.02] group-hover:opacity-[0.05] transition-opacity rotate-12">
+                                <ShieldCheck size={300} strokeWidth={1} />
                             </div>
                             
                             <div className="relative z-10">
-                                <div className="flex items-center gap-6 mb-10">
-                                    <div className="p-5 bg-netflix-red/10 rounded-3xl border border-netflix-red/20 shadow-inner">
-                                        <ShieldCheck className="text-netflix-red" size={32} />
+                                <div className="flex items-center gap-8 mb-12">
+                                    <div className="p-6 bg-netflix-red/10 rounded-[2rem] border border-netflix-red/20 shadow-inner">
+                                        <ShieldCheck className="text-netflix-red" size={40} />
                                     </div>
                                     <div>
-                                        <h3 className="text-2xl font-black text-white tracking-tight uppercase italic">TMDb Engine</h3>
-                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Motor de Metadatos</p>
+                                        <h3 className="text-4xl font-black text-white tracking-tighter uppercase italic">TMDb Engine</h3>
+                                        <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Sincronización de Cartelería y Arte</p>
                                     </div>
                                 </div>
 
-                                <div className="space-y-4">
-                                    <label className="block text-xs font-black text-slate-500 uppercase tracking-[0.3em] mb-2 ml-1">API ACCESS KEY</label>
-                                    <div className="flex flex-col sm:flex-row gap-4">
+                                <div className="space-y-6">
+                                    <label className="block text-xs font-black text-slate-500 uppercase tracking-[0.5em] mb-4 ml-2">API ACCESS KEY (V3)</label>
+                                    <div className="flex flex-col lg:flex-row gap-6">
                                         <input 
                                             type="password"
                                             value={apiKey}
                                             onChange={(e) => setApiKey(e.target.value)}
-                                            placeholder="Introduce tu API Key..."
-                                            className="flex-1 bg-black/60 border border-white/10 rounded-2xl px-8 py-5 text-sm text-white focus:outline-none focus:border-netflix-red transition-all shadow-inner placeholder:text-slate-600 placeholder:uppercase placeholder:text-[10px]"
+                                            placeholder="Introduce tu API Key de TheMovieDB..."
+                                            className="flex-1 bg-black/60 border border-white/10 rounded-[2rem] px-10 py-7 text-lg text-white focus:outline-none focus:border-netflix-red transition-all shadow-inner placeholder:text-slate-800 placeholder:uppercase"
                                         />
                                         <button 
                                             onClick={handleSaveKey}
-                                            className={`flex items-center justify-center rounded-2xl h-[62px] min-w-[120px] font-black uppercase tracking-widest transition-all duration-500 ${isSaved ? 'bg-green-500 text-white' : 'bg-white text-black hover:bg-slate-200 shadow-xl'}`}
+                                            className={`flex items-center justify-center rounded-[2rem] h-[86px] min-w-[240px] font-black uppercase tracking-[0.3em] transition-all duration-500 shadow-2xl ${isSaved ? 'bg-green-600 text-white' : 'bg-white text-black hover:bg-slate-200 active:scale-95'}`}
                                         >
-                                            {isSaved ? <Check size={24} strokeWidth={3} /> : <span className="text-xs">Guardar</span>}
+                                            {isSaved ? <Check size={32} strokeWidth={4} /> : <span className="text-sm">Guardar Cambios</span>}
                                         </button>
                                     </div>
-                                    <p className="text-[10px] text-slate-600 font-bold uppercase tracking-wider px-2">Requerido para carteleras automáticas</p>
+                                    <p className="text-[11px] text-slate-600 font-bold uppercase tracking-[0.2em] px-4">Necesario para descargar posters y sinopsis automáticamente</p>
                                 </div>
                             </div>
                         </section>
 
                         {/* Real-Debrid / Bóveda Cloud */}
                         {isAdmin() && (
-                            <section className="glass rounded-[3rem] p-8 md:p-12 border border-white/5 relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
-                                    <Cloud size={180} strokeWidth={1} />
+                            <section className="glass rounded-[3rem] p-8 md:p-14 border border-white/5 relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-12 opacity-[0.02] group-hover:opacity-[0.05] transition-opacity -rotate-12">
+                                    <Cloud size={300} strokeWidth={1} />
                                 </div>
                                 <div className="relative z-10">
-                                    <div className="flex items-center gap-6 mb-10">
-                                        <div className="p-5 bg-netflix-red/10 rounded-3xl border border-netflix-red/20 shadow-inner">
-                                            <Cloud className="text-netflix-red" size={32} />
+                                    <div className="flex items-center gap-8 mb-12">
+                                        <div className="p-6 bg-netflix-red/10 rounded-[2rem] border border-netflix-red/20 shadow-inner">
+                                            <Cloud className="text-netflix-red" size={40} />
                                         </div>
                                         <div>
-                                            <h3 className="text-2xl font-black text-white tracking-tight uppercase italic">Bóveda Cloud</h3>
-                                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Real-Debrid Integration</p>
+                                            <h3 className="text-4xl font-black text-white tracking-tighter uppercase italic">Bóveda Cloud</h3>
+                                            <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Real-Debrid Premium Integration</p>
                                         </div>
                                     </div>
 
-                                    <div className="space-y-5">
-                                        <div className="space-y-4">
-                                            <label className="block text-xs font-black text-slate-500 uppercase tracking-[0.3em] mb-2 ml-1">REAL-DEBRID PRIVATE TOKEN</label>
-                                            <div className="flex flex-col sm:flex-row gap-4">
+                                    <div className="space-y-8">
+                                        <div className="space-y-6">
+                                            <label className="block text-xs font-black text-slate-500 uppercase tracking-[0.5em] mb-4 ml-2">REAL-DEBRID PRIVATE TOKEN</label>
+                                            <div className="flex flex-col lg:flex-row gap-6">
                                                 <input 
                                                     type="password"
                                                     value={rdToken}
                                                     onChange={(e) => setRdToken(e.target.value)}
-                                                    placeholder="Tu Token Privado..."
-                                                    className="flex-1 bg-black/60 border border-white/10 rounded-2xl px-8 py-5 text-sm text-white focus:outline-none focus:border-netflix-red transition-all shadow-inner placeholder:text-slate-600 placeholder:uppercase placeholder:text-[10px]"
+                                                    placeholder="Tu Token Privado (apibay/apitoken)..."
+                                                    className="flex-1 bg-black/60 border border-white/10 rounded-[2rem] px-10 py-7 text-lg text-white focus:outline-none focus:border-netflix-red transition-all shadow-inner placeholder:text-slate-800 placeholder:uppercase"
                                                 />
                                                 <button 
                                                     onClick={handleSaveRDToken}
-                                                    className={`flex items-center justify-center rounded-2xl h-[62px] min-w-[120px] font-black uppercase tracking-widest transition-all duration-500 ${isRDSaved ? 'bg-green-500 text-white' : 'bg-white text-black hover:bg-slate-200 shadow-xl'}`}
+                                                    className={`flex items-center justify-center rounded-[2rem] h-[86px] min-w-[240px] font-black uppercase tracking-[0.3em] transition-all duration-500 shadow-2xl ${isRDSaved ? 'bg-green-600 text-white' : 'bg-white text-black hover:bg-slate-200 active:scale-95'}`}
                                                 >
-                                                    {isRDSaved ? <Check size={24} strokeWidth={3} /> : <span className="text-xs">Vincular</span>}
+                                                    {isRDSaved ? <Check size={32} strokeWidth={4} /> : <span className="text-sm">Vincular Bóveda</span>}
                                                 </button>
                                             </div>
                                         </div>
-                                        <p className="text-[10px] text-slate-400 font-medium leading-relaxed px-2 bg-white/[0.02] p-4 rounded-xl border border-white/[0.05]">
-                                            Desbloquea el poder del streaming instantáneo. Tus archivos se descargarán a 1Gbps directo a tu nube privada. <a href="https://real-debrid.com/apitoken" target="_blank" rel="noreferrer" className="text-netflix-red font-black hover:underline ml-1">REAL-DEBRID.COM/APITOKEN</a>
-                                        </p>
+                                        <div className="bg-white/[0.02] p-8 md:p-10 rounded-[3rem] border border-white/[0.05] shadow-inner">
+                                            <p className="text-xs md:text-base text-slate-400 font-medium leading-relaxed mb-6">
+                                                Desbloquea el poder del streaming instantáneo. Tus archivos se descargarán de forma privada a 1Gbps directamente a Google Drive sin usar tu conexión local.
+                                            </p>
+                                            <div className="flex flex-wrap gap-4">
+                                                <a href="https://real-debrid.com/apitoken" target="_blank" rel="noreferrer" className="flex items-center gap-3 px-6 py-3 bg-white/5 rounded-xl text-netflix-red font-black uppercase tracking-widest text-xs hover:bg-netflix-red hover:text-white transition-all">
+                                                    Obtener Token <ExternalLink size={14} />
+                                                </a>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </section>
