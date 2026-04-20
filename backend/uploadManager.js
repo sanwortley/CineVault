@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { EventEmitter } = require('events');
+const axios = require('axios');
 const driveApi = require('./drive');
 const db = require('./db');
 
@@ -111,6 +112,21 @@ class UploadManager extends EventEmitter {
 
     getQueue() {
         return this.queue;
+    }
+
+    updateJob(movieId, data) {
+        const index = this.queue.findIndex(j => String(j.movieId) === String(movieId));
+        if (index !== -1) {
+            this.queue[index] = { ...this.queue[index], ...data };
+            this.saveQueue();
+            this.emit('queue_updated', this.queue);
+            return true;
+        }
+        return false;
+    }
+
+    getJobStatus(movieId) {
+        return this.queue.find(j => String(j.movieId) === String(movieId));
     }
 
     async processNext() {

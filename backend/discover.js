@@ -152,9 +152,13 @@ router.post('/download', adminMiddleware, async (req, res) => {
 
 // Get download progress
 router.get('/download-status/:movieId', (req, res) => {
-    const status = torrentManager.getDownloadStatus(req.params.movieId);
-    if (!status) return res.status(404).json({ error: 'Descarga no activa' });
-    res.json(status);
+    const job = uploadManager.getJobStatus(req.params.movieId);
+    if (!job) return res.status(404).json({ error: 'Descarga no activa o terminada' });
+    res.json({
+        progress: job.progress,
+        status: job.status,
+        error: job.error
+    });
 });
 
 // Direct torrent search (non-TMDB)
