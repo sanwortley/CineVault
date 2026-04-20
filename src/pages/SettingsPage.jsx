@@ -3,6 +3,7 @@ import { Plus, Trash2, Folder, ExternalLink, ShieldCheck, Database, Check, Cloud
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api, BACKEND_URL } from '../api';
+import SessionsManager from '../components/SessionsManager';
 
 function SettingsPage({ onClose, onTabChange }) {
     const { isAdmin } = useAuth();
@@ -185,6 +186,13 @@ function SettingsPage({ onClose, onTabChange }) {
                         </div>
                     </section>
                 </div>
+
+                {/* Admin-only Session Control */}
+                {isAdmin() && (
+                    <section className="glass rounded-[1.5rem] md:rounded-[3rem] p-5 md:p-12 border border-white/5 shadow-2xl">
+                        <SessionsManager />
+                    </section>
+                )}
 
                 {/* Cloud Sync - Google Drive */}
                 <section className="glass rounded-[1.5rem] md:rounded-[3rem] p-5 md:p-12 border border-white/5 shadow-2xl">

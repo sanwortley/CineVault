@@ -32,17 +32,23 @@ async function supabaseFetch(endpoint, options = {}) {
 
 // ─── Backend fetch (for Drive operations in web mode) ─────────────────────────
 async function backendFetch(path, options = {}, customHeaders = {}) {
+    const sessionId = localStorage.getItem('cinevault_session_id');
     const res = await fetch(`${BACKEND_URL}${path}`, {
         credentials: 'include',
         ...options,
         headers: { 
             'Content-Type': 'application/json', 
+            'x-session-id': sessionId || '',
             ...(options.headers || {}),
             ...customHeaders
         }
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({ message: res.statusText }));
+        if (res.status === 401) {
+            // Trigger global event for session expiration
+            window.dispatchEvent(new CustomEvent('session-expired'));
+        }
         throw new Error(err.message || JSON.stringify(err));
     }
     return res.json();
@@ -182,6 +188,22 @@ export const api = {
     disconnectDrive: () => {
         if (isElectron()) return window.electronAPI.disconnectDrive();
         return backendFetch('/api/auth/disconnect', { method: 'POST' });
+    },
+
+    // ── Sessions ──────────────────────────────────────────────────────────────
+    registerSession: (userId, email) => {
+        return backendFetch('/api/auth/register-session', {
+            method: 'POST',
+            body: JSON.stringify({ userId, email })
+        });
+    },
+
+    listSessions: () => {
+        return backendFetch('/api/admin/sessions');
+    },
+
+    deleteSession: (sessionId) => {
+        return backendFetch(`/api/admin/sessions/${sessionId}`, { method: 'DELETE' });
     },
 
     // ── Drive Streaming URL ───────────────────────────────────────────────────

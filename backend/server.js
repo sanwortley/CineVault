@@ -13,10 +13,12 @@ const fs = require('fs');
 const os = require('os');
 const http = require('http');
 const mime = require('mime-types');
+const cookieParser = require('cookie-parser');
 
 const driveApi = require('./drive');
 const db = require('./db');
 const uploadManager = require('./uploadManager');
+const optimizer = require('./optimizer');
 
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
@@ -29,17 +31,52 @@ const { addMovie } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const SESSION_TIMEOUT_MINUTES = parseInt(process.env.SESSION_TIMEOUT_MINUTES) || 60;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@cinevault.local';
 const isAdmin = (email) => email === ADMIN_EMAIL;
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
-// Allow all origins for easier mobile/local development
 app.use(cors({
     origin: true, 
     credentials: true
 }));
 app.use(express.json());
+app.use(cookieParser());
+app.use(express.static(path.join(__dirname, '../dist')));
+
+const getSessionId = (req) => req.headers['x-session-id'] || req.cookies?.sessionId;
+
+const sessionMiddleware = async (req, res, next) => {
+    const sessionId = getSessionId(req);
+    if (!sessionId) {
+        return res.status(401).json({ error: 'No se encontró sesión activa' });
+    }
+
+    try {
+        const session = await db.validateSession(sessionId, SESSION_TIMEOUT_MINUTES);
+        if (!session) {
+            return res.status(401).json({ error: 'Sesión expirada o inválida' });
+        }
+        req.session = session;
+        next();
+    } catch (err) {
+        console.error('[SessionMiddleware] Error:', err.message);
+        res.status(500).json({ error: 'Error validando sesión' });
+    }
+};
+
+const adminMiddleware = (req, res, next) => {
+    const adminEmail = process.env.VITE_ADMIN_EMAIL?.trim().toLowerCase() || ADMIN_EMAIL;
+    const userEmail = req.session?.email?.trim().toLowerCase() || 
+                      req.headers['x-user-email']?.trim().toLowerCase();
+                      
+    if (adminEmail && userEmail === adminEmail) {
+        next();
+    } else {
+        res.status(403).json({ error: 'Acceso restringido a administradores' });
+    }
+};
 
 // ─── Multer Config for Movie Uploads ─────────────────────────────────────────
 const storage = multer.diskStorage({
@@ -48,13 +85,11 @@ const storage = multer.diskStorage({
         if (targetPath && fs.existsSync(targetPath)) {
             cb(null, targetPath);
         } else {
-            // Default universal path
             const defaultPath = process.env.MOVIES_PATH || '/app/library';
             if (!fs.existsSync(defaultPath)) {
                 try {
                     fs.mkdirSync(defaultPath, { recursive: true });
                 } catch (e) {
-                    // Last resort fallback
                     const fallback = path.join(os.tmpdir(), 'CineVault');
                     if (!fs.existsSync(fallback)) fs.mkdirSync(fallback, { recursive: true });
                     return cb(null, fallback);
@@ -81,7 +116,6 @@ app.get('/api/subtitles/internal', async (req, res) => {
     res.setHeader('Content-Type', 'text/vtt');
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Range');
-    // Use ffmpeg to extract subtitle track to webvtt
     ffmpeg(filePath)
         .outputOptions([`-map 0:s:${index}`, '-f webvtt'])
         .on('error', err => {
@@ -97,7 +131,6 @@ app.get('/api/subtitles/external', (req, res) => {
     res.setHeader('Content-Type', 'text/vtt');
     res.setHeader('Access-Control-Allow-Origin', '*');
     if (fs.existsSync(filePath)) {
-        // Convert SRT to VTT on the fly using FFmpeg
         ffmpeg(filePath)
             .outputOptions(['-f webvtt'])
             .on('error', err => {
@@ -119,12 +152,10 @@ app.get('/api/subtitles/cloud', (req, res) => {
     
     res.setHeader('Access-Control-Allow-Origin', '*');
     
-    // If VTT already exists, serve it directly
     if (fs.existsSync(vttPath)) {
         return res.sendFile(vttPath, { headers: { 'Content-Type': 'text/vtt' } });
     }
     
-    // If only SRT exists, convert it first
     if (fs.existsSync(srtPath)) {
         ffmpeg(srtPath)
             .output(vttPath)
@@ -141,77 +172,70 @@ app.get('/api/subtitles/cloud', (req, res) => {
     }
 });
 
-// Simple session via a cookie storing the user's Drive token path
-// (In production you'd use redis/db, but for a personal app this is fine)
-const sessions = new Map(); // sessionId -> { authenticated: bool }
-
-function getSessionId(req) {
-    return req.headers['x-session-id'] || req.cookies?.sessionId;
-}
-
 // ─── Auth Routes ──────────────────────────────────────────────────────────────
 const REDIRECT_PORT = 19999;
 const WEB_OAUTH_REDIRECT = `${process.env.BACKEND_URL || `http://localhost:${PORT}`}/api/auth/callback`;
 
-// Initiate Google OAuth for web
 app.get('/api/auth/google', (req, res) => {
-    const { google } = require('googleapis');
-    const oauth2Client = new google.auth.OAuth2(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET,
-        WEB_OAUTH_REDIRECT
-    );
-    const url = oauth2Client.generateAuthUrl({
-        access_type: 'offline',
-        prompt: 'consent',
-        scope: ['https://www.googleapis.com/auth/drive.file']
-    });
-    res.redirect(url);
+    const authUrl = driveApi.getAuthUrl();
+    res.redirect(authUrl);
 });
 
-// OAuth callback for web
 app.get('/api/auth/callback', async (req, res) => {
     const { code } = req.query;
-    if (!code) return res.status(400).send('No code provided');
-
     try {
-        const { google } = require('googleapis');
-        const oauth2Client = new google.auth.OAuth2(
-            process.env.GOOGLE_CLIENT_ID,
-            process.env.GOOGLE_CLIENT_SECRET,
-            WEB_OAUTH_REDIRECT
-        );
-        const { tokens } = await oauth2Client.getToken(code);
-        
-        // Save tokens to disk using the centralized path from driveApi
-        const tokenPath = driveApi.getTokenPath();
-        fs.writeFileSync(tokenPath, JSON.stringify(tokens));
+        const tokens = await driveApi.getTokens(code);
         driveApi.getOAuthClient().setCredentials(tokens);
-
-        res.send('<html><body><h2>✓ Google Drive conectado correctamente.</h2><p>Puedes cerrar esta ventana y volver a CineVault.</p><script>window.close()</script></body></html>');
-    } catch (e) {
-        console.error('[Auth Callback]', e.message);
-        res.status(500).send('Auth failed: ' + e.message);
+        res.send('<h1>CineVault conectado con éxito</h1><script>setTimeout(window.close, 1000)</script>');
+    } catch (error) {
+        console.error('[Auth Callback] Error:', error.message);
+        res.status(500).send(`Error al conectar con Drive: ${error.message}`);
     }
 });
 
-// Check auth status
 app.get('/api/auth/status', (req, res) => {
     res.json({ authenticated: driveApi.isAuthenticated() });
 });
 
-// Disconnect
-app.post('/api/auth/disconnect', async (req, res) => {
+// User Session Management
+app.post('/api/auth/register-session', async (req, res) => {
+    const { userId, email } = req.body;
+    if (!userId || !email) return res.status(400).json({ error: 'UserId y Email requeridos' });
+
+    const userAgent = req.headers['user-agent'];
+    const ip = req.ip || req.headers['x-forwarded-for'];
+
     try {
-        await driveApi.disconnect();
+        const result = await db.registerSession(userId, email, userAgent, ip);
+        const session = Array.isArray(result) ? result[0] : result;
+        res.json({ sessionId: session.id });
+    } catch (err) {
+        console.error('[RegisterSession] Error:', err.message);
+        res.status(500).json({ error: 'Error al registrar sesión' });
+    }
+});
+
+// Admin Session Management
+app.get('/api/admin/sessions', sessionMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const sessions = await db.listSessions();
+        res.json(sessions);
+    } catch (err) {
+        res.status(500).json({ error: 'Error listando sesiones' });
+    }
+});
+
+app.delete('/api/admin/sessions/:id', sessionMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        await db.deleteSession(req.params.id);
         res.json({ success: true });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
+    } catch (err) {
+        res.status(500).json({ error: 'Error eliminando sesión' });
     }
 });
 
 // ─── Drive Streaming ──────────────────────────────────────────────────────────
-app.get('/api/drive/stream/:fileId', async (req, res) => {
+app.get('/api/drive/stream/:fileId', sessionMiddleware, async (req, res) => {
     if (!driveApi.isAuthenticated()) {
         return res.status(401).json({ error: 'Drive no conectado. Inicia sesión para ver películas.' });
     }
@@ -355,12 +379,7 @@ app.get('/api/drive/progress/:movieId', (req, res) => {
     });
 });
 
-app.post('/api/drive/upload', upload.single('file'), async (req, res) => {
-    const userEmail = req.headers['x-user-email'];
-    if (!isAdmin(userEmail)) {
-        return res.status(403).json({ error: 'Solo el administrador puede subir películas.' });
-    }
-
+app.post('/api/drive/upload', sessionMiddleware, adminMiddleware, upload.single('file'), async (req, res) => {
     const { movieId } = req.body;
     const tempPath = req.file?.path;
 
@@ -390,12 +409,7 @@ app.post('/api/drive/upload', upload.single('file'), async (req, res) => {
     }
 });
 
-app.post('/api/drive/upload-local', async (req, res) => {
-    const userEmail = req.headers['x-user-email'];
-    if (!isAdmin(userEmail)) {
-        return res.status(403).json({ error: 'Solo el administrador puede subir películas.' });
-    }
-
+app.post('/api/drive/upload-local', sessionMiddleware, adminMiddleware, async (req, res) => {
     const { movieId, filePath, options } = req.body;
 
     if (!filePath || !movieId) return res.status(400).json({ error: 'Missing filePath or movieId' });
@@ -434,16 +448,11 @@ app.post('/api/drive/upload-local', async (req, res) => {
 });
 
 // Queue API routes
-app.get('/api/drive/queue', (req, res) => {
+app.get('/api/drive/queue', sessionMiddleware, (req, res) => {
     res.json(uploadManager.getQueue());
 });
 
-app.post('/api/drive/queue/retry', (req, res) => {
-    const userEmail = req.headers['x-user-email'];
-    if (!isAdmin(userEmail)) {
-        return res.status(403).json({ error: 'Acceso denegado.' });
-    }
-
+app.post('/api/drive/queue/retry', sessionMiddleware, adminMiddleware, (req, res) => {
     const { movieId } = req.body;
     if (uploadManager.retry(movieId)) {
         res.json({ success: true });
@@ -452,12 +461,7 @@ app.post('/api/drive/queue/retry', (req, res) => {
     }
 });
 
-app.delete('/api/drive/queue/:movieId', (req, res) => {
-    const userEmail = req.headers['x-user-email'];
-    if (!isAdmin(userEmail)) {
-        return res.status(403).json({ error: 'Acceso denegado.' });
-    }
-
+app.delete('/api/drive/queue/:movieId', sessionMiddleware, adminMiddleware, (req, res) => {
     uploadManager.remove(req.params.movieId);
     res.json({ success: true });
 });
@@ -561,7 +565,7 @@ app.post('/api/subtitles/download', async (req, res) => {
 });
 
 // ─── Folders Management ────────────────────────────────────────────────────────
-app.get('/api/folders', async (req, res) => {
+app.get('/api/folders', sessionMiddleware, async (req, res) => {
     try {
         const folders = await db.getFolders();
         res.json(folders);
@@ -570,7 +574,7 @@ app.get('/api/folders', async (req, res) => {
     }
 });
 
-app.post('/api/folders', async (req, res) => {
+app.post('/api/folders', sessionMiddleware, adminMiddleware, async (req, res) => {
     const { folder_path } = req.body;
     if (!folder_path) return res.status(400).json({ error: 'Falta la ruta de la carpeta' });
     try {
@@ -629,7 +633,7 @@ app.post('/api/folders', async (req, res) => {
     }
 });
 
-app.delete('/api/folders', async (req, res) => {
+app.delete('/api/folders', sessionMiddleware, adminMiddleware, async (req, res) => {
     const { folder_path } = req.body;
     try {
         await db.removeFolder(folder_path);
@@ -640,7 +644,7 @@ app.delete('/api/folders', async (req, res) => {
 });
 
 // ─── Library Management ───────────────────────────────────────────────────────
-app.post('/api/library/refresh', async (req, res) => {
+app.post('/api/library/refresh', sessionMiddleware, adminMiddleware, async (req, res) => {
     try {
         const folders = await db.getFolders();
 
@@ -701,7 +705,7 @@ app.post('/api/library/refresh', async (req, res) => {
     }
 });
 
-app.post('/api/library/clear', async (req, res) => {
+app.post('/api/library/clear', sessionMiddleware, adminMiddleware, async (req, res) => {
     try {
         await db.clearMovies();
         await db.clearFolders();
@@ -711,14 +715,8 @@ app.post('/api/library/clear', async (req, res) => {
     }
 });
 
-app.delete('/api/movies/:id', async (req, res) => {
+app.delete('/api/movies/:id', sessionMiddleware, adminMiddleware, async (req, res) => {
     const { id } = req.params;
-    const userEmail = req.headers['x-user-email'] || '';
-    
-    // Security check: only admin can delete
-    if (userEmail.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
-        return res.status(403).json({ error: 'Solo el administrador puede borrar películas.' });
-    }
 
     try {
         // 1. Get movie info to see if it has a Drive file
@@ -750,7 +748,7 @@ app.delete('/api/movies/:id', async (req, res) => {
 });
 
 // ─── Remote Filesystem Browsing ───────────────────────────────────────────────
-app.get('/api/fs/home', (req, res) => {
+app.get('/api/fs/home', sessionMiddleware, adminMiddleware, (req, res) => {
     const home = os.homedir();
     const commonFolders = [
         { name: 'Escritorio', path: path.join(home, 'Desktop') },
@@ -763,7 +761,7 @@ app.get('/api/fs/home', (req, res) => {
     res.json({ home, commonFolders });
 });
 
-app.get('/api/fs/drives', (req, res) => {
+app.get('/api/fs/drives', sessionMiddleware, adminMiddleware, (req, res) => {
     if (process.platform !== 'win32') {
         return res.json(['/']);
     }
@@ -785,7 +783,7 @@ app.get('/api/fs/drives', (req, res) => {
     });
 });
 
-app.get('/api/fs/ls', (req, res) => {
+app.get('/api/fs/ls', sessionMiddleware, adminMiddleware, (req, res) => {
     let dirPath = req.query.path || (process.platform === 'win32' ? 'C:\\' : '/');
     
     // Security: prevent path traversal
@@ -823,7 +821,7 @@ app.get('/api/fs/ls', (req, res) => {
 // ─── User Progress & MyList ─────────────────────────────────────────────────────
 // ADMIN_EMAIL moved to top for better accessibility
 
-app.get('/api/user/progress', async (req, res) => {
+app.get('/api/user/progress', sessionMiddleware, async (req, res) => {
     const userId = req.headers['x-user-id'];
     if (!userId) return res.status(401).json({ error: 'Not authenticated' });
     
@@ -836,7 +834,7 @@ app.get('/api/user/progress', async (req, res) => {
     }
 });
 
-app.post('/api/user/progress', async (req, res) => {
+app.post('/api/user/progress', sessionMiddleware, async (req, res) => {
     const userId = req.headers['x-user-id'];
     if (!userId) return res.status(401).json({ error: 'Not authenticated' });
     
@@ -863,7 +861,7 @@ app.post('/api/user/progress', async (req, res) => {
     }
 });
 
-app.get('/api/user/mylist', async (req, res) => {
+app.get('/api/user/mylist', sessionMiddleware, async (req, res) => {
     const userId = req.headers['x-user-id'];
     if (!userId) return res.status(401).json({ error: 'Not authenticated' });
     
@@ -876,7 +874,7 @@ app.get('/api/user/mylist', async (req, res) => {
     }
 });
 
-app.post('/api/user/mylist', async (req, res) => {
+app.post('/api/user/mylist', sessionMiddleware, async (req, res) => {
     const userId = req.headers['x-user-id'];
     if (!userId) return res.status(401).json({ error: 'Not authenticated' });
     
@@ -898,7 +896,7 @@ app.post('/api/user/mylist', async (req, res) => {
     }
 });
 
-app.delete('/api/user/mylist/:movieId', async (req, res) => {
+app.delete('/api/user/mylist/:movieId', sessionMiddleware, async (req, res) => {
     const userId = req.headers['x-user-id'];
     if (!userId) return res.status(401).json({ error: 'Not authenticated' });
     
@@ -920,7 +918,7 @@ app.delete('/api/user/mylist/:movieId', async (req, res) => {
 });
 
 // ─── Movie Uploads ─────────────────────────────────────────────────────────────
-app.post('/api/movies/upload', movieUpload.array('files'), async (req, res) => {
+app.post('/api/movies/upload', sessionMiddleware, adminMiddleware, movieUpload.array('files'), async (req, res) => {
     try {
         console.log(`[Upload] Received ${req.files?.length} files`);
         

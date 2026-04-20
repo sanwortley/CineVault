@@ -1,14 +1,25 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../supabase';
+import { api } from '../api';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
+    const [sessionId, setSessionId] = useState(localStorage.getItem('cinevault_session_id'));
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         checkAuth();
+        
+        const handleSessionExpired = () => {
+            console.warn('[Auth] Session expired event received. Logging out...');
+            logout();
+            window.location.href = '/login?expired=true';
+        };
+        
+        window.addEventListener('session-expired', handleSessionExpired);
+        return () => window.removeEventListener('session-expired', handleSessionExpired);
     }, []);
 
     const checkAuth = async () => {
@@ -42,6 +53,16 @@ export function AuthProvider({ children }) {
             refresh_token: data.session.refresh_token
         };
 
+        // Register session in backend
+        try {
+            const { sessionId } = await api.registerSession(userData.id, userData.email);
+            localStorage.setItem('cinevault_session_id', sessionId);
+            setSessionId(sessionId);
+        } catch (err) {
+            console.error('[Auth] Failed to register backend session:', err);
+            // We continue anyway, but backend calls might fail with 401
+        }
+
         localStorage.setItem('cinevault_user', JSON.stringify(userData));
         setUser(userData);
         return userData;
@@ -55,7 +76,9 @@ export function AuthProvider({ children }) {
             } catch (e) {}
         }
         localStorage.removeItem('cinevault_user');
+        localStorage.removeItem('cinevault_session_id');
         setUser(null);
+        setSessionId(null);
     };
 
     const isAdmin = () => {

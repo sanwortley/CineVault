@@ -165,6 +165,71 @@ const database = {
         return result.length > 0;
     },
     
+    // Session Management
+    registerSession: async (userId, email, userAgent, ip) => {
+        // First, delete old sessions for this email (Unique session per email)
+        await supabaseFetch(`sessions?email=eq.${encodeURIComponent(email)}`, { method: 'DELETE' });
+        
+        // Create new session
+        return await supabaseFetch('sessions', {
+            method: 'POST',
+            body: JSON.stringify({
+                user_id: userId,
+                email: email,
+                user_agent: userAgent,
+                ip_address: ip,
+                last_active: new Date().toISOString()
+            }),
+            headers: { 'Prefer': 'return=representation' }
+        });
+    },
+    validateSession: async (sessionId, timeoutMinutes = 60) => {
+        const sessions = await supabaseFetch(`sessions?id=eq.${sessionId}&select=*`) || [];
+        if (sessions.length === 0) return null;
+        
+        const session = sessions[0];
+        const lastActive = new Date(session.last_active);
+        const now = new Date();
+        const diffMs = now - lastActive;
+        const diffMins = Math.floor(diffMs / 60000);
+        
+        if (diffMins > timeoutMinutes) {
+            console.warn(`[DB] Session ${sessionId} expired due to inactivity (${diffMins}m > ${timeoutMinutes}m)`);
+            await database.deleteSession(sessionId);
+            return null;
+        }
+        
+        // Update last_active
+        await supabaseFetch(`sessions?id=eq.${sessionId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ last_active: now.toISOString() })
+        });
+        
+        return session;
+    },
+    listSessions: async () => {
+        return await supabaseFetch('sessions?select=*&order=last_active.desc') || [];
+    },
+    deleteSession: async (sessionId) => {
+        return await supabaseFetch(`sessions?id=eq.${sessionId}`, { method: 'DELETE' });
+    },
+    cleanupExpiredSessions: async (timeoutMinutes = 60) => {
+        // This is harder with Supabase REST API (no complex DELETE where with date math easily)
+        // For now, we'll rely on on-demand validation cleanup or simple full clear if desired.
+        // A better way would be a Supabase function, but we'll list and delete for now if called.
+        const all = await database.listSessions();
+        const now = new Date();
+        const expired = all.filter(s => {
+            const diff = now - new Date(s.last_active);
+            return (diff / 60000) > timeoutMinutes;
+        });
+        
+        for (const s of expired) {
+            await database.deleteSession(s.id);
+        }
+        return expired.length;
+    },
+    
     supabaseFetch: supabaseFetch
 };
 
