@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Folder, ExternalLink, ShieldCheck, Database, Check, Cloud, CloudOff, Loader, UserPlus, X, Files } from 'lucide-react';
+import { Plus, Trash2, Folder, ExternalLink, ShieldCheck, Database, Check, Cloud, CloudOff, Loader, UserPlus, X, Files, Settings, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api, BACKEND_URL } from '../api';
@@ -44,7 +44,6 @@ function SettingsPage({ onClose, onTabChange }) {
                 const paths = await api.openDirectory();
                 if (paths && paths.length > 0) await fetchConfig();
             } else {
-                // Redirect to the Universal Sync tab which is the browser-native way
                 if (onTabChange) onTabChange('upload');
             }
         } catch (error) {
@@ -79,76 +78,79 @@ function SettingsPage({ onClose, onTabChange }) {
     };
 
     return (
-        <div className="p-4 md:p-12 pb-40 max-w-5xl mx-auto animate-fade-in relative z-10 no-drag">
-            <header className="mb-8 md:mb-20 text-center md:text-left">
-                <div className="flex flex-col md:flex-row items-center gap-2 md:gap-3 mb-4 md:mb-6">
-                    <div className="w-8 md:w-12 h-[2px] bg-netflix-red/60 rounded-full hidden md:block"></div>
-                    <span className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.3em] md:tracking-[0.6em] text-white/90 glow-text">CineVault Experience</span>
+        <div className="p-4 md:p-12 pb-40 max-w-7xl mx-auto animate-fade-in relative z-10 no-drag">
+            <header className="mb-12 md:mb-24 text-center md:text-left">
+                <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4 mb-6">
+                    <div className="w-12 h-[3px] bg-netflix-red rounded-full hidden md:block"></div>
+                    <span className="text-[10px] md:text-[12px] font-black uppercase tracking-[0.5em] text-white/90 glow-text">CineVault Control Center</span>
                 </div>
-                <h1 className="text-4xl md:text-7xl font-black tracking-tighter text-white mb-3 md:mb-6 leading-none drop-shadow-2xl">
-                    <span className="bg-clip-text text-transparent bg-gradient-to-br from-white via-slate-300 to-netflix-red">Ajustes</span>
+                <h1 className="text-5xl md:text-8xl font-black tracking-tighter text-white mb-6 leading-none select-none">
+                    <span className="bg-clip-text text-transparent bg-gradient-to-br from-white via-slate-200 to-slate-500">Configuración</span>
                 </h1>
-                <p className="text-slate-500 text-[9px] md:text-sm font-bold tracking-widest uppercase opacity-60">Configura tu centro de control cinematográfico.</p>
+                <p className="text-slate-500 text-[10px] md:text-base font-bold tracking-widest uppercase opacity-60">Personaliza y potencia tu experiencia cinematográfica de élite.</p>
             </header>
 
-            <div className="grid gap-6 md:gap-12">
-                {/* Universal Sync Section - PRIMARY ACTION */}
-                <section className="glass rounded-[1.5rem] md:rounded-[3rem] p-5 md:p-12 border border-white/5 shadow-2xl overflow-hidden relative group">
-                    <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <Files size={150} strokeWidth={1} />
+            <div className="grid gap-12">
+                {/* 1. Primary Action: Universal Sync */}
+                <section className="glass rounded-[3rem] p-8 md:p-16 border border-white/5 shadow-2xl relative overflow-hidden group">
+                    <div className="absolute -top-24 -right-24 p-8 opacity-[0.03] group-hover:opacity-[0.07] transition-all duration-700 rotate-12 scale-150">
+                        <Files size={400} strokeWidth={1} />
                     </div>
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-8 relative z-10">
-                        <div className="flex flex-col md:flex-row items-center gap-8 text-center md:text-left">
-                            <div className="p-6 bg-white text-black rounded-[2rem] shadow-2xl scale-110">
-                                <Plus size={32} strokeWidth={3} />
+                    
+                    <div className="flex flex-col lg:flex-row items-center justify-between gap-12 relative z-10">
+                        <div className="flex flex-col md:flex-row items-center gap-12 text-center md:text-left">
+                            <div className="p-10 bg-white text-black rounded-[2.5rem] shadow-[0_0_50px_rgba(255,255,255,0.2)] hover:scale-110 transition-transform duration-500">
+                                <Plus size={48} strokeWidth={3} />
                             </div>
-                            <div>
-                                <h2 className="text-2xl md:text-4xl font-black text-white tracking-tighter mb-2">Sincronización Universal</h2>
-                                <p className="text-slate-400 text-xs md:text-base font-bold opacity-80 max-w-lg leading-relaxed">
-                                    Añade tus películas desde cualquier ordenador usando el explorador de Windows clásico. ¡Es instantáneo y fácil!
+                            <div className="max-w-2xl">
+                                <h2 className="text-3xl md:text-5xl font-black text-white tracking-tighter mb-4">Sincronización Universal</h2>
+                                <p className="text-slate-400 text-sm md:text-lg font-medium opacity-80 leading-relaxed">
+                                    Añade tus películas desde cualquier ordenador usando el explorador de Windows clásico. CineVault reconocerá instantáneamente tus archivos y los añadirá a tu bóveda con carátulas y metadatos.
                                 </p>
                             </div>
                         </div>
                         <button 
                             onClick={() => onTabChange('upload')}
-                            className="w-full md:w-auto px-12 py-6 bg-white text-black text-[11px] font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-netflix-red hover:text-white transition-all shadow-2xl whitespace-nowrap active:scale-95"
+                            className="w-full lg:w-auto px-16 py-8 bg-white text-black text-xs md:text-sm font-black uppercase tracking-[0.3em] rounded-[2rem] hover:bg-netflix-red hover:text-white transition-all duration-500 shadow-2xl active:scale-95 group/btn overflow-hidden relative"
                         >
-                            Ir a Sincronizar
+                            <span className="relative z-10">Ir a Sincronizar</span>
                         </button>
                     </div>
                 </section>
 
-                <div className="grid md:grid-cols-2 gap-6 md:gap-12">
-                    {/* Vault Administration */}
-                    <section className="glass rounded-[1.5rem] md:rounded-[3rem] p-5 md:p-10 border border-white/5 flex flex-col">
-                        <div className="flex items-center gap-4 mb-8">
-                            <div className="p-4 bg-netflix-red/10 rounded-2xl">
-                                <Database className="text-netflix-red" size={24} />
+                {/* 2. Secondary Settings Grid */}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
+                    
+                    {/* Storage Management */}
+                    <section className="glass rounded-[3rem] p-8 md:p-12 border border-white/5 flex flex-col min-h-[400px]">
+                        <div className="flex items-center gap-6 mb-12">
+                            <div className="p-5 bg-netflix-red/10 rounded-3xl border border-netflix-red/20">
+                                <Database className="text-netflix-red" size={32} />
                             </div>
                             <div>
-                                <h3 className="text-xl font-black text-white tracking-tight">CineVault Storage</h3>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Carpetas activas en la bóveda</p>
+                                <h3 className="text-2xl font-black text-white tracking-tight uppercase italic">Vault Storage</h3>
+                                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Carpetas locales vinculadas</p>
                             </div>
                         </div>
 
-                        <div className="flex-1 space-y-3 mb-8">
+                        <div className="flex-1 space-y-4 mb-12 bg-black/20 rounded-[2rem] p-6 border border-white/[0.03]">
                             {folders.length === 0 ? (
-                                <div className="p-10 border-2 border-dashed border-white/5 rounded-[2rem] flex flex-col items-center justify-center text-center opacity-40">
-                                    <Folder size={32} strokeWidth={1} className="mb-4" />
-                                    <p className="text-[10px] font-black uppercase tracking-widest">Sin carpetas vinculadas</p>
+                                <div className="h-full flex flex-col items-center justify-center text-center py-12 opacity-30">
+                                    <Folder size={48} strokeWidth={1} className="mb-4" />
+                                    <p className="text-xs font-black uppercase tracking-widest">Sin carpetas activas</p>
                                 </div>
                             ) : (
                                 folders.map((folder, index) => (
-                                    <div key={index} className="flex justify-between items-center p-4 bg-white/[0.03] border border-white/5 rounded-2xl group hover:bg-white/5 transition-colors">
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <Folder size={14} className="text-slate-600 shrink-0" />
-                                            <span className="text-[11px] font-bold text-slate-400 truncate tracking-tight">{folder}</span>
+                                    <div key={index} className="flex justify-between items-center p-5 bg-white/[0.03] border border-white/5 rounded-2xl group hover:bg-white/10 transition-all duration-300">
+                                        <div className="flex items-center gap-4 min-w-0">
+                                            <Folder size={18} className="text-slate-500 group-hover:text-white transition-colors" />
+                                            <span className="text-xs font-bold text-slate-400 group-hover:text-slate-200 truncate tracking-tight">{folder}</span>
                                         </div>
                                         <button 
                                             onClick={() => handleDeleteFolder(folder)}
-                                            className="p-2 text-slate-600 hover:text-red-500 transition-colors"
+                                            className="p-3 text-slate-600 hover:text-netflix-red transition-colors"
                                         >
-                                            <Trash2 size={16} />
+                                            <Trash2 size={20} />
                                         </button>
                                     </div>
                                 ))
@@ -158,114 +160,136 @@ function SettingsPage({ onClose, onTabChange }) {
                         <button 
                             onClick={handleAddFolder}
                             disabled={isAdding}
-                            className="w-full py-5 bg-white/5 text-white border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-white/10 active:scale-95 transition-all shadow-xl flex items-center justify-center gap-2"
+                            className="w-full py-6 bg-white/5 text-white border border-white/10 text-xs font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-white/10 active:scale-95 transition-all shadow-xl flex items-center justify-center gap-3"
                         >
-                            <Plus size={16} />
-                            Añadir Manualmente
+                            <Plus size={20} />
+                            Vincular Nueva Carpeta
                         </button>
                     </section>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Metadata Engine */}
-                        <section className="glass rounded-[1.5rem] md:rounded-[3rem] p-5 md:p-10 border border-white/5">
-                            <div className="flex items-center gap-4 mb-8">
-                                <div className="p-4 bg-netflix-red/10 rounded-2xl">
-                                    <ShieldCheck className="text-netflix-red" size={24} />
-                                </div>
-                                <div>
-                                    <h3 className="text-xl font-black text-white tracking-tight">Metadatos</h3>
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">TMDB API</p>
-                                </div>
+                    {/* API & Cloud Dashboard */}
+                    <div className="flex flex-col gap-12">
+                        {/* TMDB Metadatos */}
+                        <section className="glass rounded-[3rem] p-8 md:p-12 border border-white/5 relative overflow-hidden group">
+                           <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
+                                <ShieldCheck size={180} strokeWidth={1} />
                             </div>
+                            
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-6 mb-10">
+                                    <div className="p-5 bg-netflix-red/10 rounded-3xl border border-netflix-red/20 shadow-inner">
+                                        <ShieldCheck className="text-netflix-red" size={32} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-2xl font-black text-white tracking-tight uppercase italic">TMDb Engine</h3>
+                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Motor de Metadatos</p>
+                                    </div>
+                                </div>
 
-                            <div className="space-y-6">
-                                <div>
-                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">API KEY</label>
-                                    <div className="flex gap-2">
+                                <div className="space-y-4">
+                                    <label className="block text-xs font-black text-slate-500 uppercase tracking-[0.3em] mb-2 ml-1">API ACCESS KEY</label>
+                                    <div className="flex flex-col sm:flex-row gap-4">
                                         <input 
                                             type="password"
                                             value={apiKey}
                                             onChange={(e) => setApiKey(e.target.value)}
-                                            placeholder="Clave..."
-                                            className="flex-1 bg-black/40 border border-white/5 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none focus:border-netflix-red transition-colors min-w-0"
+                                            placeholder="Introduce tu API Key..."
+                                            className="flex-1 bg-black/60 border border-white/10 rounded-2xl px-8 py-5 text-sm text-white focus:outline-none focus:border-netflix-red transition-all shadow-inner placeholder:text-slate-600 placeholder:uppercase placeholder:text-[10px]"
                                         />
                                         <button 
                                             onClick={handleSaveKey}
-                                            className={`flex items-center justify-center rounded-2xl font-black uppercase tracking-widest transition-all shrink-0 ${isSaved ? 'bg-green-500 text-white w-14' : 'bg-white text-black hover:bg-neutral-200 px-8'}`}
+                                            className={`flex items-center justify-center rounded-2xl h-[62px] min-w-[120px] font-black uppercase tracking-widest transition-all duration-500 ${isSaved ? 'bg-green-500 text-white' : 'bg-white text-black hover:bg-slate-200 shadow-xl'}`}
                                         >
-                                            {isSaved ? <Check size={18} strokeWidth={3} /> : <span className="text-[10px]">OK</span>}
+                                            {isSaved ? <Check size={24} strokeWidth={3} /> : <span className="text-xs">Guardar</span>}
                                         </button>
                                     </div>
+                                    <p className="text-[10px] text-slate-600 font-bold uppercase tracking-wider px-2">Requerido para carteleras automáticas</p>
                                 </div>
                             </div>
                         </section>
 
-                    {/* Real-Debrid / Bóveda Cloud Section */}
-                    {isAdmin() && (
-                        <section className="glass rounded-[1.5rem] md:rounded-[3rem] p-5 md:p-10 border border-white/5 relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-                                <Cloud size={100} strokeWidth={1} />
-                            </div>
-                            <div className="relative z-10">
-                                <div className="flex items-center gap-4 mb-8">
-                                    <div className="p-3 bg-netflix-red/10 rounded-2xl">
-                                        <Cloud className="text-netflix-red" size={24} />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xl font-black text-white tracking-tight">Real-Debrid</h3>
-                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Bóveda Cloud</p>
-                                    </div>
+                        {/* Real-Debrid / Bóveda Cloud */}
+                        {isAdmin() && (
+                            <section className="glass rounded-[3rem] p-8 md:p-12 border border-white/5 relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
+                                    <Cloud size={180} strokeWidth={1} />
                                 </div>
-
-                                <div className="space-y-6">
-                                    <div>
-                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">PRIVATE TOKEN</label>
-                                        <div className="flex gap-2">
-                                            <input 
-                                                type="password"
-                                                value={rdToken}
-                                                onChange={(e) => setRdToken(e.target.value)}
-                                                placeholder="Tu Private Token..."
-                                                className="flex-1 bg-black/40 border border-white/5 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none focus:border-netflix-red transition-colors min-w-0"
-                                            />
-                                            <button 
-                                                onClick={handleSaveRDToken}
-                                                className={`flex items-center justify-center rounded-2xl font-black uppercase tracking-widest transition-all shrink-0 ${isRDSaved ? 'bg-green-500 text-white w-14' : 'bg-white text-black hover:bg-neutral-200 px-8'}`}
-                                            >
-                                                {isRDSaved ? <Check size={18} strokeWidth={3} /> : <span className="text-[10px]">Vincular</span>}
-                                            </button>
+                                <div className="relative z-10">
+                                    <div className="flex items-center gap-6 mb-10">
+                                        <div className="p-5 bg-netflix-red/10 rounded-3xl border border-netflix-red/20 shadow-inner">
+                                            <Cloud className="text-netflix-red" size={32} />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-2xl font-black text-white tracking-tight uppercase italic">Bóveda Cloud</h3>
+                                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Real-Debrid Integration</p>
                                         </div>
                                     </div>
-                                    <p className="text-[10px] text-slate-600 leading-relaxed px-1">
-                                        Permite descargas seguras y ultra-rápidas directamente a tu Drive. Consigue el tuyo en <a href="https://real-debrid.com/apitoken" target="_blank" rel="noreferrer" className="text-netflix-red hover:underline">real-debrid.com/apitoken</a>.
-                                    </p>
+
+                                    <div className="space-y-5">
+                                        <div className="space-y-4">
+                                            <label className="block text-xs font-black text-slate-500 uppercase tracking-[0.3em] mb-2 ml-1">REAL-DEBRID PRIVATE TOKEN</label>
+                                            <div className="flex flex-col sm:flex-row gap-4">
+                                                <input 
+                                                    type="password"
+                                                    value={rdToken}
+                                                    onChange={(e) => setRdToken(e.target.value)}
+                                                    placeholder="Tu Token Privado..."
+                                                    className="flex-1 bg-black/60 border border-white/10 rounded-2xl px-8 py-5 text-sm text-white focus:outline-none focus:border-netflix-red transition-all shadow-inner placeholder:text-slate-600 placeholder:uppercase placeholder:text-[10px]"
+                                                />
+                                                <button 
+                                                    onClick={handleSaveRDToken}
+                                                    className={`flex items-center justify-center rounded-2xl h-[62px] min-w-[120px] font-black uppercase tracking-widest transition-all duration-500 ${isRDSaved ? 'bg-green-500 text-white' : 'bg-white text-black hover:bg-slate-200 shadow-xl'}`}
+                                                >
+                                                    {isRDSaved ? <Check size={24} strokeWidth={3} /> : <span className="text-xs">Vincular</span>}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 font-medium leading-relaxed px-2 bg-white/[0.02] p-4 rounded-xl border border-white/[0.05]">
+                                            Desbloquea el poder del streaming instantáneo. Tus archivos se descargarán a 1Gbps directo a tu nube privada. <a href="https://real-debrid.com/apitoken" target="_blank" rel="noreferrer" className="text-netflix-red font-black hover:underline ml-1">REAL-DEBRID.COM/APITOKEN</a>
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
-                        </section>
-                    )}
+                            </section>
+                        )}
                     </div>
                 </div>
 
-                {/* Admin-only Session Control */}
+                {/* 3. Session Management Dashboard */}
                 {isAdmin() && (
-                    <section className="glass rounded-[1.5rem] md:rounded-[3rem] p-5 md:p-12 border border-white/5 shadow-2xl">
-                        <SessionsManager />
+                    <section className="glass rounded-[3rem] p-8 md:p-16 border border-white/5 shadow-2xl relative overflow-hidden group">
+                        <div className="absolute -bottom-12 -left-12 opacity-[0.02] group-hover:opacity-[0.05] transition-opacity">
+                            <Settings size={300} strokeWidth={1} />
+                        </div>
+                        <div className="relative z-10">
+                            <div className="flex items-center gap-6 mb-12">
+                                <div className="p-6 bg-white/[0.05] rounded-[2rem] border border-white/10 shadow-inner">
+                                    <Settings className="text-white" size={32} />
+                                </div>
+                                <div>
+                                    <h3 className="text-3xl font-black text-white tracking-tighter">Control de Acceso</h3>
+                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Gestión de sesiones activas en el servidor</p>
+                                </div>
+                            </div>
+                            <div className="bg-black/30 rounded-[2rem] border border-white/[0.03] overflow-hidden">
+                                <SessionsManager />
+                            </div>
+                        </div>
                     </section>
                 )}
 
-                {/* Cloud Sync - Google Drive */}
-                <section className="glass rounded-[1.5rem] md:rounded-[3rem] p-5 md:p-12 border border-white/5 shadow-2xl">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-                        <div className="flex items-center gap-6">
-                            <div className={`p-6 rounded-[2rem] shadow-inner ${isDriveConnected ? 'bg-green-500/10' : 'bg-blue-500/10'}`}>
-                                <Cloud className={isDriveConnected ? 'text-green-500' : 'text-blue-500'} size={32} />
+                {/* 4. Google Drive Integration Card */}
+                <section className="glass rounded-[3rem] p-8 md:p-16 border border-white/5 shadow-2xl relative overflow-hidden">
+                    <div className="flex flex-col lg:flex-row items-center justify-between gap-12">
+                        <div className="flex flex-col md:flex-row items-center gap-10">
+                            <div className={`p-10 rounded-[2.5rem] shadow-inner transition-all duration-700 ${isDriveConnected ? 'bg-green-500/10 border border-green-500/20' : 'bg-blue-500/10 border border-blue-500/20'}`}>
+                                <Cloud className={isDriveConnected ? 'text-green-500' : 'text-blue-500'} size={48} />
                             </div>
-                            <div>
-                                <h3 className="text-2xl font-black text-white tracking-tighter">Sincronización Cloud</h3>
-                                <div className="flex items-center gap-2 mt-2">
-                                    <div className={`w-2 h-2 rounded-full ${isDriveConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]' : 'bg-slate-600'}`}></div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                        Google Drive: {isDriveConnected ? 'Conectado' : 'Desconectado'}
+                            <div className="text-center md:text-left">
+                                <h3 className="text-3xl md:text-5xl font-black text-white tracking-tighter mb-4">Sincronización Cloud</h3>
+                                <div className="flex items-center justify-center md:justify-start gap-4 p-3 bg-black/20 rounded-2xl border border-white/[0.03] w-fit mx-auto md:mx-0">
+                                    <div className={`w-3 h-3 rounded-full ${isDriveConnected ? 'bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.8)] animate-pulse' : 'bg-slate-600'}`}></div>
+                                    <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+                                        Google Drive: {isDriveConnected ? <span className="text-green-400">Activo</span> : 'Desconectado'}
                                     </p>
                                 </div>
                             </div>
@@ -279,10 +303,10 @@ function SettingsPage({ onClose, onTabChange }) {
                                     console.error('Error al conectar Drive:', error);
                                 }
                             }}
-                            className={`w-full md:w-auto px-10 py-5 font-black uppercase tracking-[0.2em] rounded-2xl transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3 ${isDriveConnected ? 'bg-netflix-red/10 text-netflix-red hover:bg-netflix-red hover:text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                            className={`w-full lg:w-auto px-16 py-8 font-black uppercase tracking-[0.3em] text-xs md:text-sm rounded-[2rem] transition-all duration-500 shadow-2xl active:scale-95 flex items-center justify-center gap-4 ${isDriveConnected ? 'bg-netflix-red/10 text-netflix-red border border-netflix-red/20 hover:bg-netflix-red hover:text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
                         >
-                            <Cloud size={16} />
-                            <span className="text-[10px]">{isDriveConnected ? 'Reconectar Drive' : 'Vincular Google Drive'}</span>
+                            <Cloud size={24} />
+                            {isDriveConnected ? 'Reiniciar Conexión' : 'Vincular Google Drive'}
                         </button>
                     </div>
                 </section>
