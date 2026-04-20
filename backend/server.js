@@ -1041,7 +1041,7 @@ app.post('/api/admin/config/tmdb-key', adminMiddleware, (req, res) => {
 });
 
 // Support SPA routing (must be AFTER static and API routes)
-app.get('*', (req, res) => {
+app.get('*splat', (req, res) => {
     if (req.path.includes('.') || req.path.startsWith('/assets/')) {
         return res.status(404).send('Not Found');
     }
