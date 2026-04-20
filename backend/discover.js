@@ -78,7 +78,7 @@ router.post('/download', adminMiddleware, async (req, res) => {
             }
         }
 
-        let movie = await db.addMovie({
+        let movieResponse = await db.addMovie({
             title: tmdbDetails?.title || title,
             year: year || tmdbDetails?.release_date?.substring(0, 4) || new Date().getFullYear().toString(),
             drive_file_id: 'pending_cloud', 
@@ -86,8 +86,18 @@ router.post('/download', adminMiddleware, async (req, res) => {
             tmdb_id: isNumericId ? movieId : null
         });
 
+        // Supabase REST often returns an array for POST with representation
+        const movie = Array.isArray(movieResponse) ? movieResponse[0] : movieResponse;
+
+        if (!movie || !movie.id) {
+            throw new Error('No se pudo crear el registro de la película en la base de datos');
+        }
+
         // 2. Add to Queue as 'converting'
         uploadManager.enqueue(movie.id, title, 'pending', 'video/mp4', { status: 'converting' });
+        
+        // Use normalized title for follow-up
+        const finalTitle = movie.title || title;
 
         // 3. Resolve Magnet if it's a page link
         let finalMagnet = magnet;
