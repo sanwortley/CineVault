@@ -45,7 +45,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '../dist')));
 
-const getSessionId = (req) => req.headers['x-session-id'] || req.cookies?.sessionId;
+const getSessionId = (req) => req.headers['x-session-id'] || req.query.sessionId || req.cookies?.sessionId;
 
 const sessionMiddleware = async (req, res, next) => {
     const sessionId = getSessionId(req);

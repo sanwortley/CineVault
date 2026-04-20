@@ -217,7 +217,8 @@ export const api = {
         if (fileId) {
             if (isElectron()) return `http://localhost:19998/stream/${fileId}`;
             // Web: use backend proxy (which has OAuth token for authenticated streaming)
-            return `${BACKEND_URL}/api/drive/stream/${fileId}`;
+            const sessionId = localStorage.getItem('cinevault_session_id');
+            return `${BACKEND_URL}/api/drive/stream/${fileId}?sessionId=${sessionId || ''}`;
         }
         return null;
     },
