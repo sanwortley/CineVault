@@ -20,6 +20,14 @@ export default function ExplorePage() {
     const [hasSearched, setHasSearched] = useState(false);
 
     useEffect(() => {
+        if (selectedMovie) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+    }, [selectedMovie]);
+
+    useEffect(() => {
         const fetchTrending = async () => {
             try {
                 const data = await api.exploreTrending();
@@ -224,7 +232,7 @@ export default function ExplorePage() {
                             initial={{ opacity: 0, scale: 0.9, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="bg-[#111] border border-white/10 rounded-[2rem] max-w-5xl w-full max-h-full overflow-hidden flex flex-col md:flex-row relative shadow-2xl"
+                            className="bg-[#111] border border-white/10 rounded-[2rem] max-w-5xl w-full max-h-[90vh] md:max-h-[85vh] overflow-hidden flex flex-col md:flex-row relative shadow-2xl"
                         >
                             <button 
                                 onClick={() => setSelectedMovie(null)}
