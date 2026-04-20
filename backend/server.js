@@ -999,6 +999,5 @@ app.post('/api/admin/config/rd-token', adminMiddleware, (req, res) => {
 
 const server = app.listen(PORT, () => {
     console.log(`[CineVault Backend] Running on http://localhost:${PORT}`);
-    console.log(`[CineVault Backend] Frontend allowed from: ${FRONTEND_URL}`);
 });
 server.timeout = 600000; // 10 minutes in ms
