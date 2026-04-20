@@ -24,14 +24,24 @@ const sessionMiddleware = async (req, res, next) => {
 };
 
 const adminMiddleware = (req, res, next) => {
-    const adminEmail = process.env.VITE_ADMIN_EMAIL?.trim().toLowerCase() || ADMIN_EMAIL;
-    const userEmail = req.session?.email?.trim().toLowerCase() || 
-                      req.headers['x-user-email']?.trim().toLowerCase();
-                      
-    if (adminEmail && userEmail === adminEmail) {
+    // 1. Resolve Admin Email (Priority: ENV > Frontend ENV > Repo Default)
+    const adminEmail = (
+        process.env.ADMIN_EMAIL || 
+        process.env.VITE_ADMIN_EMAIL || 
+        'sanwortley@gmail.com'
+    ).trim().toLowerCase();
+
+    // 2. Resolve User Email from session
+    const userEmail = req.session?.email?.trim().toLowerCase();
+                       
+    if (userEmail && userEmail === adminEmail) {
         next();
     } else {
-        res.status(403).json({ error: 'Acceso restringido a administradores' });
+        console.warn(`[AdminMiddleware] Access Denied: User(${userEmail}) is not Admin(${adminEmail})`);
+        res.status(403).json({ 
+            error: 'Acceso restringido a administradores',
+            debug: process.env.NODE_ENV === 'development' ? { userEmail, adminEmail } : undefined
+        });
     }
 };
 
