@@ -1,3 +1,5 @@
+const express = require('express');
+const router = express.Router();
 const axios = require('axios');
 const db = require('./db');
 const movieSearcher = require('./movieSearcher');
@@ -5,6 +7,9 @@ const debridManager = require('./debridManager');
 const uploadManager = require('./uploadManager');
 const { adminMiddleware } = require('./middleware');
 const cheerio = require('cheerio');
+
+const TMDB_API_KEY = process.env.TMDB_API_KEY;
+const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
 // --- Helper Functions ---
 const fetchTMDB = async (endpoint, params = {}) => {
