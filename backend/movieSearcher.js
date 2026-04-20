@@ -59,13 +59,47 @@ async function searchSpanish(query) {
                 seeds: parseInt(seeds) || 0,
                 link: `https://1337x.to${link}`,
                 isPage: true,
-                provider: '1337x (Spanish/Dual)'
+                provider: '1337x'
             });
         });
         
         return results;
     } catch (err) {
-        console.error('[Searcher] Spanish/Dual Error:', err.message);
+        console.error('[Searcher] 1337x Error:', err.message);
+        return [];
+    }
+}
+
+async function searchGlobal(query) {
+    try {
+        const response = await axios.get(`https://1337x.to/search/${encodeURIComponent(query)}/1/`, {
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        
+        const $ = cheerio.load(response.data);
+        const results = [];
+        
+        $('.table-list tbody tr').each((i, el) => {
+            if (i > 15) return;
+            const $el = $(el);
+            const title = $el.find('.name a').last().text();
+            const link = $el.find('.name a').last().attr('href');
+            const seeds = $el.find('.seeds').text();
+            const size = $el.find('.size').text().replace('B ', 'B');
+            
+            results.push({
+                title,
+                size,
+                seeds: parseInt(seeds) || 0,
+                link: `https://1337x.to${link}`,
+                isPage: true,
+                provider: '1337x'
+            });
+        });
+        
+        return results.sort((a, b) => b.seeds - a.seeds);
+    } catch (err) {
+        console.error('[Searcher] Global Error:', err.message);
         return [];
     }
 }
@@ -79,4 +113,4 @@ async function searchAll(query) {
     return [...spanish, ...yts].sort((a, b) => (b.seeds || 0) - (a.seeds || 0));
 }
 
-module.exports = { searchAll };
+module.exports = { searchAll, searchGlobal };

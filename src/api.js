@@ -230,6 +230,10 @@ export const api = {
         return backendFetch(`/api/discover/search?query=${encodeURIComponent(query)}`);
     },
 
+    deepSearch: (query) => {
+        return backendFetch(`/api/discover/deep-search?query=${encodeURIComponent(query)}`);
+    },
+
     findTorrents: (title) => {
         return backendFetch(`/api/discover/torrents/${encodeURIComponent(title)}`);
     },

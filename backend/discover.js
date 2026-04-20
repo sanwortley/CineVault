@@ -130,4 +130,17 @@ router.get('/download-status/:movieId', (req, res) => {
     res.json(status);
 });
 
+// Direct torrent search (non-TMDB)
+router.get('/deep-search', async (req, res) => {
+    const { query } = req.query;
+    if (!query) return res.status(400).json({ error: 'Query requerida' });
+    
+    try {
+        const results = await movieSearcher.searchGlobal(query);
+        res.json(results);
+    } catch (err) {
+        res.status(500).json({ error: 'Error en búsqueda profunda' });
+    }
+});
+
 module.exports = router;

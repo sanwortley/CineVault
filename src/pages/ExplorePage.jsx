@@ -15,6 +15,8 @@ export default function ExplorePage() {
     const [torrents, setTorrents] = useState([]);
     const [isFetchingTorrents, setIsFetchingTorrents] = useState(false);
     const [downloadingMovieId, setDownloadingMovieId] = useState(null);
+    const [searchMode, setSearchMode] = useState('catalog'); // 'catalog' or 'global'
+    const [globalResults, setGlobalResults] = useState([]);
 
     useEffect(() => {
         const fetchTrending = async () => {
@@ -35,8 +37,15 @@ export default function ExplorePage() {
         if (!query.trim()) return;
         setIsSearching(true);
         try {
-            const data = await api.searchMoviesGlobal(query);
-            setSearchResults(data);
+            if (searchMode === 'catalog') {
+                const data = await api.searchMoviesGlobal(query);
+                setSearchResults(data);
+                setGlobalResults([]);
+            } else {
+                const data = await api.deepSearch(query);
+                setGlobalResults(data);
+                setSearchResults([]);
+            }
         } catch (err) {
             console.error('Search error:', err);
         } finally {
@@ -60,20 +69,21 @@ export default function ExplorePage() {
         }
     };
 
-    const handleDownload = async (torrent) => {
-        if (!selectedMovie || !isAdmin()) return;
+    const handleDownload = async (torrent, customMovie = null) => {
+        const movie = customMovie || selectedMovie;
+        if (!movie || !isAdmin()) return;
         
-        setDownloadingMovieId(selectedMovie.id);
+        setDownloadingMovieId(movie.id);
         try {
             await api.downloadMovie(
-                selectedMovie.id, 
-                selectedMovie.title || selectedMovie.original_title, 
+                movie.id, 
+                movie.title || movie.original_title, 
                 torrent.link,
-                selectedMovie.release_date?.substring(0, 4),
+                movie.release_date?.substring(0, 4) || new Date().getFullYear().toString(),
                 { isPage: torrent.isPage, isHash: torrent.isHash }
             );
-            alert('¡Descarga iniciada! Puedes ver el progreso en la consola de administración.');
-            setSelectedMovie(null);
+            alert('¡Descarga iniciada! Revisa el panel de subida.');
+            if (!customMovie) setSelectedMovie(null);
         } catch (err) {
             alert('Error al iniciar la descarga: ' + err.message);
         } finally {
@@ -101,26 +111,65 @@ export default function ExplorePage() {
                         <p className="text-slate-500 text-[10px] md:text-sm font-bold tracking-widest uppercase opacity-60">Descubre y añade nuevas joyas a tu bóveda.</p>
                     </div>
 
-                    <form onSubmit={handleSearch} className="w-full md:w-96 relative group">
-                        <input 
-                            type="text" 
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            placeholder="Buscar en el catálogo mundial..."
-                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 pl-12 text-sm text-white focus:outline-none focus:border-netflix-red transition-all group-hover:bg-white/10"
-                        />
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-netflix-red transition-colors" size={18} />
-                        <button type="submit" className="hidden">Buscar</button>
-                    </form>
+                    <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+                        {/* Mode Selector */}
+                        <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 shrink-0">
+                            <button 
+                                onClick={() => setSearchMode('catalog')}
+                                className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${searchMode === 'catalog' ? 'bg-white text-black shadow-xl scale-105' : 'text-slate-500 hover:text-white'}`}
+                            >
+                                Catálogo
+                            </button>
+                            <button 
+                                onClick={() => setSearchMode('global')}
+                                className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${searchMode === 'global' ? 'bg-white text-black shadow-xl scale-105' : 'text-slate-500 hover:text-white'}`}
+                            >
+                                Bóveda Global
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSearch} className="w-full md:w-96 relative group">
+                            <input 
+                                type="text" 
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                placeholder={searchMode === 'catalog' ? "Buscar en TMDb..." : "Buscar en toda la web..."}
+                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 pl-12 text-sm text-white focus:outline-none focus:border-netflix-red transition-all group-hover:bg-white/10"
+                            />
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-netflix-red transition-colors" size={18} />
+                            <button type="submit" className="hidden">Buscar</button>
+                        </form>
+                    </div>
                 </div>
             </header>
 
-            {/* Search Results / Trending */}
+            {/* Search Results / Trending / Global Results */}
             <main>
-                {(isSearching || searchResults.length > 0) ? (
+                {searchMode === 'global' && globalResults.length > 0 ? (
+                    <section className="mb-20">
+                        <div className="flex items-center justify-between mb-8">
+                            <div className="flex items-center gap-3">
+                                <Globe className="text-cyan-400" size={24} />
+                                <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Bóveda Global</h2>
+                            </div>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest hidden md:block">Resultados sin filtrar directo de la red</p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {globalResults.map((res, idx) => (
+                                <GlobalResultCard 
+                                    key={idx} 
+                                    result={res} 
+                                    isAdmin={isAdmin()}
+                                    isDownloading={downloadingMovieId === `global-${idx}`}
+                                    onDownload={() => handleDownload(res, { id: `global-${idx}`, title: res.title })} 
+                                />
+                            ))}
+                        </div>
+                    </section>
+                ) : (isSearching || searchResults.length > 0) ? (
                     <section className="mb-20">
                         <div className="flex items-center gap-3 mb-8">
-                            <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Resultados de búsqueda</h2>
+                            <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Catálogo Internacional</h2>
                             {isSearching && <Loader className="animate-spin text-netflix-red" size={20} />}
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
@@ -276,3 +325,34 @@ function MovieCard({ movie, onClick }) {
         </motion.div>
     );
 }
+
+function GlobalResultCard({ result, onDownload, isAdmin, isDownloading }) {
+    return (
+        <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col justify-between hover:bg-white/[0.08] transition-all group"
+        >
+            <div className="mb-6">
+                <div className="flex items-center gap-2 mb-3">
+                    <span className="px-2 py-0.5 bg-cyan-500/10 text-cyan-400 text-[8px] font-black uppercase rounded-md border border-cyan-500/20">{result.provider}</span>
+                </div>
+                <h3 className="text-sm font-black text-white leading-snug group-hover:text-cyan-400 transition-colors line-clamp-2 mb-4">{result.title}</h3>
+                <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                    <span className="flex items-center gap-1.5"><Download size={12} /> {result.size}</span>
+                    <span className="flex items-center gap-1.5"><TrendingUp size={12} /> {result.seeds} Seeds</span>
+                </div>
+            </div>
+            
+            <button 
+                onClick={onDownload}
+                disabled={!isAdmin || isDownloading}
+                className={`w-full py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${isAdmin ? 'bg-white text-black hover:bg-netflix-red hover:text-white' : 'bg-white/5 text-slate-600 border border-white/5 cursor-not-allowed'} ${isDownloading ? 'opacity-50 animate-pulse' : ''}`}
+            >
+                {isDownloading ? <Loader className="animate-spin" size={12} /> : <Plus size={14} strokeWidth={3} />}
+                {isAdmin ? 'Añadir a la Bóveda' : 'Acceso Denegado'}
+            </button>
+        </motion.div>
+    );
+}
+
