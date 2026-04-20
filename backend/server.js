@@ -995,10 +995,53 @@ app.post('/api/admin/config/rd-token', adminMiddleware, (req, res) => {
     res.json({ message: 'Token de Real-Debrid actualizado correctamente' });
 });
 
+// --- Config Management ---
+app.get('/api/admin/config/rd-token', adminMiddleware, (req, res) => {
+    res.json({ token: process.env.REAL_DEBRID_API_TOKEN || '' });
+});
+
+app.post('/api/admin/config/rd-token', adminMiddleware, (req, res) => {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ error: 'Token requerido' });
+    process.env.REAL_DEBRID_API_TOKEN = token;
+    
+    const envPath = path.resolve(__dirname, '../.env');
+    if (fs.existsSync(envPath)) {
+        let envContent = fs.readFileSync(envPath, 'utf8');
+        if (envContent.includes('REAL_DEBRID_API_TOKEN=')) {
+            envContent = envContent.replace(/REAL_DEBRID_API_TOKEN=.*/, `REAL_DEBRID_API_TOKEN=${token}`);
+        } else {
+            envContent += `\nREAL_DEBRID_API_TOKEN=${token}`;
+        }
+        fs.writeFileSync(envPath, envContent);
+    }
+    res.json({ message: 'Token de Real-Debrid actualizado' });
+});
+
+app.get('/api/admin/config/tmdb-key', adminMiddleware, (req, res) => {
+    res.json({ key: process.env.TMDB_API_KEY || '' });
+});
+
+app.post('/api/admin/config/tmdb-key', adminMiddleware, (req, res) => {
+    const { key } = req.body;
+    if (!key) return res.status(400).json({ error: 'Key requerida' });
+    process.env.TMDB_API_KEY = key;
+    
+    const envPath = path.resolve(__dirname, '../.env');
+    if (fs.existsSync(envPath)) {
+        let envContent = fs.readFileSync(envPath, 'utf8');
+        if (envContent.includes('TMDB_API_KEY=')) {
+            envContent = envContent.replace(/TMDB_API_KEY=.*/, `TMDB_API_KEY=${key}`);
+        } else {
+            envContent += `\nTMDB_API_KEY=${key}`;
+        }
+        fs.writeFileSync(envPath, envContent);
+    }
+    res.json({ message: 'API Key de TMDB actualizada' });
+});
+
 // Support SPA routing (must be AFTER static and API routes)
 app.get('*', (req, res) => {
-    // SECURITY: Prevent serving index.html for missing asset files (avoids MIME errors)
-    // If it has a file extension or starts with /assets/, it's a file request that failed in express.static
     if (req.path.includes('.') || req.path.startsWith('/assets/')) {
         return res.status(404).send('Not Found');
     }

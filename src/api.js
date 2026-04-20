@@ -454,7 +454,15 @@ export const api = {
 
     getTMDBKey: () => {
         if (isElectron()) return window.electronAPI.getTMDBKey();
-        return Promise.resolve(import.meta.env.VITE_TMDB_API_KEY || '');
+        return backendFetch('/api/admin/config/tmdb-key').then(res => res.key).catch(() => import.meta.env.VITE_TMDB_API_KEY || '');
+    },
+
+    saveTMDBKey: (key) => {
+        if (isElectron()) return window.electronAPI.saveTMDBKey(key);
+        return backendFetch('/api/admin/config/tmdb-key', {
+            method: 'POST',
+            body: JSON.stringify({ key })
+        });
     },
 
     // ── User-specific data (progress & mylist) ──────────────────────────────────
