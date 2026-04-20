@@ -207,18 +207,20 @@ export const api = {
     },
 
     // ── Drive Streaming URL ───────────────────────────────────────────────────
-    getStreamUrl: (fileId, filePath) => {
+    getStreamUrl: (fileId, filePath, options = {}) => {
         if (filePath && isElectron()) {
-            // Local file via cine:// protocol
             const normalized = filePath.replace(/\\/g, '/');
             const match = normalized.match(/^([a-zA-Z]):(.*)/);
-            return match ? `cine://${match[1]}${match[2]}` : `cine://${normalized}`;
+            const basePath = match ? `cine://${match[1]}${match[2]}` : `cine://${normalized}`;
+            return `${basePath}${options.transcode ? `?transcode=true&t=${options.seekOffset || 0}` : ''}`;
         }
         if (fileId) {
-            if (isElectron()) return `http://localhost:19998/stream/${fileId}`;
-            // Web: use backend proxy (which has OAuth token for authenticated streaming)
+            if (isElectron()) return `http://localhost:19998/stream/${fileId}${options.transcode ? `?transcode=true&t=${options.seekOffset || 0}` : ''}`;
+            
             const sessionId = localStorage.getItem('cinevault_session_id');
-            return `${BACKEND_URL}/api/drive/stream/${fileId}?sessionId=${sessionId || ''}`;
+            let url = `${BACKEND_URL}/api/drive/stream/${fileId}?sessionId=${sessionId || ''}`;
+            if (options.transcode) url += `&transcode=true&t=${options.seekOffset || 0}`;
+            return url;
         }
         return null;
     },

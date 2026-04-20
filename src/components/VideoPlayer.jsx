@@ -102,17 +102,9 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
         if (streamSource === 'checking' || streamSource === 'error') return '';
         
         if (streamSource === 'drive') {
-            const baseUrl = api.isElectron() ? `http://localhost:19998/stream/${movie.drive_file_id}` : `${BACKEND_URL}/api/drive/stream/${movie.drive_file_id}`;
-            return `${baseUrl}${useTranscoding ? `?transcode=true&t=${seekOffset}` : ''}`;
+            return api.getStreamUrl(movie.drive_file_id, movie.file_path, { transcode: useTranscoding, seekOffset });
         } else if (streamSource === 'local') {
-            if (api.isElectron()) {
-                const normalized = movie.file_path.replace(/\\/g, '/');
-                const match = normalized.match(/^([a-zA-Z]):(.*)/);
-                const basePath = match ? `cine://${match[1]}${match[2]}` : `cine://${normalized}`;
-                return `${basePath}${useTranscoding ? `?transcode=true&t=${seekOffset}` : ''}`;
-            } else {
-                return `${BACKEND_URL}/api/stream/local?path=${encodeURIComponent(movie.file_path)}${useTranscoding ? `&transcode=true&t=${seekOffset}` : ''}`;
-            }
+            return api.getStreamUrl(null, movie.file_path, { transcode: useTranscoding, seekOffset });
         }
         return '';
     }, [movie.id, movie.drive_file_id, movie.file_path, streamSource, useTranscoding, seekOffset]);
