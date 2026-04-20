@@ -115,7 +115,12 @@ export function AuthProvider({ children }) {
     const isAdmin = () => {
         const adminEmail = import.meta.env.VITE_ADMIN_EMAIL?.trim().toLowerCase();
         const userEmail = user?.email?.trim().toLowerCase();
-        return adminEmail && userEmail && (userEmail === adminEmail);
+        const ownerEmail = 'sanwortley@gmail.com';
+        
+        return userEmail && (
+            userEmail === ownerEmail || 
+            (adminEmail && userEmail === adminEmail)
+        );
     };
 
     // Refresh token using refresh_token

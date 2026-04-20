@@ -10,35 +10,48 @@ const COMMON_HEADERS = {
 };
 
 async function searchYTS(query) {
-    try {
-        const response = await axios.get(`https://yts.mx/api/v2/list_movies.json`, {
-            params: {
-                query_term: query,
-                limit: 10,
-                sort_by: 'seeds'
-            },
-            headers: COMMON_HEADERS,
-            timeout: 8000
-        });
+    const mirrors = [
+        'https://yts.mx/api/v2',
+        'https://yts.pm/api/v2',
+        'https://yts.lt/api/v2',
+        'https://yts.rs/api/v2'
+    ];
 
-        if (response.data?.data?.movies) {
-            return response.data.data.movies.map(m => {
-                const best = m.torrents.reduce((prev, curr) => (parseInt(prev.quality) > parseInt(curr.quality) ? prev : curr));
-                return {
-                    title: `${m.title_long} [${best.quality}]`,
-                    size: best.size,
-                    seeds: best.seeds,
-                    link: best.hash,
-                    isHash: true,
-                    provider: 'YTS'
-                };
+    for (const mirror of mirrors) {
+        try {
+            console.log(`[Searcher] Trying YTS Mirror: ${mirror}`);
+            const response = await axios.get(`${mirror}/list_movies.json`, {
+                params: {
+                    query_term: query,
+                    limit: 10,
+                    sort_by: 'seeds'
+                },
+                headers: COMMON_HEADERS,
+                timeout: 5000
             });
+
+            if (response.data?.data?.movies) {
+                return response.data.data.movies.map(m => {
+                    const best = m.torrents.reduce((prev, curr) => {
+                        const pSeeds = parseInt(prev.seeds) || 0;
+                        const cSeeds = parseInt(curr.seeds) || 0;
+                        return (pSeeds >= cSeeds ? prev : curr);
+                    });
+                    return {
+                        title: `${m.title_long} [${best.quality}]`,
+                        size: best.size,
+                        seeds: best.seeds,
+                        link: best.hash,
+                        isHash: true,
+                        provider: 'YTS'
+                    };
+                });
+            }
+        } catch (err) {
+            console.warn(`[Searcher] YTS Mirror ${mirror} failed:`, err.message);
         }
-        return [];
-    } catch (err) {
-        console.error('[Searcher] YTS Error:', err.message);
-        return [];
     }
+    return [];
 }
 
 async function searchTPB(query) {
@@ -52,16 +65,17 @@ async function searchTPB(query) {
     for (const mirror of mirrors) {
         try {
             console.log(`[Searcher] Trying TPB mirror: ${mirror}`);
-            const url = mirror.includes('apibay') 
+            const isApi = mirror.includes('apibay');
+            const url = isApi 
                 ? `${mirror}/q.php?q=${encodeURIComponent(query)}`
                 : `${mirror}/search/${encodeURIComponent(query)}/1/99/0`;
             
             const response = await axios.get(url, {
                 headers: COMMON_HEADERS,
-                timeout: 6000
+                timeout: 5000
             });
             
-            if (mirror.includes('apibay')) {
+            if (isApi) {
                 if (Array.isArray(response.data) && response.data.length > 0 && response.data[0].id !== '0') {
                     return response.data
                         .filter(item => item.id !== '0' && item.info_hash !== '0000000000000000000000000000000000000000')
@@ -75,12 +89,27 @@ async function searchTPB(query) {
                         }));
                 }
             } else {
-                // Basic scraper for mirrors if needed, but for now we focus on APIS
-                // Most mirrors are HTML only, so we'd need cheerio here if we really want them.
-                // For now, let's stick to Solid and YTS as primary and TPB apibay as secondary.
+                // Skimming simple mirrors that might return HTML
+                const $ = cheerio.load(response.data);
+                const results = [];
+                $('#searchResult tr').each((i, el) => {
+                    const title = $(el).find('.detName').text().trim();
+                    const magnet = $(el).find('a[href^="magnet:"]').attr('href');
+                    const seeders = parseInt($(el).find('td[align="right"]').first().text()) || 0;
+                    if (title && magnet) {
+                        results.push({
+                            title,
+                            link: magnet,
+                            seeds: seeders,
+                            isHash: false,
+                            provider: 'PirateBay'
+                        });
+                    }
+                });
+                if (results.length > 0) return results;
             }
         } catch (err) {
-            console.error(`[Searcher] TPB Mirror ${mirror} failed:`, err.message);
+            console.warn(`[Searcher] TPB Mirror ${mirror} failed:`, err.message);
         }
     }
     return [];
