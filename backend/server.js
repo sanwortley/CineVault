@@ -175,6 +175,13 @@ app.get('/api/auth/google', (req, res) => {
     res.redirect(authUrl);
 });
 
+app.get('/api/auth/me', sessionMiddleware, (req, res) => {
+    res.json({ 
+        user: req.session,
+        isAdmin: req.session?.email?.trim().toLowerCase() === (process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || 'sanwortley@gmail.com').trim().toLowerCase()
+    });
+});
+
 app.get('/api/auth/callback', async (req, res) => {
     const { code } = req.query;
     try {
