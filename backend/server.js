@@ -562,7 +562,10 @@ app.post('/api/subtitles/download', async (req, res) => {
         
         if (!response.ok) {
             const errData = await response.json().catch(() => ({}));
-            throw new Error(errData.message || `OpenSubtitles API error: ${response.status}`);
+            const msg = errData.message || errData.error || `OpenSubtitles API error: ${response.status}`;
+            const isQuota = msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('downloaded your allowed');
+            const status = isQuota ? 429 : 500;
+            return res.status(status).json({ error: msg, isQuota });
         }
         
         const data = await response.json();
@@ -628,7 +631,10 @@ app.post('/api/subtitles/download', async (req, res) => {
         res.json({ localPath: finalPath, savedLocally, success: true });
     } catch (e) {
         console.error('[Subtitles Download] Error:', e.message);
-        res.status(500).json({ error: e.message });
+        if (!res.headersSent) {
+            const isQuota = e.message.toLowerCase().includes('quota') || e.message.toLowerCase().includes('5 subtitles');
+            res.status(isQuota ? 429 : 500).json({ error: e.message, isQuota });
+        }
     }
 });
 
@@ -650,7 +656,13 @@ app.get('/api/subtitles/cloud', async (req, res) => {
             body: JSON.stringify({ file_id: id })
         });
         
-        if (!dlRes.ok) throw new Error('OpenSubtitles API error');
+        if (!dlRes.ok) {
+            const errData = await dlRes.json().catch(() => ({}));
+            const msg = errData.message || errData.error || 'OpenSubtitles API error';
+            const isQuota = msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('downloaded your allowed');
+            const status = isQuota ? 429 : 500;
+            return res.status(status).json({ error: msg, isQuota });
+        }
         const dlData = await dlRes.json();
         if (!dlData.link) throw new Error('No download link provided');
 
@@ -678,7 +690,10 @@ app.get('/api/subtitles/cloud', async (req, res) => {
         res.send(finalContent);
     } catch (e) {
         console.error('[Subtitles Cloud Proxy] Error:', e.message);
-        res.status(500).json({ error: e.message });
+        if (!res.headersSent) {
+            const isQuota = e.message.toLowerCase().includes('quota') || e.message.toLowerCase().includes('5 subtitles');
+            res.status(isQuota ? 429 : 500).json({ error: e.message, isQuota });
+        }
     }
 });
 

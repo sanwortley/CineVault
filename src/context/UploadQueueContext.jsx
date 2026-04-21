@@ -11,7 +11,6 @@ export function UploadQueueProvider({ children }) {
     const updateItem = useCallback((id, updates) =>
         setQueue(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item)), []);
 
-    const autoRemove = useCallback((id) => setTimeout(() => setQueue(prev => prev.filter(i => i.id !== id)), 4000), []);
 
     useEffect(() => {
         let activeUnsubs = {};
@@ -52,7 +51,6 @@ export function UploadQueueProvider({ children }) {
                                         updateItem(item.movieId, { progress: prog, isOptimizing: data.isOptimizing ?? false });
                                         if (data.status === 'done' || prog === 100) {
                                             updateItem(item.movieId, { status: 'done', progress: 100 });
-                                            autoRemove(item.movieId);
                                         }
                                     }
                                 }
@@ -73,7 +71,7 @@ export function UploadQueueProvider({ children }) {
             if (pollInterval) clearInterval(pollInterval);
             Object.values(activeUnsubs).forEach(unsub => unsub && typeof unsub === 'function' && unsub());
         };
-    }, [updateItem, autoRemove]);
+    }, [updateItem]);
 
     const startElectronUpload = useCallback(async (movie) => {
         const ext = movie.file_path.split('.').pop().toLowerCase();
@@ -88,7 +86,7 @@ export function UploadQueueProvider({ children }) {
         try {
             const result = await api.uploadMovieToDrive(movie.id, movie.file_path, mimeType);
             unsubscribe();
-            if (result.success) { updateItem(movie.id, { status: 'done', progress: 100 }); autoRemove(movie.id); }
+            if (result.success) { updateItem(movie.id, { status: 'done', progress: 100 }); }
             else { updateItem(movie.id, { status: 'error', errorMsg: result.error }); }
         } catch (err) {
             unsubscribe();
@@ -101,7 +99,7 @@ export function UploadQueueProvider({ children }) {
             const result = await api.uploadMovieFile(movie.id, file, (progress) => {
                 updateItem(movie.id, { progress, isOptimizing: false });
             });
-            if (result.success) { updateItem(movie.id, { status: 'done', progress: 100 }); autoRemove(movie.id); }
+            if (result.success) { updateItem(movie.id, { status: 'done', progress: 100 }); }
             else { updateItem(movie.id, { status: 'error', errorMsg: result.error }); }
         } catch (err) {
             updateItem(movie.id, { status: 'error', errorMsg: err.message });
@@ -169,7 +167,6 @@ export function UploadQueueProvider({ children }) {
                                 updateItem(movie.id, { progress: data.progress ?? 0, isOptimizing: data.isOptimizing ?? false });
                                 if (data.progress === 100) {
                                     updateItem(movie.id, { status: 'done' });
-                                    autoRemove(movie.id);
                                     unsubscribe();
                                 }
                             }
@@ -184,7 +181,6 @@ export function UploadQueueProvider({ children }) {
                     } else if (result.success) {
                         // Fallback in case backend is still synchronous
                         updateItem(movie.id, { status: 'done', progress: 100 });
-                        autoRemove(movie.id);
                         unsubscribe();
                         return;
                     }
@@ -199,7 +195,7 @@ export function UploadQueueProvider({ children }) {
             pendingMovieRef.current = movie;
             if (fileInputRef.current) fileInputRef.current.click();
         }
-    }, [queue, startElectronUpload, autoRemove, removeFromQueue]);
+    }, [queue, startElectronUpload, removeFromQueue, updateItem]);
 
     const handleFileSelected = useCallback((e) => {
         const file = e.target.files?.[0];

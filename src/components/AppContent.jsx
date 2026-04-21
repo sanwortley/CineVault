@@ -10,7 +10,7 @@ import {
 // Components
 import VideoPlayer from './VideoPlayer';
 import MovieDetailsModal from './MovieDetailsModal';
-import UploadQueuePanel from './UploadQueuePanel';
+import ActivityCenter from './ActivityCenter';
 import Disclaimer from './Disclaimer';
 
 // Lazy loaded pages to break dependency chains
@@ -263,6 +263,8 @@ export default function AppContent() {
                                         <RefreshCw size={20} className={isScanning ? 'animate-spin' : ''} />
                                     </button>
 
+                                    <ActivityCenter />
+
                                     <button
                                         onClick={() => setActiveTab('settings')}
                                         className={`transition-all duration-300 p-2 rounded-full hover:bg-white/10 hidden md:flex ${activeTab === 'settings' ? 'text-netflix-red' : 'text-white'}`}
@@ -497,8 +499,6 @@ export default function AppContent() {
                     </div>
                 </div>
             )}
-
-            <UploadQueuePanel />
         </div>
     );
 }

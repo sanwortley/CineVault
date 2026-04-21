@@ -38,6 +38,7 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
     const [isSearchingSubtitles, setIsSearchingSubtitles] = useState(false);
     const [subtitleCues, setSubtitleCues] = useState([]);
     const [subtitleOffset, setSubtitleOffset] = useState(0); // in seconds
+    const [subQuotaReached, setSubQuotaReached] = useState(false);
     const controlsTimeoutRef = useRef(null);
     const fileInputRef = useRef(null);
     
@@ -432,6 +433,10 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
                 setSubtitleCues(cues);
             } else if (url) {
                 const response = await fetch(url);
+                if (response.status === 429) {
+                    setSubQuotaReached(true);
+                    return;
+                }
                 const text = await response.text();
                 const cues = parseVTT(text);
                 if (cues.length === 0) {
@@ -441,6 +446,9 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
             }
         } catch (err) {
             console.error('[VideoPlayer] Subtitle selection error:', err);
+            if (err.message?.includes('quota') || err.message?.includes('429')) {
+                setSubQuotaReached(true);
+            }
         }
     };
 
@@ -834,6 +842,21 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
             >
                 <X size={isMobile ? 24 : 28} />
             </button>
+
+            {subQuotaReached && (
+                <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[1100] animate-in slide-in-from-top-10 duration-500">
+                    <div className="glass-card px-6 py-4 rounded-2xl border border-netflix-red/30 bg-netflix-red/10 flex items-center gap-4 shadow-2xl backdrop-blur-xl">
+                        <AlertCircle className="text-netflix-red" size={20} />
+                        <div className="min-w-0">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-white">Límite de Subtítulos Alcanzado</p>
+                            <p className="text-[9px] font-bold text-slate-400 mt-0.5">Has usado tus 5 descargas diarias de OpenSubtitles. Usa un archivo local.</p>
+                        </div>
+                        <button onClick={() => setSubQuotaReached(false)} className="p-1 hover:bg-white/10 rounded-lg">
+                            <X size={14} className="text-slate-500" />
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {showControls && (
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-4 md:p-6">
