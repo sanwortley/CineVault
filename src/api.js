@@ -166,9 +166,13 @@ export const api = {
         return backendFetch('/api/subtitles/search', { method: 'POST', body: JSON.stringify(data) });
     },
 
-    downloadSubtitle: (fileId) => {
-        if (isElectron()) return window.electronAPI.downloadSubtitle(fileId);
-        return backendFetch('/api/subtitles/download', { method: 'POST', body: JSON.stringify({ fileId }) });
+    downloadSubtitle: (fileId, movieId) => {
+        if (isElectron()) return window.electronAPI.downloadSubtitle(fileId, movieId);
+        return backendFetch('/api/subtitles/download', { method: 'POST', body: JSON.stringify({ fileId, movieId }) });
+    },
+
+    findLocalSubtitle: (movieId) => {
+        return backendFetch(`/api/subtitles/find-local?movieId=${movieId}`);
     },
 
     // ── Google Drive ──────────────────────────────────────────────────────────
@@ -198,6 +202,14 @@ export const api = {
     disconnectDrive: () => {
         if (isElectron()) return window.electronAPI.disconnectDrive();
         return backendFetch('/api/auth/disconnect', { method: 'POST' });
+    },
+
+    listDriveFiles: (folderId) => {
+        return backendFetch(`/api/drive/ls${folderId ? `?folderId=${folderId}` : ''}`);
+    },
+
+    getDriveSubtitleUrl: (fileId) => {
+        return `${BACKEND_URL}/api/subtitles/drive?fileId=${fileId}`;
     },
 
     // ── Sessions ──────────────────────────────────────────────────────────────

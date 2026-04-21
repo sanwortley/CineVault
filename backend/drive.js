@@ -459,6 +459,38 @@ const driveApi = {
             throw e;
         }
     },
+
+    list: async (folderId = 'root') => {
+        if (!driveApi.isAuthenticated()) throw new Error('Not authenticated');
+        const drive = driveApi.getClient();
+        try {
+            const response = await drive.files.list({
+                q: `'${folderId}' in parents and trashed = false`,
+                fields: 'files(id, name, mimeType, size, modifiedTime, thumbnailLink)',
+                spaces: 'drive',
+                orderBy: 'folder,name'
+            });
+            return response.data.files;
+        } catch (e) {
+            console.error(`[Drive] Error listing files in ${folderId}:`, e.message);
+            throw e;
+        }
+    },
+
+    getFileContent: async (fileId) => {
+        if (!driveApi.isAuthenticated()) throw new Error('Not authenticated');
+        const drive = driveApi.getClient();
+        try {
+            const response = await drive.files.get({
+                fileId: fileId,
+                alt: 'media'
+            });
+            return response.data;
+        } catch (e) {
+            console.error(`[Drive] Error getting content for ${fileId}:`, e.message);
+            throw e;
+        }
+    },
     
     getTokenPath,
 

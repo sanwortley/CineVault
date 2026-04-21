@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Play, Pause, Volume2, VolumeX, Maximize, X, 
-    Loader2, Subtitles, SkipBack, SkipForward, Lock, Unlock, Film
+    Loader2, Subtitles, SkipBack, SkipForward, Lock, Unlock, Film,
+    Plus, Cloud, Upload
 } from 'lucide-react';
 import { api, BACKEND_URL } from '../api';
 import { useAuth } from '../context/AuthContext';
+import DriveExplorer from './DriveExplorer';
 
 function VideoPlayer({ movie, onClose, userProgress = {} }) {
     const { user, saveUserProgress } = useAuth();
@@ -31,10 +33,13 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
     
     const [subtitles, setSubtitles] = useState([]);
     const [selectedSubtitle, setSelectedSubtitle] = useState(null);
-    const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
+    const [showSubtitleMenu, setShowSubtitleMenu ] = useState(false);
+    const [showDriveExplorer, setShowDriveExplorer] = useState(false);
     const [isSearchingSubtitles, setIsSearchingSubtitles] = useState(false);
     const [subtitleCues, setSubtitleCues] = useState([]);
+    const [subtitleOffset, setSubtitleOffset] = useState(0); // in seconds
     const controlsTimeoutRef = useRef(null);
+    const fileInputRef = useRef(null);
     
     // Use userProgress prop first, fallback to movie.watched_duration
     const movieUserProgress = userProgress[movie?.id] ?? movie?.watched_duration ?? 0;
@@ -95,6 +100,25 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
         };
         
         resolveSource();
+        
+        // --- Auto Subtitle Detection ---
+        const autoLoadSubtitles = async () => {
+            try {
+                // 1. Check for local companion files first
+                const localRes = await api.findLocalSubtitle(movie.id);
+                if (localRes.found) {
+                    console.log('[VideoPlayer] Autocarga: Subtítulo local detectado:', localRes.path);
+                    handleSubtitleSelect({ ...localRes, type: 'local', label: 'Local' });
+                } else {
+                    // 2. If nothing local, fire the auto-search
+                    handleSearchSubtitles();
+                }
+            } catch (err) {
+                console.warn('[VideoPlayer] Error en autocarga de subtítulos:', err);
+            }
+        };
+        
+        autoLoadSubtitles();
     }, [movie.id]);
 
     // Build video URL after streamSource is determined - Stable reference
@@ -357,19 +381,25 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
                             unique.push({ ...s, type: 'cloud' });
                         }
                     });
-                    return unique;
+                    // Sort cloud results by score
+                    return unique.sort((a, b) => (b.score || 0) - (a.score || 0));
                 });
 
-                // Auto-select the first (best) Spanish subtitle if none is selected
+                // Auto-select the first (best) Spanish subtitle if none is currently selected
                 if (!selectedSubtitle) {
                     const bestSpanish = res.data.find(s => s.language === 'es');
                     if (bestSpanish) {
+                        console.log('[VideoPlayer] Autoselección: Mejor opción en Español:', bestSpanish.release);
                         handleSubtitleSelect(bestSpanish);
+                    } else if (res.data.length > 0) {
+                         // Fallback to English if no Spanish
+                        const bestEnglish = res.data.find(s => s.language === 'en');
+                        if (bestEnglish) handleSubtitleSelect(bestEnglish);
                     }
                 }
             }
         } catch (err) {
-            setError('Error al buscar subtítulos online. Verifica tu conexión.');
+            console.error('[VideoPlayer] Error al buscar subtítulos online:', err);
         } finally {
             setIsSearchingSubtitles(false);
         }
@@ -378,42 +408,111 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
     const handleSubtitleSelect = async (subtitle) => {
         setSelectedSubtitle(subtitle);
         setSubtitleCues([]);
+        setSubtitleOffset(0); // Reset sync on new sub
         
         if (!subtitle) return;
         
         try {
             let url = '';
+            let directContent = null;
+
             if (subtitle.type === 'cloud') {
                 url = BACKEND_URL + '/api/subtitles/cloud?id=' + subtitle.id;
+                api.downloadSubtitle(subtitle.id, movie.id).catch(e => console.warn('[VideoPlayer] Pairing failed:', e));
+            } else if (subtitle.type === 'local') {
+                url = BACKEND_URL + '/api/subtitles/external?path=' + encodeURIComponent(subtitle.path);
+            } else if (subtitle.type === 'drive') {
+                url = api.getDriveSubtitleUrl(subtitle.id);
+            } else if (subtitle.type === 'manual') {
+                directContent = subtitle.content;
             }
             
-            if (url) {
+            if (directContent) {
+                const cues = parseVTT(directContent);
+                setSubtitleCues(cues);
+            } else if (url) {
                 const response = await fetch(url);
                 const text = await response.text();
                 const cues = parseVTT(text);
+                if (cues.length === 0) {
+                    console.warn('[VideoPlayer] Parser returned 0 cues. Malformed VTT?');
+                }
                 setSubtitleCues(cues);
             }
-        } catch (err) {}
+        } catch (err) {
+            console.error('[VideoPlayer] Subtitle selection error:', err);
+        }
+    };
+
+    const handleLocalSubtitleUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            let content = event.target.result;
+            
+            // Basic SRT -> VTT transformation if needed
+            if (file.name.toLowerCase().endsWith('.srt')) {
+                content = "WEBVTT\n\n" + content.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
+            }
+
+            const manualSub = {
+                id: 'manual-' + Date.now(),
+                label: 'Cargado: ' + file.name,
+                file_name: file.name,
+                type: 'manual',
+                content: content
+            };
+
+            setSubtitles(prev => [manualSub, ...prev]);
+            handleSubtitleSelect(manualSub);
+            setShowSubtitleMenu(false);
+        };
+        reader.readAsText(file);
     };
 
     const parseVTT = (vttText) => {
+        if (!vttText) return [];
         const cues = [];
-        const lines = vttText.split('\n');
+        // Robust splitting for both CRLF and LF
+        const lines = vttText.split(/\r?\n/);
         let i = 0;
         
+        // Find first cue (skip WEBVTT header and metadata)
+        while (i < lines.length && !lines[i].includes('-->')) {
+            i++;
+        }
+
         while (i < lines.length) {
             if (lines[i].includes('-->')) {
-                const timeMatch = lines[i].match(/(\d{1,2}):(\d{2}):(\d{2})[.,](\d{3})\s*-->\s*(\d{1,2}):(\d{2}):(\d{2})[.,](\d{3})/);
+                // Better regex: handles , and . and optional hours
+                const timeMatch = lines[i].match(/(?:(\d+):)?(\d{2}):(\d{2})[.,](\d{3})\s*-->\s*(?:(\d+):)?(\d{2}):(\d{2})[.,](\d{3})/);
                 if (timeMatch) {
-                    const start = parseInt(timeMatch[1]) * 3600 + parseInt(timeMatch[2]) * 60 + parseInt(timeMatch[3]) + parseInt(timeMatch[4]) / 1000;
-                    const end = parseInt(timeMatch[5]) * 3600 + parseInt(timeMatch[6]) * 60 + parseInt(timeMatch[7]) + parseInt(timeMatch[8]) / 1000;
+                    const h1 = parseInt(timeMatch[1] || 0);
+                    const m1 = parseInt(timeMatch[2]);
+                    const s1 = parseInt(timeMatch[3]);
+                    const ms1 = parseInt(timeMatch[4]);
+                    
+                    const h2 = parseInt(timeMatch[5] || 0);
+                    const m2 = parseInt(timeMatch[6]);
+                    const s2 = parseInt(timeMatch[7]);
+                    const ms2 = parseInt(timeMatch[8]);
+
+                    const start = h1 * 3600 + m1 * 60 + s1 + ms1 / 1000;
+                    const end = h2 * 3600 + m2 * 60 + s2 + ms2 / 1000;
+                    
                     let text = '';
                     i++;
                     while (i < lines.length && lines[i].trim() !== '') {
-                        text += (text ? '\n' : '') + lines[i].trim();
+                        // Skip styling tags if present simple regex
+                        const cleanText = lines[i].trim().replace(/<[^>]+>/g, '');
+                        text += (text ? '\n' : '') + cleanText;
                         i++;
                     }
-                    cues.push({ start, end, text });
+                    if (text) {
+                        cues.push({ start, end, text });
+                    }
                 } else {
                     i++;
                 }
@@ -425,7 +524,10 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
     };
 
     const currentSubtitle = subtitleCues.find(
-        cue => currentTime >= cue.start && currentTime <= cue.end
+        cue => {
+            const adjustedTime = currentTime + subtitleOffset;
+            return adjustedTime >= cue.start && adjustedTime <= cue.end;
+        }
     );
 
     const handleVideoClick = (e) => {
@@ -753,7 +855,6 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
                                     />
                                 </div>
                                 
-                                
                                 <button onClick={() => { setShowSubtitleMenu(!showSubtitleMenu); setShowControls(true); }} className={'p-3 rounded-full transition-colors ' + (selectedSubtitle ? 'text-cyan-400 bg-cyan-400/20' : 'text-white/70 hover:text-white')}>
                                     <Subtitles size={isMobile ? 24 : 28} />
                                 </button>
@@ -773,10 +874,33 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
                                     </button>
                                 </div>
                                 
-                                <div className="space-y-2 max-h-48 overflow-y-auto">
+                                <div className="space-y-2 max-h-56 overflow-y-auto custom-scrollbar pr-1">
+                                    <div className="sticky top-0 z-10 bg-slate-900/40 backdrop-blur-sm pt-1 pb-2 flex gap-2">
+                                        <button 
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="flex-1 flex items-center justify-center gap-2 p-2.5 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/5"
+                                        >
+                                            <Upload size={14} className="text-cyan-400" />
+                                            <span className="text-[9px] font-black uppercase tracking-wider text-white/70">Subir Local</span>
+                                        </button>
+                                        <button 
+                                            onClick={() => { setShowDriveExplorer(true); setShowSubtitleMenu(false); }}
+                                            className="flex-1 flex items-center justify-center gap-2 p-2.5 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/5"
+                                        >
+                                            <Cloud size={14} className="text-cyan-400" />
+                                            <span className="text-[9px] font-black uppercase tracking-wider text-white/70">Google Drive</span>
+                                        </button>
+                                        <input 
+                                            type="file" 
+                                            ref={fileInputRef} 
+                                            className="hidden" 
+                                            accept=".srt,.vtt" 
+                                            onChange={handleLocalSubtitleUpload}
+                                        />
+                                    </div>
                                     <button
-                                        onClick={() => { setSelectedSubtitle(null); setSubtitleCues([]); setShowSubtitleMenu(false); }}
-                                        className={'w-full text-left p-2.5 rounded-lg text-sm ' + (!selectedSubtitle ? 'bg-cyan-500 text-black font-bold' : 'text-white hover:bg-white/10')}
+                                        onClick={() => { setSelectedSubtitle(null); setSubtitleCues([]); setSubtitleOffset(0); setShowSubtitleMenu(false); }}
+                                        className={'w-full text-left p-3 rounded-xl text-xs font-bold transition-all ' + (!selectedSubtitle ? 'bg-cyan-500 text-black' : 'text-white/60 hover:bg-white/5 hover:text-white')}
                                     >
                                         Ninguno
                                     </button>
@@ -785,24 +909,70 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
                                         <button
                                             key={i}
                                             onClick={() => { handleSubtitleSelect(sub); setShowSubtitleMenu(false); }}
-                                            className={'w-full text-left p-2.5 rounded-lg text-sm ' + (selectedSubtitle === sub ? 'bg-cyan-500 text-black font-bold' : 'text-white hover:bg-white/10')}
+                                            className={'w-full text-left p-3 rounded-xl text-xs flex flex-col gap-1 transition-all ' + (selectedSubtitle?.id === sub.id ? 'bg-white/10 border border-cyan-500/50' : 'text-white/80 hover:bg-white/5')}
                                         >
-                                            {sub.file_name || sub.label}
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className={selectedSubtitle?.id === sub.id ? 'text-cyan-400 font-black' : 'font-bold'}>
+                                                    {sub.file_name || sub.label}
+                                                </span>
+                                                {selectedSubtitle?.id === sub.id && <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse"></div>}
+                                            </div>
+                                            {sub.release && sub.release !== sub.label && (
+                                                <span className="text-[9px] opacity-40 truncate uppercase tracking-tighter">{sub.release}</span>
+                                            )}
                                         </button>
                                     ))}
-                                    
+                                </div>
+                                
+                                <div className="mt-4 pt-4 border-t border-white/5 flex flex-col gap-3">
+                                    <div className="flex items-center justify-between px-1">
+                                        <span className="text-[10px] font-black uppercase text-white/40 tracking-widest">Sincronización</span>
+                                        <div className="flex items-center gap-3">
+                                            <button 
+                                                onClick={() => setSubtitleOffset(prev => prev - 0.5)}
+                                                className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-lg text-white hover:bg-white/10 active:scale-90 transition-all font-bold"
+                                            >
+                                                -
+                                            </button>
+                                            <span className={`text-[10px] font-black min-w-[3rem] text-center ${subtitleOffset !== 0 ? 'text-cyan-400' : 'text-white/40'}`}>
+                                                {subtitleOffset > 0 ? '+' : ''}{subtitleOffset.toFixed(1)}s
+                                            </span>
+                                            <button 
+                                                onClick={() => setSubtitleOffset(prev => prev + 0.5)}
+                                                className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-lg text-white hover:bg-white/10 active:scale-90 transition-all font-bold"
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+                                    </div>
+
                                     <button
                                         onClick={handleSearchSubtitles}
                                         disabled={isSearchingSubtitles}
-                                        className="w-full text-center p-3 text-cyan-400 text-sm font-bold border-t border-white/10 mt-2 hover:bg-cyan-400/10 transition-colors"
+                                        className="w-full py-3 bg-white/5 hover:bg-cyan-500/10 rounded-xl text-cyan-400 text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
                                     >
-                                        {isSearchingSubtitles ? 'Buscando...' : 'Buscar Online'}
+                                        {isSearchingSubtitles ? 'Buscando Nuevos...' : 'Más Opciones (Online)'}
                                     </button>
                                 </div>
                             </div>
                         )}
                     </div>
                 </div>
+            )}
+
+            {showDriveExplorer && (
+                <DriveExplorer 
+                    onClose={() => setShowDriveExplorer(false)} 
+                    onSelect={(file) => {
+                        handleSubtitleSelect({
+                            id: file.id,
+                            label: 'Drive: ' + file.name,
+                            file_name: file.name,
+                            type: 'drive'
+                        });
+                        setShowDriveExplorer(false);
+                    }}
+                />
             )}
         </div>
     );

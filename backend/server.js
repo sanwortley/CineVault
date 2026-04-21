@@ -16,6 +16,8 @@ const os = require('os');
 const http = require('http');
 const mime = require('mime-types');
 const cookieParser = require('cookie-parser');
+const iconv = require('iconv-lite');
+const chardet = require('chardet');
 
 const driveApi = require('./drive');
 const db = require('./db');
@@ -453,6 +455,29 @@ app.post('/api/drive/upload-local', sessionMiddleware, adminMiddleware, async (r
     }
 });
 
+app.get('/api/drive/ls', sessionMiddleware, async (req, res) => {
+    try {
+        const { folderId } = req.query;
+        const files = await driveApi.list(folderId || 'root');
+        res.json({ files });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/subtitles/drive', async (req, res) => {
+    try {
+        const { fileId } = req.query;
+        if (!fileId) return res.status(400).json({ error: 'Missing fileId' });
+        
+        const content = await driveApi.getFileContent(fileId);
+        res.setHeader('Content-Type', 'text/vtt');
+        res.send(content);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // Queue API routes
 app.get('/api/drive/queue', sessionMiddleware, (req, res) => {
     res.json(uploadManager.getQueue());
@@ -502,13 +527,20 @@ app.post('/api/subtitles/search', async (req, res) => {
                 if (lang === 'es') score += 1000;
                 if (lang === 'en') score += 100;
                 
-                // version/release matching
+                // version/release matching - Better scoring for release group
                 activeKeywords.forEach(k => {
-                    if (releaseLower.includes(k)) score += 50;
+                    if (releaseLower.includes(k)) score += 100; // Increased weight
+                });
+
+                // Check for exact movie file name components in release string
+                const fileNameWords = movieTitleLower.split(/[\s._-]+/).filter(w => w.length > 2);
+                fileNameWords.forEach(word => {
+                    if (releaseLower.includes(word)) score += 10;
                 });
 
                 // Perfect match for a popular group
-                if (movieTitleLower.includes('yts') && releaseLower.includes('yts')) score += 200;
+                if (movieTitleLower.includes('yts') && releaseLower.includes('yts')) score += 500;
+                if (movieTitleLower.includes('rarbg') && releaseLower.includes('rarbg')) score += 500;
 
                 return {
                     id: attr.files[0].file_id,
@@ -530,12 +562,12 @@ app.post('/api/subtitles/search', async (req, res) => {
 });
 
 app.post('/api/subtitles/download', async (req, res) => {
-    const { fileId } = req.body;
+    const { fileId, movieId } = req.body;
     if (!fileId) return res.status(400).json({ error: 'Missing fileId' });
     
     const apiKey = process.env.OPENSUBTITLES_API_KEY;
     try {
-        console.log(`[Subtitles] Solicidando descarga para fileId: ${fileId}`);
+        console.log(`[Subtitles] Solicitando descarga para fileId: ${fileId} (MovieId: ${movieId})`);
         const response = await fetch('https://api.opensubtitles.com/api/v1/download', {
             method: 'POST',
             headers: { 
@@ -558,15 +590,107 @@ app.post('/api/subtitles/download', async (req, res) => {
         const subRes = await fetch(data.link);
         if (!subRes.ok) throw new Error('Error al descargar el archivo desde el enlace proporcionado.');
         
-        const buffer = await subRes.arrayBuffer();
-        const tempPath = path.join(os.tmpdir(), `sub_${fileId}.srt`);
-        fs.writeFileSync(tempPath, Buffer.from(buffer));
+        const arrayBuffer = await subRes.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
         
-        console.log(`[Subtitles] Descargado y guardado en: ${tempPath}`);
-        res.json({ localPath: tempPath, success: true });
+        // --- Robust Encoding Selection ---
+        let finalBuffer = buffer;
+        try {
+            const encoding = chardet.detect(buffer);
+            console.log(`[Subtitles] Detected encoding: ${encoding}`);
+            if (encoding && encoding !== 'UTF-8' && encoding !== 'ascii') {
+                finalBuffer = iconv.encode(iconv.decode(buffer, encoding), 'utf-8');
+                console.log(`[Subtitles] Converted to UTF-8 from ${encoding}`);
+            }
+        } catch (encErr) {
+            console.warn('[Subtitles] Encoding detection/conversion failed, using original buffer:', encErr.message);
+        }
+
+        // --- Save Location ---
+        let finalPath = path.join(os.tmpdir(), `sub_${fileId}.srt`);
+        let savedLocally = false;
+
+        if (movieId) {
+            try {
+                const movies = await db.findMovies({ id: movieId });
+                if (movies && movies.length > 0) {
+                    const movie = movies[0];
+                    if (movie.file_path && !movie.file_path.startsWith('remote://') && fs.existsSync(path.dirname(movie.file_path))) {
+                        const movieDir = path.dirname(movie.file_path);
+                        const movieName = path.basename(movie.file_path, path.extname(movie.file_path));
+                        const localPath = path.join(movieDir, `${movieName}.srt`);
+                        fs.writeFileSync(localPath, finalBuffer);
+                        finalPath = localPath;
+                        savedLocally = true;
+                        console.log(`[Subtitles] Guardado junto a la película: ${finalPath}`);
+                    }
+                }
+            } catch (dbErr) {
+                console.warn('[Subtitles] Error al buscar ruta de película para guardado local:', dbErr.message);
+            }
+        }
+
+        if (!savedLocally) {
+            fs.writeFileSync(finalPath, finalBuffer);
+            console.log(`[Subtitles] Guardado en temp: ${finalPath}`);
+        }
+        
+        // Also ensure a VTT version exists for immediate web streaming
+        const vttPath = finalPath.replace(/\.srt$/, '.vtt');
+        try {
+            ffmpeg(finalPath)
+                .output(vttPath)
+                .on('error', (err) => console.error('[Subtitles] Automatic VTT conversion failed:', err.message))
+                .run();
+        } catch (vttErr) {}
+
+        res.json({ localPath: finalPath, savedLocally, success: true });
     } catch (e) {
         console.error('[Subtitles Download] Error:', e.message);
         res.status(500).json({ error: e.message });
+    }
+});
+
+// Route to detect and return local subtitles
+app.get('/api/subtitles/find-local', async (req, res) => {
+    const { movieId } = req.query;
+    if (!movieId) return res.status(400).json({ error: 'Missing movieId' });
+
+    try {
+        const movies = await db.findMovies({ id: movieId });
+        if (!movies || movies.length === 0) return res.status(404).json({ error: 'Pelicula no encontrada' });
+        
+        const movie = movies[0];
+        if (!movie.file_path || movie.file_path.startsWith('remote://')) {
+            return res.json({ found: false });
+        }
+
+        const movieDir = path.dirname(movie.file_path);
+        const movieName = path.basename(movie.file_path, path.extname(movie.file_path));
+        const srtPath = path.join(movieDir, `${movieName}.srt`);
+        const vttPath = path.join(movieDir, `${movieName}.vtt`);
+
+        if (fs.existsSync(srtPath)) {
+            return res.json({ 
+                found: true, 
+                path: srtPath, 
+                type: 'local',
+                label: 'Local (SRT)'
+            });
+        }
+
+        if (fs.existsSync(vttPath)) {
+            return res.json({ 
+                found: true, 
+                path: vttPath, 
+                type: 'local',
+                label: 'Local (VTT)'
+            });
+        }
+
+        res.json({ found: false });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
