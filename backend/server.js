@@ -492,11 +492,10 @@ app.get('/api/subtitles/cloud/check', sessionMiddleware, async (req, res) => {
         const movie = movies[0];
         if (movie.drive_file_id === 'pending_cloud') return res.json({ found: false });
 
-        // Ensure ID is clean (strip prefix like 1_) using Regex to avoid mangling IDs with underscores
-        const cleanId = typeof movie.drive_file_id === 'string' ? movie.drive_file_id.replace(/^\d+_/, '') : movie.drive_file_id;
+        const driveFileId = movie.drive_file_id;
         
         try {
-            const parentId = await driveApi.getFileParent(cleanId);
+            const parentId = await driveApi.getFileParent(driveFileId);
             if (!parentId) return res.json({ found: false });
 
             const files = await driveApi.list(parentId);
