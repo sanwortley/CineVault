@@ -272,11 +272,34 @@ const driveApi = {
             console.log(`[Drive] Metadata check for: ${cleanId} (Original: ${fileId})`);
             if (hasToken) {
                 drive = driveApi.getClient();
-                const fileMeta = await drive.files.get({ fileId: cleanId, fields: 'size, mimeType' });
-                fileSize = parseInt(fileMeta.data.size, 10);
-                contentType = fileMeta.data.mimeType;
+                try {
+                    const fileMeta = await drive.files.get({ 
+                        fileId: cleanId, 
+                        fields: 'size, mimeType',
+                        supportsAllDrives: true 
+                    });
+                    fileSize = parseInt(fileMeta.data.size, 10);
+                    contentType = fileMeta.data.mimeType;
+                } catch (tokError) {
+                    // Fallback: If 404 and we have an API Key, try public access
+                    if (tokError.code === 404 && apiKey) {
+                        console.warn(`[Drive] Item not found with personal token, falling back to API Key for: ${cleanId}`);
+                        const metaUrl = `https://www.googleapis.com/drive/v3/files/${cleanId}?fields=size,mimeType&key=${apiKey}&supportsAllDrives=true`;
+                        const metaRes = await fetch(metaUrl);
+                        if (metaRes.ok) {
+                            const metaData = await metaRes.json();
+                            fileSize = parseInt(metaData.size, 10);
+                            contentType = metaData.mimeType;
+                            drive = null; // Mark as not using authorized client
+                        } else {
+                            throw tokError; // Re-throw original if fallback also fails
+                        }
+                    } else {
+                        throw tokError;
+                    }
+                }
             } else {
-                const metaUrl = `https://www.googleapis.com/drive/v3/files/${cleanId}?fields=size,mimeType${apiKey ? `&key=${apiKey}` : ''}`;
+                const metaUrl = `https://www.googleapis.com/drive/v3/files/${cleanId}?fields=size,mimeType${apiKey ? `&key=${apiKey}` : ''}&supportsAllDrives=true`;
                 const metaRes = await fetch(metaUrl);
                 if (!metaRes.ok) throw new Error(`Google API returned ${metaRes.status}`);
                 const metaData = await metaRes.json();
@@ -300,12 +323,15 @@ const driveApi = {
                 });
 
                 let driveStream;
-                if (hasToken) {
-                    // For transcoding, we don't send Range to Google because we need the source for FFmpeg to seek
-                    const driveRes = await drive.files.get({ fileId: cleanId, alt: 'media' }, { responseType: 'stream' });
+                if (hasToken && drive) {
+                    const driveRes = await drive.files.get({ 
+                        fileId: cleanId, 
+                        alt: 'media', 
+                        supportsAllDrives: true 
+                    }, { responseType: 'stream' });
                     driveStream = driveRes.data;
                 } else {
-                    const mediaUrl = `https://www.googleapis.com/drive/v3/files/${cleanId}?alt=media${apiKey ? `&key=${apiKey}` : ''}`;
+                    const mediaUrl = `https://www.googleapis.com/drive/v3/files/${cleanId}?alt=media${apiKey ? `&key=${apiKey}` : ''}&supportsAllDrives=true`;
                     const mediaRes = await fetch(mediaUrl);
                     const { Readable } = require('stream');
                     driveStream = Readable.fromWeb(mediaRes.body);
@@ -349,9 +375,13 @@ const driveApi = {
                 // For HEAD requests (Safari probes), don't send the body
                 if (res.req.method === 'HEAD') return res.end();
 
-                if (hasToken) {
+                if (hasToken && drive) {
                     const response = await drive.files.get(
-                        { fileId: cleanId, alt: 'media' }, 
+                        { 
+                            fileId: cleanId, 
+                            alt: 'media', 
+                            supportsAllDrives: true 
+                        }, 
                         { 
                             responseType: 'stream', 
                             headers: { Range: rangeHeader } 
@@ -359,7 +389,7 @@ const driveApi = {
                     );
                     response.data.pipe(res);
                 } else {
-                    const mediaUrl = `https://www.googleapis.com/drive/v3/files/${cleanId}?alt=media${apiKey ? `&key=${apiKey}` : ''}`;
+                    const mediaUrl = `https://www.googleapis.com/drive/v3/files/${cleanId}?alt=media${apiKey ? `&key=${apiKey}` : ''}&supportsAllDrives=true`;
                     const googleRes = await fetch(mediaUrl, {
                         headers: { Range: rangeHeader }
                     });
@@ -372,11 +402,15 @@ const driveApi = {
 
                 if (res.req.method === 'HEAD') return res.end();
 
-                if (hasToken) {
-                    const response = await drive.files.get({ fileId: cleanId, alt: 'media' }, { responseType: 'stream' });
+                if (hasToken && drive) {
+                    const response = await drive.files.get({ 
+                        fileId: cleanId, 
+                        alt: 'media', 
+                        supportsAllDrives: true 
+                    }, { responseType: 'stream' });
                     response.data.on('error', e => !res.headersSent && res.status(500).end()).pipe(res);
                 } else {
-                    const mediaUrl = `https://www.googleapis.com/drive/v3/files/${cleanId}?alt=media${apiKey ? `&key=${apiKey}` : ''}`;
+                    const mediaUrl = `https://www.googleapis.com/drive/v3/files/${cleanId}?alt=media${apiKey ? `&key=${apiKey}` : ''}&supportsAllDrives=true`;
                     const response = await fetch(mediaUrl);
                     const { Readable } = require('stream');
                     Readable.fromWeb(response.body).pipe(res);
@@ -466,17 +500,19 @@ const driveApi = {
         }
     },
 
-    list: async (folderId = 'root') => {
-        if (!driveApi.isAuthenticated()) throw new Error('Not authenticated');
+    list: async (folderId, query = null) => {
+        if (!driveApi.isAuthenticated()) return [];
         const drive = driveApi.getClient();
         try {
-            const response = await drive.files.list({
-                q: `'${folderId}' in parents and trashed = false`,
+            const res = await drive.files.list({
+                q: query || `'${folderId}' in parents and trashed = false`,
                 fields: 'files(id, name, mimeType, size, modifiedTime, thumbnailLink)',
                 spaces: 'drive',
+                supportsAllDrives: true,
+                includeItemsFromAllDrives: true,
                 orderBy: 'folder,name'
             });
-            return response.data.files;
+            return res.data.files || [];
         } catch (e) {
             console.error(`[Drive] Error listing files in ${folderId}:`, e.message);
             throw e;
@@ -536,7 +572,8 @@ const driveApi = {
         try {
             const res = await drive.files.get({
                 fileId: cleanId,
-                fields: 'parents'
+                fields: 'parents',
+                supportsAllDrives: true
             });
             return res.data.parents?.[0];
         } catch (e) {
