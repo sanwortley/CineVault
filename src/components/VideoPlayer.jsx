@@ -8,7 +8,7 @@ import { api, BACKEND_URL } from '../api';
 import { useAuth } from '../context/AuthContext';
 import DriveExplorer from './DriveExplorer';
 
-function VideoPlayer({ movie, onClose, userProgress = {} }) {
+function VideoPlayer({ movie, onClose, onOpenSettings, userProgress = {} }) {
     const { user, saveUserProgress } = useAuth();
     const videoRef = useRef(null);
     const playerRef = useRef(null);
@@ -844,7 +844,15 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
                         
                         <p className="text-sm text-slate-400 font-medium leading-relaxed">
                             Esta película se está descargando y optimizando para tu Bóveda. 
-                            <span className="block mt-2 text-cyan-400/80 font-black uppercase text-[9px] tracking-widest">Estará disponible en unos minutos.</span>
+                            <button 
+                                onClick={() => {
+                                    onClose(0);
+                                    if (onOpenSettings) onOpenSettings();
+                                }}
+                                className="block mt-2 text-cyan-400/80 font-black uppercase text-[9px] tracking-widest hover:text-cyan-300 transition-colors cursor-pointer"
+                            >
+                                Estará disponible en unos minutos.
+                            </button>
                         </p>
                         
                         <button 

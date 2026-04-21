@@ -479,7 +479,7 @@ app.post('/api/drive/queue/retry', sessionMiddleware, adminMiddleware, (req, res
 /**
  * Endpoint para reproducción instantánea redirigiendo al Cloud Source (Real-Debrid)
  */
-app.get('/api/drive/stream-cloud/:movieId', sessionMiddleware, async (req, res) => {
+app.get('/api/drive/stream-cloud/:movieId', async (req, res) => {
     const { movieId } = req.params;
     try {
         // 1. Buscamos primero en el uploadManager (en memoria actual)

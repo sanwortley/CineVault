@@ -220,6 +220,10 @@ export default function AppContent() {
                         setPlayingMovie(null);
                         loadData(true);
                     }}
+                    onOpenSettings={() => {
+                        setActiveTab('settings');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
                 />
             )}
 
