@@ -85,8 +85,7 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
                 
                 if (hasDriveFile) {
                     if (movie.drive_file_id === 'pending_cloud') {
-                        setStreamSource('error');
-                        setError('La película se está procesando en la Bóveda Global. Estará lista en unos minutos (estamos subiéndola a tu Drive).');
+                        setStreamSource('cloud');
                     } else {
                         setStreamSource('drive');
                         if (movie.file_name?.toLowerCase().endsWith('.mkv') || movie.official_title?.toLowerCase().endsWith('.mkv')) {
@@ -153,11 +152,11 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
 
     // Build video URL after streamSource is determined - Stable reference
     const videoUrl = useMemo(() => {
-        // Hard guard: never stream a pending_cloud entry
-        if (movie.drive_file_id === 'pending_cloud') return '';
         if (streamSource === 'checking' || streamSource === 'error') return '';
         
-        if (streamSource === 'drive') {
+        if (streamSource === 'cloud') {
+            return api.getCloudStreamUrl(movie.id);
+        } else if (streamSource === 'drive') {
             return api.getStreamUrl(movie.drive_file_id, movie.file_path, { transcode: useTranscoding, seekOffset });
         } else if (streamSource === 'local') {
             return api.getStreamUrl(null, movie.file_path, { transcode: useTranscoding, seekOffset });

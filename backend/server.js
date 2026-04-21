@@ -470,7 +470,73 @@ app.post('/api/drive/queue/retry', sessionMiddleware, adminMiddleware, (req, res
     if (uploadManager.retry(movieId)) {
         res.json({ success: true });
     } else {
-        res.status(400).json({ error: 'Tarea no encontrada o no está en estado de error' });
+        res.status(404).json({ error: 'Tarea no encontrada o no está en estado de error' });
+    }
+});
+
+// --- Instant Play & Stuck Uploads ---
+
+/**
+ * Endpoint para reproducción instantánea redirigiendo al Cloud Source (Real-Debrid)
+ */
+app.get('/api/drive/stream-cloud/:movieId', sessionMiddleware, async (req, res) => {
+    const { movieId } = req.params;
+    try {
+        // 1. Buscamos primero en el uploadManager (en memoria actual)
+        const job = uploadManager.getQueue().find(j => String(j.movieId) === String(movieId));
+        if (job && job.isUrl && job.filePath && job.filePath.startsWith('http')) {
+            console.log(`[InstantPlay] Redirigiendo a stream desde caché de memoria para movie ${movieId}`);
+            return res.redirect(job.filePath);
+        }
+
+        // 2. Si no está en memoria, buscamos en la base de datos el campo persistente
+        const movies = await db.findMovies({ id: movieId });
+        if (movies && movies.length > 0 && movies[0].cloud_source_url) {
+            console.log(`[InstantPlay] Redirigiendo a stream desde persistencia DB para movie ${movieId}`);
+            return res.redirect(movies[0].cloud_source_url);
+        }
+
+        res.status(404).json({ error: 'No se encontró el enlace de origen para reproducción instantánea.' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/admin/stuck-uploads', sessionMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        // Buscar pelis en pending_cloud
+        const movies = await db.findMovies(); // This fetches all, might be heavy but let's filter after
+        const stuck = movies.filter(m => 
+            m.drive_file_id === 'pending_cloud' && 
+            !uploadManager.getQueue().some(j => String(j.movieId) === String(m.id))
+        );
+        res.json(stuck);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/admin/retry-stuck/:movieId', sessionMiddleware, adminMiddleware, async (req, res) => {
+    const { movieId } = req.params;
+    try {
+        const movies = await db.findMovies({ id: movieId });
+        if (!movies || movies.length === 0) return res.status(404).json({ error: 'Pelicula no encontrada' });
+        
+        const movie = movies[0];
+        if (!movie.cloud_source_url) return res.status(400).json({ error: 'No hay URL de origen para reintentar' });
+
+        // Re-encolar
+        uploadManager.enqueue(
+            movie.id, 
+            movie.official_title || movie.detected_title, 
+            movie.cloud_source_url, 
+            'video/mp4', 
+            { isUrl: true, status: 'pending', options: { deleteAfter: true, optimize: true } }
+        );
+
+        res.json({ success: true, message: 'Re-encolada correctamente' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
 });
 

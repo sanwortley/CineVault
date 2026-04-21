@@ -215,7 +215,10 @@ class UploadManager extends EventEmitter {
             }, nextJob.options);
 
             // Completado con exito
-            await db.updateMovie(parseInt(nextJob.movieId), { drive_file_id: result.id });
+            await db.updateMovie(parseInt(nextJob.movieId), { 
+                drive_file_id: result.id,
+                cloud_source_url: null // Limpiar el enlace temporal una vez segurizado en Drive
+            });
             
             nextJob.status = 'done';
             nextJob.progress = 100;

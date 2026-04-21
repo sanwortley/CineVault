@@ -316,6 +316,18 @@ export const api = {
     },
 
     // ── Drive Streaming URL ───────────────────────────────────────────────────
+    getCloudStreamUrl: (movieId) => {
+        return `${BACKEND_URL}/api/drive/stream-cloud/${movieId}`;
+    },
+
+    getStuckUploads: () => {
+        return backendFetch('/api/admin/stuck-uploads');
+    },
+
+    retryStuckUpload: (movieId) => {
+        return backendFetch(`/api/admin/retry-stuck/${movieId}`, { method: 'POST' });
+    },
+
     getStreamUrl: (fileId, filePath, options = {}) => {
         if (filePath && isElectron()) {
             const normalized = filePath.replace(/\\/g, '/');

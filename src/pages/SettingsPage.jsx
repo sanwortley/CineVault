@@ -18,6 +18,8 @@ function SettingsPage({ onClose, onTabChange }) {
     const [osUsername, setOsUsername] = useState('');
     const [osPassword, setOsPassword] = useState('');
     const [isOSSaved, setIsOSSaved] = useState(false);
+    const [stuckUploads, setStuckUploads] = useState([]);
+    const [isCheckingStuck, setIsCheckingStuck] = useState(false);
     const { queue, removeFromQueue, retryQueueItem } = useUploadQueue();
 
     const fetchConfig = async () => {
@@ -38,9 +40,36 @@ function SettingsPage({ onClose, onTabChange }) {
                 const osData = await api.getOSCredentials();
                 if (osData.username) setOsUsername(osData.username);
                 if (osData.password) setOsPassword(osData.password);
+
+                // Fetch stuck uploads
+                fetchStuckUploads();
             }
         } catch (error) {
             console.error('Error fetching config:', error);
+        }
+    };
+
+    const fetchStuckUploads = async () => {
+        if (!isAdmin()) return;
+        setIsCheckingStuck(true);
+        try {
+            const stuck = await api.getStuckUploads();
+            setStuckUploads(stuck || []);
+        } catch (err) {
+            console.error('Error fetching stuck uploads:', err);
+        } finally {
+            setIsCheckingStuck(false);
+        }
+    };
+
+    const handleRetryStuck = async (movieId) => {
+        try {
+            await api.retryStuckUpload(movieId);
+            // Refresh both
+            fetchStuckUploads();
+            // The uploadQueue context should pick up the new job automatically via its SSE/polling
+        } catch (err) {
+            alert(`Error al reintentar: ${err.message}`);
         }
     };
 
@@ -405,6 +434,62 @@ function SettingsPage({ onClose, onTabChange }) {
                                             ))}
                                         </div>
                                     )}
+                                </div>
+                            </section>
+                        )}
+
+                        {/* 2.6 Resilience Panel (Stuck Uploads) */}
+                        {isAdmin() && stuckUploads.length > 0 && (
+                            <section className="glass rounded-[3rem] p-8 md:p-14 border border-white/5 relative overflow-hidden group bg-orange-500/5">
+                                <div className="absolute top-0 right-0 p-12 opacity-[0.02] group-hover:opacity-[0.05] transition-opacity">
+                                    <Database size={300} strokeWidth={1} />
+                                </div>
+                                <div className="relative z-10">
+                                    <div className="flex items-center justify-between mb-12">
+                                        <div className="flex items-center gap-8">
+                                            <div className="p-6 bg-orange-500/10 rounded-[2rem] border border-orange-500/20 shadow-inner">
+                                                <Database className="text-orange-500" size={40} />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-4xl font-black text-white tracking-tighter uppercase italic">Panel de Restauración</h3>
+                                                <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Huéspedes detectados (pendientes en DB pero no en cola)</p>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={fetchStuckUploads}
+                                            className="p-4 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-all"
+                                            disabled={isCheckingStuck}
+                                        >
+                                            <RefreshCw size={24} className={isCheckingStuck ? 'animate-spin' : ''} />
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-6 mb-6">
+                                            <p className="text-sm text-orange-200/70 font-medium">
+                                                Se han detectado películas registradas que nunca terminaron de subirse a Google Drive y no están siendo procesadas actualmente. Dale a "Restaurar" para intentar re-encolarlas.
+                                            </p>
+                                        </div>
+                                        {stuckUploads.map((movie) => (
+                                            <div key={movie.id} className="flex items-center justify-between p-6 bg-black/40 border border-white/5 rounded-[2rem] hover:bg-black/60 transition-all">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-12 h-18 bg-slate-800 rounded-lg overflow-hidden shrink-0">
+                                                        {movie.poster_url && <img src={movie.poster_url} alt="" className="w-full h-full object-cover" />}
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-bold text-white uppercase tracking-tight">{movie.official_title || movie.detected_title}</h4>
+                                                        <p className="text-[10px] text-slate-500 font-black tracking-widest uppercase mt-1">ID: {movie.id}</p>
+                                                    </div>
+                                                </div>
+                                                <button 
+                                                    onClick={() => handleRetryStuck(movie.id)}
+                                                    className="px-8 py-4 bg-orange-600 text-white font-black uppercase tracking-widest text-[10px] rounded-xl hover:bg-orange-500 transition-all shadow-lg active:scale-95"
+                                                >
+                                                    Restaurar
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </section>
                         )}

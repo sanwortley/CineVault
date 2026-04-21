@@ -163,7 +163,10 @@ router.post('/download', adminMiddleware, async (req, res) => {
 
                 console.log(`[Discover] Enlace listo: ${debridResult.downloadUrl}`);
                 
-                // 5. Update job to 'pending-fetch' (Now uploadManager will download from URL)
+                // 5. Save the URL in the database for persistence and Instant Play
+                await db.updateMovie(movie.id, { cloud_source_url: debridResult.downloadUrl });
+
+                // 6. Update job to 'pending-fetch' (Now uploadManager will download from URL)
                 uploadManager.updateJob(movie.id, { 
                     status: 'pending', 
                     filePath: debridResult.downloadUrl, // URL instead of local path
