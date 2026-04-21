@@ -49,6 +49,18 @@ function LibraryPage({
     const [continueSort, setContinueSort] = useState('Recientes');
     const [isContinueSortOpen, setIsContinueSortOpen] = useState(false);
 
+    // Filters & Sorting state
+    const [selectedGenre, setSelectedGenre] = useState('All');
+    const [selectedYear, setSelectedYear] = useState('All');
+    const [selectedSort, setSelectedSort] = useState('Recientes');
+    
+    // UI state for dropdowns
+    const [isGenreOpen, setIsGenreOpen] = useState(false);
+    const [isYearOpen, setIsYearOpen] = useState(false);
+    const [isSortOpen, setIsSortOpen] = useState(false);
+
+    const [featuredMovies, setFeaturedMovies] = useState([]);
+
     // Group duplicates before any sorting or filtering
     const groupedMoviesRaw = React.useMemo(() => groupMoviesByTitle(movies || []), [movies]);
 
