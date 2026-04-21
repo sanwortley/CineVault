@@ -61,9 +61,11 @@ class DebridManager {
             let info;
             let attempts = 0;
 
-            while (!isReady && attempts < 60) { // Max 5 mins
+            while (!isReady && attempts < 120) { // Max 10 mins
                 info = await this.getTorrentInfo(torrentId);
                 
+                console.log(`[Debrid] Polling torrent ${torrentId}: ${info.progress}% - status: ${info.status} (attempt ${attempts + 1}/120)`);
+
                 if (progressCallback) {
                     progressCallback(info.progress, info.status);
                 }
