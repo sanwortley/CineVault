@@ -163,6 +163,12 @@ const database = {
             headers: { 'Prefer': 'resolution=merge-duplicates' }
         });
     },
+    hideUserProgress: async (userId, movieId) => {
+        return await supabaseFetch(`user_movie_progress?user_id=eq.${userId}&movie_id=eq.${movieId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ is_hidden: true })
+        });
+    },
     
     getUserMylist: async (userId) => {
         return await supabaseFetch(`user_mylist?user_id=eq.${userId}&select=*`) || [];

@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import MovieCard from './MovieCard';
 
-function MovieRow({ title, movies, onPlay, onInfo, myList = [], toggleMyList, userProgress = {} }) {
+function MovieRow({ title, movies, onPlay, onInfo, myList = [], toggleMyList, userProgress = {}, onHideProgress }) {
     const rowRef = useRef(null);
     const [showLeft, setShowLeft] = useState(false);
     const [showRight, setShowRight] = useState(false);
@@ -83,6 +83,7 @@ function MovieRow({ title, movies, onPlay, onInfo, myList = [], toggleMyList, us
                                 myList={myList}
                                 toggleMyList={toggleMyList}
                                 userProgress={userProgress}
+                                onHideProgress={onHideProgress}
                             />
                         </div>
                     ))}

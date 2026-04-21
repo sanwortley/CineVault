@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Star, Calendar, Music, Cloud, Info, Plus, Check, Film } from 'lucide-react';
+import { Play, Star, Calendar, Music, Cloud, Info, Plus, Check, Film, EyeOff, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-function MovieCard({ movie, onPlay, onInfo, compact = false, myList = [], toggleMyList, userProgress = {} }) {
+function MovieCard({ movie, onPlay, onInfo, compact = false, myList = [], toggleMyList, userProgress = {}, onHideProgress }) {
     const { isAdmin } = useAuth();
     const {
         official_title,
@@ -133,14 +133,24 @@ function MovieCard({ movie, onPlay, onInfo, compact = false, myList = [], toggle
                             {isAdded ? <Check size={16} strokeWidth={3} /> : <Plus size={16} strokeWidth={3} />}
                         </button>
 
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); onInfo(movie); }}
-                            className="p-2 bg-netflix-black/80 text-white rounded-full hover:bg-zinc-800 transition-transform active:scale-95 border border-white/20"
-                        >
-                            <Info size={16} />
-                        </button>
-                        
-                        {!drive_file_id && isAdmin() && (
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); onInfo(movie); }}
+                                className="p-2 bg-netflix-black/80 text-white rounded-full hover:bg-zinc-800 transition-transform active:scale-95 border border-white/20"
+                            >
+                                <Info size={16} />
+                            </button>
+                            
+                            {onHideProgress && userProgress[movie.id] && (
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); onHideProgress(movie.id); }}
+                                    className="p-2 bg-netflix-black/80 text-white rounded-full hover:bg-netflix-red transition-all active:scale-95 border border-white/20"
+                                    title="Quitar de Continuar Viendo"
+                                >
+                                    <X size={16} />
+                                </button>
+                            )}
+                            
+                            {!drive_file_id && isAdmin() && (
                             <button 
                                 onClick={handleUpload}
                                 disabled={isUploading}
@@ -159,11 +169,11 @@ function MovieCard({ movie, onPlay, onInfo, compact = false, myList = [], toggle
                 </div>
 
                 {/* Watch or Upload Progress Bar */}
-                {(isUploading || (userProgress[movie.id] > 0)) && (
+                {(isUploading || (userProgress[movie.id]?.duration > 0)) && (
                     <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10">
                         <div 
                             className="h-full bg-netflix-red transition-all duration-300"
-                            style={{ width: `${Math.min(100, ((userProgress[movie.id] || 0) / ((movie.runtime > 0 ? movie.runtime : 120) * 60)) * 100)}%` }}
+                            style={{ width: `${Math.min(100, ((userProgress[movie.id]?.duration || 0) / ((movie.runtime > 0 ? movie.runtime : 120) * 60)) * 100)}%` }}
                         ></div>
                     </div>
                 )}

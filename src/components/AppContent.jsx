@@ -20,7 +20,7 @@ const UploadPage = React.lazy(() => import('../pages/UploadPage'));
 const ExplorePage = React.lazy(() => import('../pages/ExplorePage'));
 
 export default function AppContent() {
-    const { user, isAdmin, logout, getUserMylist, getUserProgress, addToMylist, removeFromMylist, isInMylist, changePassword } = useAuth();
+    const { user, isAdmin, logout, getUserMylist, getUserProgress, addToMylist, removeFromMylist, isInMylist, hideMovieFromContinue, changePassword } = useAuth();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('library');
     const [playingMovie, setPlayingMovie] = useState(null);
@@ -80,7 +80,11 @@ export default function AppContent() {
             const progressData = await getUserProgress();
             const progressMap = {};
             (progressData || []).forEach(p => {
-                progressMap[String(p.movie_id)] = p.watched_duration;
+                progressMap[String(p.movie_id)] = {
+                    duration: p.watched_duration,
+                    updatedAt: p.updated_at,
+                    isHidden: p.is_hidden || false
+                };
             });
             setUserProgress(progressMap);
         } catch (err) {
@@ -164,6 +168,17 @@ export default function AppContent() {
             await addToMylist(movie.id);
             setMyList(prev => [...prev, movie]);
         }
+    };
+
+    const handleHideProgress = async (movieId) => {
+        await hideMovieFromContinue(movieId);
+        setUserProgress(prev => ({
+            ...prev,
+            [String(movieId)]: {
+                ...prev[String(movieId)],
+                isHidden: true
+            }
+        }));
     };
 
     const handleRefresh = async () => {
@@ -339,6 +354,7 @@ export default function AppContent() {
                         myList={myList}
                         toggleMyList={toggleMyList}
                         userProgress={userProgress}
+                        onHideProgress={handleHideProgress}
                     />
                 )}
                 {activeTab === 'mylist' && (
@@ -352,6 +368,7 @@ export default function AppContent() {
                         toggleMyList={toggleMyList}
                         viewOnlyList={true}
                         userProgress={userProgress}
+                        onHideProgress={handleHideProgress}
                     />
                 )}
                 {activeTab === 'explore' && (

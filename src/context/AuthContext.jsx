@@ -225,6 +225,7 @@ export function AuthProvider({ children }) {
                     movie_id: movieId,
                     watched_duration: watchedDuration,
                     updated_at: new Date().toISOString()
+                    // Note: is_hidden will remain its previous value on conflict merge
                 })
             });
             
@@ -249,6 +250,42 @@ export function AuthProvider({ children }) {
                 });
             }
         } catch (e) {}
+    };
+
+    const hideMovieFromContinue = async (movieId) => {
+        if (!user?.access_token) return;
+        try {
+            const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/user_movie_progress?user_id=eq.${user.id}&movie_id=eq.${movieId}`, {
+                method: 'PATCH',
+                headers: {
+                    'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${user.access_token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    is_hidden: true
+                })
+            });
+            
+            if (res.status === 401 || res.status === 403) {
+                const refreshed = await refreshSession();
+                if (!refreshed) return;
+                
+                await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/user_movie_progress?user_id=eq.${refreshed.id}&movie_id=eq.${movieId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${refreshed.access_token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        is_hidden: true
+                    })
+                });
+            }
+        } catch (e) {
+            console.error('[Auth] Hide progress error:', e);
+        }
     };
 
     const getUserMylist = async () => {
@@ -387,6 +424,7 @@ export function AuthProvider({ children }) {
         isAuthenticated: !!user,
         getUserProgress,
         saveUserProgress,
+        hideMovieFromContinue,
         getUserMylist,
         addToMylist,
         removeFromMylist,

@@ -42,8 +42,12 @@ function LibraryPage({
     myList = [], 
     toggleMyList, 
     viewOnlyList = false, 
-    userProgress = {} 
+    userProgress = {},
+    onHideProgress
 }) {
+    const [continueSort, setContinueSort] = useState('Recientes');
+    const [isContinueSortOpen, setIsContinueSortOpen] = useState(false);
+
     // UI State for filtering and featured movie
     const [selectedGenre, setSelectedGenre] = useState('All');
     const [selectedYear, setSelectedYear] = useState('All');
@@ -210,28 +214,67 @@ function LibraryPage({
                             () => {
                                 const continueWatching = movies
                                     .filter(m => {
-                                        const progress = userProgress[String(m.id)];
-                                        return progress && progress > 10; // More than 10s watched
+                                        const progObj = userProgress[String(m.id)];
+                                        if (!progObj || progObj.isHidden) return false;
+                                        return progObj.duration > 10; 
                                     })
                                     .sort((a, b) => {
-                                        const progressA = userProgress[String(a.id)] || 0;
-                                        const progressB = userProgress[String(b.id)] || 0;
-                                        return progressB - progressA;
+                                        const progA = userProgress[String(a.id)];
+                                        const progB = userProgress[String(b.id)];
+                                        
+                                        if (continueSort === 'Mayor Progreso') {
+                                            const percA = progA.duration / ((a.runtime || 120) * 60);
+                                            const percB = progB.duration / ((b.runtime || 120) * 60);
+                                            return percB - percA;
+                                        }
+                                        if (continueSort === 'Menor Progreso') {
+                                            const percA = progA.duration / ((a.runtime || 120) * 60);
+                                            const percB = progB.duration / ((b.runtime || 120) * 60);
+                                            return percA - percB;
+                                        }
+                                        // Default: Recientes
+                                        return new Date(progB.updatedAt) - new Date(progA.updatedAt);
                                     })
-                                    .slice(0, 10);
+                                    .slice(0, 15);
                                 
                                 if (continueWatching.length === 0) return null;
 
                                 return (
                                     <div className="mb-20">
+                                        <div className="px-8 md:px-16 flex items-center justify-between mb-4">
+                                            <h2 className="text-2xl font-bold text-white tracking-tight">Continuar Viendo</h2>
+                                            <div className="relative">
+                                                <button 
+                                                    onClick={() => setIsContinueSortOpen(!isContinueSortOpen)}
+                                                    className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all border border-white/5"
+                                                >
+                                                    <span>Orden: {continueSort}</span>
+                                                    <ChevronDown size={12} className={isContinueSortOpen ? 'rotate-180' : ''} />
+                                                </button>
+                                                {isContinueSortOpen && (
+                                                    <div className="absolute top-full right-0 mt-2 w-40 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden z-[110] animate-in fade-in slide-in-from-top-2">
+                                                        {['Recientes', 'Mayor Progreso', 'Menor Progreso'].map(opt => (
+                                                            <button 
+                                                                key={opt}
+                                                                onClick={() => { setContinueSort(opt); setIsContinueSortOpen(false); }}
+                                                                className={`w-full px-4 py-2 text-left text-[10px] font-bold uppercase tracking-widest hover:bg-netflix-red hover:text-white transition-colors ${continueSort === opt ? 'text-netflix-red' : 'text-slate-400'}`}
+                                                            >
+                                                                {opt}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
                                         <MovieRow 
-                                            title="Continuar Viendo" 
+                                            title="" // Title is now outside for better control
                                             movies={continueWatching} 
                                             onPlay={onPlayMovie} 
                                             onInfo={onInfoMovie}
                                             myList={myList}
                                             toggleMyList={toggleMyList}
                                             userProgress={userProgress}
+                                            onHideProgress={onHideProgress}
                                         />
                                     </div>
                                 );
