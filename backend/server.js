@@ -490,32 +490,40 @@ app.get('/api/subtitles/cloud/check', sessionMiddleware, async (req, res) => {
         }
 
         const movie = movies[0];
-        const parentId = await driveApi.getFileParent(movie.drive_file_id);
-        if (!parentId) return res.json({ found: false });
-
-        const files = await driveApi.list(parentId);
-        const movieBaseName = (movie.official_title || movie.detected_title || `movie_${movie.id}`).toLowerCase();
+        // Ensure ID is clean (strip prefix like 1_)
+        const cleanId = movie.drive_file_id.includes('_') ? movie.drive_file_id.split('_').pop() : movie.drive_file_id;
         
-        // Look for .vtt or .srt files that match the movie name
-        const subFile = files.find(f => {
-            const name = f.name.toLowerCase();
-            return (name.includes(movieBaseName) || name.startsWith('sub_')) && 
-                   (name.endsWith('.vtt') || name.endsWith('.srt'));
-        });
+        try {
+            const parentId = await driveApi.getFileParent(cleanId);
+            if (!parentId) return res.json({ found: false });
 
-        if (subFile) {
-            res.json({ 
-                found: true, 
-                fileId: subFile.id, 
-                name: subFile.name,
-                type: 'cloud'
+            const files = await driveApi.list(parentId);
+            const movieBaseName = (movie.official_title || movie.detected_title || `movie_${movie.id}`).toLowerCase();
+            
+            // Look for .vtt or .srt files that match the movie name
+            const subFile = files.find(f => {
+                const name = f.name.toLowerCase();
+                return (name.includes(movieBaseName) || name.startsWith('sub_')) && 
+                       (name.endsWith('.vtt') || name.endsWith('.srt'));
             });
-        } else {
-            res.json({ found: false });
+
+            if (subFile) {
+                return res.json({ 
+                    found: true, 
+                    fileId: subFile.id, 
+                    name: subFile.name,
+                    type: 'cloud'
+                });
+            }
+        } catch (innerError) {
+            console.warn('[Cloud Sub Check] Silent fail for movie', movie.id, ':', innerError.message);
+            // Fall through to found: false
         }
+        
+        res.json({ found: false });
     } catch (e) {
-        console.error('[Cloud Sub Check] Error:', e.message);
-        res.status(500).json({ error: e.message });
+        console.error('[Cloud Sub Check] Fatal Error:', e.message);
+        res.json({ found: false }); // Always return JSON found:false to avoid breaking frontend
     }
 });
 
