@@ -24,7 +24,6 @@ const driveProxy = require('./driveProxy');
 const db = require('./db');
 const tmdb = require('./tmdb');
 const uploadManager = require('./uploadManager');
-const { movieUpload } = require('./middleware');
 const optimizer = require('./optimizer');
 const discoverRouter = require('./discover');
 
