@@ -651,6 +651,56 @@ app.post('/api/subtitles/download', async (req, res) => {
     }
 });
 
+app.get('/api/subtitles/cloud', async (req, res) => {
+    const { id } = req.query;
+    if (!id) return res.status(400).json({ error: 'Missing fileId' });
+    
+    const apiKey = process.env.OPENSUBTITLES_API_KEY;
+    try {
+        // 1. Get download link
+        const dlRes = await fetch('https://api.opensubtitles.com/api/v1/download', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'Accept': 'application/json', 
+                'User-Agent': 'CineVault v1.0', 
+                'Api-Key': apiKey 
+            },
+            body: JSON.stringify({ file_id: id })
+        });
+        
+        if (!dlRes.ok) throw new Error('OpenSubtitles API error');
+        const dlData = await dlRes.json();
+        if (!dlData.link) throw new Error('No download link provided');
+
+        // 2. Fetch the actual content
+        const subRes = await fetch(dlData.link);
+        if (!subRes.ok) throw new Error('Failed to download subtitle content');
+        
+        const arrayBuffer = await subRes.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        
+        // 3. Normalize encoding to UTF-8
+        let finalContent = buffer;
+        try {
+            const encoding = chardet.detect(buffer);
+            if (encoding && encoding !== 'UTF-8' && encoding !== 'ascii') {
+                finalContent = iconv.decode(buffer, encoding);
+            } else {
+                finalContent = buffer.toString('utf8');
+            }
+        } catch (e) {
+            finalContent = buffer.toString('utf8');
+        }
+
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.send(finalContent);
+    } catch (e) {
+        console.error('[Subtitles Cloud Proxy] Error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // Route to detect and return local subtitles
 app.get('/api/subtitles/find-local', async (req, res) => {
     const { movieId } = req.query;
