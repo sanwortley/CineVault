@@ -1,8 +1,9 @@
 import React from 'react';
-import { X, Star, Calendar, Clock, User, Users, Play, Cloud, Plus, Check, Trash2 } from 'lucide-react';
+import { X, Star, Calendar, Clock, User, Users, Play, Cloud, Plus, Check, Trash2, Edit3 } from 'lucide-react';
 import { useUploadQueue } from '../context/UploadQueueContext';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
+import EditMovieDialog from './EditMovieDialog';
 
 function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }) {
     if (!movie) return null;
@@ -24,6 +25,7 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }
 
     const { isAdmin } = useAuth();
     const [isDeleting, setIsDeleting] = React.useState(false);
+    const [isEditing, setIsEditing] = React.useState(false);
 
     const title = official_title || detected_title;
 
@@ -190,12 +192,30 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }
                                     {isDeleting ? 'ELIMINANDO...' : 'ELIMINAR PELÍCULA'}
                                 </button>
                             )}
+
+                            {isAdmin() && (
+                                <button 
+                                    onClick={() => setIsEditing(true)}
+                                    className="px-8 py-4 bg-white/10 text-white border border-white/20 rounded-2xl font-bold flex items-center gap-3 transition-all duration-300 hover:bg-white hover:text-black transform hover:scale-105 active:scale-95"
+                                >
+                                    <Edit3 size={20} />
+                                    EDITAR INFORMACIÓN
+                                </button>
+                            )}
                         </div>
-
                     </div>
-
                 </div>
             </div>
+
+            {isEditing && (
+                <EditMovieDialog 
+                    movie={movie} 
+                    onClose={() => setIsEditing(false)} 
+                    onUpdate={() => {
+                        window.dispatchEvent(new Event('library-updated'));
+                    }}
+                />
+            )}
         </div>
     );
 }

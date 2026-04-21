@@ -20,8 +20,11 @@ const iconv = require('iconv-lite');
 const chardet = require('chardet');
 
 const driveApi = require('./drive');
+const driveProxy = require('./driveProxy');
 const db = require('./db');
+const tmdb = require('./tmdb');
 const uploadManager = require('./uploadManager');
+const { movieUpload } = require('./middleware');
 const optimizer = require('./optimizer');
 const discoverRouter = require('./discover');
 
@@ -887,6 +890,54 @@ app.post('/api/library/clear', sessionMiddleware, adminMiddleware, async (req, r
         await db.clearFolders();
         res.json({ success: true });
     } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.patch('/api/movies/:id', sessionMiddleware, adminMiddleware, async (req, res) => {
+    const { id } = req.params;
+    const updates = req.body;
+    
+    try {
+        await db.updateMovie(id, updates);
+        res.json({ success: true, message: 'Información actualizada correctamente' });
+    } catch (e) {
+        console.error('[Server] Error al actualizar película:', e.message);
+        res.status(500).json({ error: 'Error al actualizar información' });
+    }
+});
+
+app.post('/api/movies/:id/re-identify', sessionMiddleware, adminMiddleware, async (req, res) => {
+    const { id } = req.params;
+    const { title, year } = req.body;
+    
+    if (!title) return res.status(400).json({ error: 'Título requerido para re-identificar' });
+    
+    try {
+        console.log(`[Server] Re-identificando película ID ${id} con título sugerido: "${title}"`);
+        
+        // 1. Search TMDB
+        const searchResult = await tmdb.searchMovie(title, year);
+        if (!searchResult) {
+            return res.status(404).json({ error: 'No se encontró coincidencia en TMDB para ese título' });
+        }
+        
+        // 2. Get full details
+        const details = await tmdb.getMovieDetails(searchResult.id);
+        if (!details) {
+            return res.status(500).json({ error: 'Error al obtener detalles del match de TMDB' });
+        }
+        
+        // 3. Update DB
+        await db.updateMovie(id, details);
+        
+        res.json({ 
+            success: true, 
+            message: `Película re-identificada como "${details.official_title}"`,
+            details 
+        });
+    } catch (e) {
+        console.error('[Server] Error en re-identification:', e.message);
         res.status(500).json({ error: e.message });
     }
 });

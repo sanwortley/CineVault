@@ -135,6 +135,22 @@ export const api = {
         return backendFetch('/api/library/refresh', { method: 'POST' });
     },
 
+    updateMovie: (id, data) => {
+        if (isElectron()) return window.electronAPI.updateMovie ? window.electronAPI.updateMovie(id, data) : Promise.reject(new Error('Not implemented in Electron yet'));
+        return backendFetch(`/api/movies/${id}`, { 
+            method: 'PATCH',
+            body: JSON.stringify(data)
+        });
+    },
+
+    reIdentifyMovie: (id, title, year) => {
+        if (isElectron()) return window.electronAPI.reIdentifyMovie ? window.electronAPI.reIdentifyMovie(id, title, year) : Promise.reject(new Error('Not implemented in Electron yet'));
+        return backendFetch(`/api/movies/${id}/re-identify`, {
+            method: 'POST',
+            body: JSON.stringify({ title, year })
+        });
+    },
+
     onLibraryUpdated: (callback) => {
         if (isElectron() && window.electronAPI.onLibraryUpdated) {
             return window.electronAPI.onLibraryUpdated(callback);

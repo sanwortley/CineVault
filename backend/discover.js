@@ -6,6 +6,7 @@ const movieSearcher = require('./movieSearcher');
 const debridManager = require('./debridManager');
 const uploadManager = require('./uploadManager');
 const { adminMiddleware } = require('./middleware');
+const { normalizeFilename } = require('./parser');
 const cheerio = require('cheerio');
 
 const getTMDBKey = () => process.env.TMDB_API_KEY || '';
@@ -78,10 +79,31 @@ router.post('/download', adminMiddleware, async (req, res) => {
             }
         }
 
+        // --- Step 1.5: Aggressive Search if no details yet ---
+        if (!tmdbDetails) {
+            const { clean_title, year: parsedYear } = normalizeFilename(title);
+            console.log(`[Discover] Pre-match normalization: "${title}" -> "${clean_title}" (${parsedYear || 'N/A'})`);
+            try {
+                const searchResults = await fetchTMDB('/search/movie', { 
+                    query: clean_title, 
+                    year: parsedYear || year 
+                });
+                if (searchResults.results && searchResults.results.length > 0) {
+                    // Pick the best match (first one)
+                    tmdbDetails = await fetchTMDB(`/movie/${searchResults.results[0].id}`);
+                    console.log(`[Discover] Encontrado match oficial en TMDB: "${tmdbDetails.title}"`);
+                }
+            } catch (searchErr) {
+                console.warn(`[Discover] Falló búsqueda agresiva para "${clean_title}":`, searchErr.message);
+            }
+        }
+
         // --- Step 1: Create or Get Movie Entry ---
-        // Ensuring no NULL values for mandatory columns (file_path, file_name are NOT NULL in production)
+        // Ensuring no NULL values for mandatory columns
+        const finalOfficialTitle = tmdbDetails?.title || tmdbDetails?.original_title || title || '';
+        
         let movie = await db.addMovie({
-            official_title: tmdbDetails?.official_title || tmdbDetails?.title || title || '',
+            official_title: finalOfficialTitle,
             detected_title: title || '',
             detected_year: year || tmdbDetails?.release_date?.substring(0, 4) || new Date().getFullYear().toString(),
             file_name: title || 'unknown_movie',

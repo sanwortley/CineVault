@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Folder, ExternalLink, ShieldCheck, Database, Check, Cloud, CloudOff, Loader, UserPlus, X, Files, Settings, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useUploadQueue } from '../context/UploadQueueContext';
 import { api, BACKEND_URL } from '../api';
 import SessionsManager from '../components/SessionsManager';
 
@@ -14,6 +15,7 @@ function SettingsPage({ onClose, onTabChange }) {
     const [isDriveConnected, setIsDriveConnected] = useState(false);
     const [rdToken, setRdToken] = useState('');
     const [isRDSaved, setIsRDSaved] = useState(false);
+    const { queue, removeFromQueue, retryQueueItem } = useUploadQueue();
 
     const fetchConfig = async () => {
         try {
@@ -254,6 +256,82 @@ function SettingsPage({ onClose, onTabChange }) {
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+                            </section>
+                        )}
+
+                        {/* 2.5 Cloud Status Dashboard */}
+                        {isAdmin() && (
+                            <section className="glass rounded-[3rem] p-8 md:p-14 border border-white/5 relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-12 opacity-[0.02] group-hover:opacity-[0.05] transition-opacity rotate-45">
+                                    <Cloud size={300} strokeWidth={1} />
+                                </div>
+                                
+                                <div className="relative z-10">
+                                    <div className="flex items-center gap-8 mb-12">
+                                        <div className="p-6 bg-netflix-red/10 rounded-[2rem] border border-netflix-red/20 shadow-inner">
+                                            <Cloud className="text-netflix-red" size={40} />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-4xl font-black text-white tracking-tighter uppercase italic">Estado de Colas</h3>
+                                            <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Trasmisiones en segundo plano y subidas</p>
+                                        </div>
+                                    </div>
+
+                                    {queue.length === 0 ? (
+                                        <div className="bg-white/[0.02] p-16 rounded-[2.5rem] border border-white/5 text-center flex flex-col items-center gap-4 opacity-40">
+                                            <Check size={48} className="text-green-500 mb-2" />
+                                            <p className="text-sm font-black uppercase tracking-[0.4em]">Sin tareas pendientes</p>
+                                            <p className="text-xs font-bold text-slate-500">Todos tus archivos están sincronizados en la nube.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {queue.map((job) => (
+                                                <div key={job.id} className="flex flex-col md:flex-row items-center gap-6 p-6 bg-white/[0.03] border border-white/5 rounded-[2rem] hover:bg-white/[0.06] transition-all group">
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-4 mb-2">
+                                                            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter ${
+                                                                job.status === 'done' ? 'bg-green-500/20 text-green-400' :
+                                                                job.status === 'error' ? 'bg-red-500/20 text-red-400' :
+                                                                'bg-cyan-500/20 text-cyan-400'
+                                                            }`}>
+                                                                {job.status}
+                                                            </span>
+                                                            <h4 className="text-sm font-black text-white truncate">{job.title}</h4>
+                                                        </div>
+                                                        <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden">
+                                                            <div 
+                                                                className={`h-full transition-all duration-700 ${
+                                                                    job.status === 'error' ? 'bg-red-500' : 
+                                                                    job.status === 'done' ? 'bg-green-500' : 'bg-cyan-500'
+                                                                }`}
+                                                                style={{ width: `${job.progress}%` }}
+                                                            ></div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-4 ml-auto">
+                                                        <span className="text-xs font-black text-slate-400">{Math.round(job.progress)}%</span>
+                                                        {job.status === 'error' && (
+                                                            <button 
+                                                                onClick={() => retryQueueItem(job.id)}
+                                                                className="p-3 bg-white/5 hover:bg-white text-white hover:text-black rounded-xl transition-all"
+                                                                title="Reintentar"
+                                                            >
+                                                                <RefreshCw size={16} />
+                                                            </button>
+                                                        )}
+                                                        <button 
+                                                            onClick={() => removeFromQueue(job.id)}
+                                                            className="p-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-all"
+                                                            title="Eliminar de la cola"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </section>
                         )}
