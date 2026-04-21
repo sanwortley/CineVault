@@ -82,10 +82,10 @@ router.post('/download', adminMiddleware, async (req, res) => {
         let movie = await db.addMovie({
             official_title: tmdbDetails?.official_title || tmdbDetails?.title || title,
             detected_title: title,
-            // year removed to prevent schema mismatch errors if column is missing
+            detected_year: year || tmdbDetails?.release_date?.substring(0, 4) || new Date().getFullYear().toString(),
             drive_file_id: 'pending_cloud', 
             poster_url: tmdbDetails?.poster_url || tmdbDetails?.poster_path ? `https://image.tmdb.org/t/p/w500${tmdbDetails.poster_path}` : null,
-            tmdb_id: isNumericId ? movieId : null
+            // tmdb_id removed as it doesn't exist in production schema cache
         });
 
         if (!movie || !movie.id) {
