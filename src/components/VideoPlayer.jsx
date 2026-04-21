@@ -937,14 +937,22 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
                             <span>{duration === Infinity || duration === 0 ? (movie.runtime ? formatTime(movie.runtime * 60) : '--:--') : formatTime(duration)}</span>
                         </div>
                         
-                        <input
-                            type="range"
-                            min="0"
-                            max={duration || 100}
-                            value={currentTime}
-                            onChange={handleSeek}
-                            className="w-full h-1.5 md:h-2 bg-white/30 rounded-full appearance-none cursor-pointer accent-cyan-500"
-                        />
+                        {(() => {
+                            const maxDuration = (duration > 0 && duration !== Infinity) ? duration : (movie.runtime ? movie.runtime * 60 : 100);
+                            return (
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max={maxDuration}
+                                    value={currentTime}
+                                    onChange={handleSeek}
+                                    className="w-full h-1.5 md:h-2 bg-white/30 rounded-full appearance-none cursor-pointer accent-cyan-500"
+                                    style={{ 
+                                        background: `linear-gradient(to right, #06b6d4 ${(currentTime / maxDuration) * 100}%, rgba(255,255,255,0.1) 0%)` 
+                                    }}
+                                />
+                            );
+                        })()}
                         
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3 md:gap-6">
