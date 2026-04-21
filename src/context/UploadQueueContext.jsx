@@ -141,9 +141,32 @@ export function UploadQueueProvider({ children }) {
     }, [updateItem]);
 
     const addToQueue = useCallback(async (movie) => {
-        if (queue.some(item => item.id === movie.id)) return;
+        if (queue.some(item => String(item.id) === String(movie.id))) return;
 
-        const queueEntry = { id: movie.id, title: movie.official_title || movie.detected_title, progress: 0, status: 'uploading', isOptimizing: false };
+        const queueEntry = { id: String(movie.id), title: movie.official_title || movie.detected_title, progress: 0, status: 'converting', isOptimizing: false };
+
+        // _directQueue: called from ExplorePage after a Bóveda Global download is initiated
+        // The backend already has the job; we just need to show it in the bell + subscribe to SSE.
+        if (movie._directQueue) {
+            setQueue(prev => [...prev, queueEntry]);
+            if (!api.isElectron()) {
+                const unsub = api.onDriveUploadProgress(String(movie.id), (data) => {
+                    if (data) {
+                        if (data.status === 'error') {
+                            updateItem(String(movie.id), { status: 'error', errorMsg: data.error });
+                            unsub();
+                        } else {
+                            updateItem(String(movie.id), { progress: data.progress ?? 0, status: data.status || 'converting', isOptimizing: data.isOptimizing ?? false });
+                            if (data.status === 'done' || data.progress === 100) {
+                                updateItem(String(movie.id), { status: 'done', progress: 100 });
+                                unsub();
+                            }
+                        }
+                    }
+                });
+            }
+            return;
+        }
 
         if (api.isElectron()) {
             setQueue(prev => [...prev, queueEntry]);

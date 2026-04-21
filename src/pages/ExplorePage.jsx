@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Search, TrendingUp, Download, Play, Shield, Loader, Plus, X, Star, Calendar, Clock, Globe } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useUploadQueue } from '../context/UploadQueueContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ExplorePage() {
     const { isAdmin } = useAuth();
+    const { addToQueue } = useUploadQueue();
     const [trending, setTrending] = useState([]);
     const [searchResults, setSearchResults] = useState([]);
     const [query, setQuery] = useState('');
@@ -85,14 +87,25 @@ export default function ExplorePage() {
         
         setDownloadingMovieId(movie.id);
         try {
-            await api.downloadMovie(
+            const result = await api.downloadMovie(
                 movie.id, 
                 movie.title || movie.original_title, 
                 torrent.link,
                 movie.release_date?.substring(0, 4) || new Date().getFullYear().toString(),
                 { isPage: torrent.isPage, isHash: torrent.isHash }
             );
-            alert('¡Descarga iniciada! Revisa el panel de subida.');
+
+            // Immediately register in the activity queue so the bell shows it right away
+            // The result contains the real movieId assigned by the backend
+            const registeredMovieId = result?.movieId || movie.id;
+            const movieTitle = movie.title || movie.original_title;
+            addToQueue({ 
+                id: registeredMovieId, 
+                official_title: movieTitle,
+                // These prevents UploadQueueContext from opening a file picker
+                _directQueue: true 
+            });
+
             if (!customMovie) setSelectedMovie(null);
         } catch (err) {
             alert('Error al iniciar la descarga: ' + err.message);
