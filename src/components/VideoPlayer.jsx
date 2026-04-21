@@ -84,9 +84,14 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
                 const hasLocalFile = movie.file_path && movie.file_path.length > 0;
                 
                 if (hasDriveFile) {
-                    setStreamSource('drive');
-                    if (movie.file_name?.toLowerCase().endsWith('.mkv') || movie.official_title?.toLowerCase().endsWith('.mkv')) {
-                        setUseTranscoding(true);
+                    if (movie.drive_file_id === 'pending_cloud') {
+                        setStreamSource('error');
+                        setError('La película se está procesando en la Bóveda Global. Estará lista en unos minutos (estamos subiéndola a tu Drive).');
+                    } else {
+                        setStreamSource('drive');
+                        if (movie.file_name?.toLowerCase().endsWith('.mkv') || movie.official_title?.toLowerCase().endsWith('.mkv')) {
+                            setUseTranscoding(true);
+                        }
                     }
                 } else if (hasLocalFile) {
                     setStreamSource('local');
@@ -107,39 +112,45 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
         resolveSource();
         
         // --- Auto Subtitle Detection ---
-        const autoLoadSubtitles = async () => {
-            try {
-                // 1. Check for local companion files first
-                const localRes = await api.findLocalSubtitle(movie.id);
-                if (localRes.found) {
-                    console.log('[VideoPlayer] Autocarga: Subtítulo local detectado:', localRes.path);
-                    handleSubtitleSelect({ ...localRes, type: 'local', label: 'Local' });
-                } else {
-                    // 2. Check for cloud persistence (Drive)
-                    const cloudRes = await api.checkCloudSubtitle(movie.id);
-                    if (cloudRes.found) {
-                        console.log('[VideoPlayer] Autocarga: Subtítulo en la nube detectado:', cloudRes.name);
-                        handleSubtitleSelect({ 
-                            id: cloudRes.fileId, 
-                            type: 'cloud', 
-                            label: `Drive (${cloudRes.name})`,
-                            provider: 'Drive Cache'
-                        });
+        // Skip entirely for movies still being processed in the cloud
+        if (movie.drive_file_id === 'pending_cloud') {
+            console.log('[VideoPlayer] Autocarga de subtítulos omitida: película en procesamiento.');
+        } else {
+            const autoLoadSubtitles = async () => {
+                try {
+                    // 1. Check for local companion files first
+                    const localRes = await api.findLocalSubtitle(movie.id);
+                    if (localRes.found) {
+                        console.log('[VideoPlayer] Autocarga: Subtítulo local detectado:', localRes.path);
+                        handleSubtitleSelect({ ...localRes, type: 'local', label: 'Local' });
                     } else {
-                        // 3. Fallback to search
-                        handleSearchSubtitles();
+                        // 2. Check for cloud persistence (Drive)
+                        const cloudRes = await api.checkCloudSubtitle(movie.id);
+                        if (cloudRes.found) {
+                            console.log('[VideoPlayer] Autocarga: Subtítulo en la nube detectado:', cloudRes.name);
+                            handleSubtitleSelect({ 
+                                id: cloudRes.fileId, 
+                                type: 'cloud', 
+                                label: `Drive (${cloudRes.name})`,
+                                provider: 'Drive Cache'
+                            });
+                        } else {
+                            // 3. Fallback to search
+                            handleSearchSubtitles();
+                        }
                     }
+                } catch (err) {
+                    console.warn('[VideoPlayer] Error en autocarga de subtítulos:', err);
                 }
-            } catch (err) {
-                console.warn('[VideoPlayer] Error en autocarga de subtítulos:', err);
-            }
-        };
-        
-        autoLoadSubtitles();
+            };
+            autoLoadSubtitles();
+        }
     }, [movie.id]);
 
     // Build video URL after streamSource is determined - Stable reference
     const videoUrl = useMemo(() => {
+        // Hard guard: never stream a pending_cloud entry
+        if (movie.drive_file_id === 'pending_cloud') return '';
         if (streamSource === 'checking' || streamSource === 'error') return '';
         
         if (streamSource === 'drive') {
@@ -164,7 +175,11 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
             readyState: videoElement.readyState
         });
         
-        if (!videoUrl || videoUrl === '' || streamSource === 'checking') {
+        if (!videoUrl || videoUrl === '' || streamSource === 'checking' || streamSource === 'error') {
+            return;
+        }
+        // Never retry if this is a cloud-pending movie
+        if (videoElement.currentSrc?.includes('pending_cloud')) {
             return;
         }
         
