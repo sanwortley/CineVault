@@ -212,7 +212,7 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }
                                         if (window.confirm(`¿Estás seguro de que quieres eliminar "${title}"? Esta acción borrará la película de la base de datos y de Google Drive (Papelera).`)) {
                                             setIsDeleting(true);
                                             try {
-                                                await api.deleteMovie(movie.id);
+                                                await api.deleteMovie(selectedVersion.id);
                                                 window.dispatchEvent(new Event('library-updated'));
                                                 onClose();
                                             } catch (err) {

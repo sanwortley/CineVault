@@ -137,7 +137,9 @@ export const api = {
         }).catch(err => {
             // If the movie was already deleted (404), treat it as success locally
             // to help clear ghost entries from the UI/cache
-            if (err.message.includes('404') || err.message.toLowerCase().includes('not found')) {
+            if (err.message.includes('404') || 
+                err.message.toLowerCase().includes('not found') || 
+                err.message.toLowerCase().includes('no encontrada')) {
                 localStorage.removeItem('cinevault_movies_cache');
                 return { success: true, ghostCleared: true };
             }
