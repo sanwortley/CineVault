@@ -141,11 +141,15 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
                     }
                 } catch (err) {
                     console.warn('[VideoPlayer] Error en autocarga de subtítulos:', err);
+                    if (err.message?.includes('429')) setSubQuotaReached(true);
                 }
             };
-            autoLoadSubtitles();
+
+            if (!subQuotaReached) {
+                autoLoadSubtitles();
+            }
         }
-    }, [movie.id]);
+    }, [movie.id, subQuotaReached]);
 
     // Build video URL after streamSource is determined - Stable reference
     const videoUrl = useMemo(() => {
@@ -390,6 +394,7 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
     }, [isMobile]);
 
     const formatTime = (seconds) => {
+        if (seconds === Infinity) return '--:--';
         if (!seconds || isNaN(seconds)) return '0:00';
         const h = Math.floor(seconds / 3600);
         const m = Math.floor((seconds % 3600) / 60);
@@ -782,8 +787,9 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
                 </div>
             )}
 
-            {isMuted && !isLocked && !isDisplayLoading && (
-                <div className="absolute inset-x-0 bottom-[env(safe-area-inset-bottom)] pb-24 md:pb-0 pointer-events-none flex justify-center z-50">
+            {/* Center unmute button for mobile - Premium style */}
+            {isMuted && isPlaying && !isLocked && !isDisplayLoading && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[1001] animate-in fade-in duration-700">
                     <button 
                         onClick={() => {
                             if (videoRef.current) {
@@ -794,10 +800,14 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
                                 videoRef.current.play().catch(() => {});
                             }
                         }}
-                        className="pointer-events-auto flex items-center gap-2 px-6 py-3 bg-cyan-500 text-black text-xs font-black uppercase rounded-full shadow-[0_0_30px_rgba(6,182,212,0.4)] animate-in slide-in-from-bottom-5 duration-500"
+                        className="pointer-events-auto flex flex-col items-center gap-4 group"
                     >
-                        <Volume2 size={18} fill="currentColor" />
-                        Activar Sonido
+                        <div className="w-20 h-20 bg-cyan-500/10 backdrop-blur-xl border border-cyan-500/30 rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(6,182,212,0.2)] group-hover:scale-110 group-active:scale-95 transition-all duration-500">
+                            <Volume2 size={32} className="text-cyan-400" fill="currentColor" />
+                        </div>
+                        <div className="bg-black/40 backdrop-blur-md px-5 py-2 rounded-full border border-white/5">
+                            <p className="text-[10px] font-black text-white uppercase tracking-[0.3em]">Activar Sonido</p>
+                        </div>
                     </button>
                 </div>
             )}
@@ -922,9 +932,9 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
             {showControls && (
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-4 md:p-6">
                     <div className="flex flex-col gap-4 max-w-6xl mx-auto w-full">
-                        <div className="flex items-center justify-between text-white text-xs md:text-sm">
+                        <div className="flex items-center justify-between text-white text-[10px] md:text-xs font-black uppercase tracking-widest opacity-60">
                             <span>{formatTime(currentTime)}</span>
-                            <span>{formatTime(duration)}</span>
+                            <span>{duration === Infinity || duration === 0 ? (movie.runtime ? formatTime(movie.runtime * 60) : '--:--') : formatTime(duration)}</span>
                         </div>
                         
                         <input

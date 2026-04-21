@@ -117,7 +117,8 @@ router.post('/download', adminMiddleware, async (req, res) => {
             genres: tmdbDetails?.genres || '',
             director: tmdbDetails?.director || '',
             cast: tmdbDetails?.cast || '',
-            rating: tmdbDetails?.rating || 0
+            rating: tmdbDetails?.rating || 0,
+            runtime: tmdbDetails?.runtime || 0
         });
 
         if (!movie || !movie.id) {
