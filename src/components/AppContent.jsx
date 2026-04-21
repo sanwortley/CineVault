@@ -96,6 +96,21 @@ export default function AppContent() {
 
     useEffect(() => {
         if (user) loadData();
+        
+        // Handle deep linking for tabs and search
+        const params = new URLSearchParams(window.location.search);
+        const query = params.get('q');
+        const path = window.location.pathname;
+        
+        if (query || path === '/explore') {
+            setActiveTab('explore');
+        } else if (path === '/upload') {
+            setActiveTab('upload');
+        } else if (path === '/settings') {
+            setActiveTab('settings');
+        } else if (path === '/mylist') {
+            setActiveTab('mylist');
+        }
     }, [user]);
 
     useEffect(() => {

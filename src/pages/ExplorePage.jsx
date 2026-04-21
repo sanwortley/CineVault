@@ -43,6 +43,28 @@ export default function ExplorePage() {
             }
         };
         fetchTrending();
+
+        // Handle deep-link search Query
+        const params = new URLSearchParams(window.location.search);
+        const q = params.get('q');
+        if (q) {
+            setQuery(q);
+            setSearchMode('global');
+            const performSearch = async () => {
+                setIsSearching(true);
+                setHasSearched(true);
+                try {
+                    const data = await api.deepSearch(q);
+                    setGlobalResults(data);
+                    setSearchResults([]);
+                } catch (err) {
+                    console.error('Deep link search error:', err);
+                } finally {
+                    setIsSearching(false);
+                }
+            };
+            performSearch();
+        }
     }, []);
 
     const handleSearch = async (e) => {
