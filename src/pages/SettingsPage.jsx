@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Folder, ExternalLink, ShieldCheck, Database, Check, Cloud, CloudOff, Loader, UserPlus, X, Files, Settings, Shield } from 'lucide-react';
+import { Plus, Trash2, Folder, ExternalLink, ShieldCheck, Database, Check, Cloud, CloudOff, Loader, UserPlus, X, Files, Settings, Shield, Subtitles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useUploadQueue } from '../context/UploadQueueContext';
@@ -15,6 +15,9 @@ function SettingsPage({ onClose, onTabChange }) {
     const [isDriveConnected, setIsDriveConnected] = useState(false);
     const [rdToken, setRdToken] = useState('');
     const [isRDSaved, setIsRDSaved] = useState(false);
+    const [osUsername, setOsUsername] = useState('');
+    const [osPassword, setOsPassword] = useState('');
+    const [isOSSaved, setIsOSSaved] = useState(false);
     const { queue, removeFromQueue, retryQueueItem } = useUploadQueue();
 
     const fetchConfig = async () => {
@@ -31,6 +34,10 @@ function SettingsPage({ onClose, onTabChange }) {
             if (isAdmin) {
                 const rdData = await api.getRDToken();
                 if (rdData.token) setRdToken(rdData.token);
+                
+                const osData = await api.getOSCredentials();
+                if (osData.username) setOsUsername(osData.username);
+                if (osData.password) setOsPassword(osData.password);
             }
         } catch (error) {
             console.error('Error fetching config:', error);
@@ -76,6 +83,16 @@ function SettingsPage({ onClose, onTabChange }) {
             setTimeout(() => setIsRDSaved(false), 3000);
         } catch (error) {
             alert('Error al guardar el Token de Real-Debrid');
+        }
+    };
+
+    const handleSaveOSCredentials = async () => {
+        try {
+            await api.saveOSCredentials(osUsername, osPassword);
+            setIsOSSaved(true);
+            setTimeout(() => setIsOSSaved(false), 3000);
+        } catch (error) {
+            alert('Error al guardar credenciales de OpenSubtitles');
         }
     };
 
@@ -255,6 +272,60 @@ function SettingsPage({ onClose, onTabChange }) {
                                                 </a>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            </section>
+                        )}
+
+                        {/* OpenSubtitles Config */}
+                        {isAdmin() && (
+                            <section className="glass rounded-[3rem] p-8 md:p-14 border border-white/5 relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-12 opacity-[0.02] group-hover:opacity-[0.05] transition-opacity rotate-12">
+                                    <Files size={300} strokeWidth={1} />
+                                </div>
+                                <div className="relative z-10">
+                                    <div className="flex items-center gap-8 mb-12">
+                                        <div className="p-6 bg-netflix-red/10 rounded-[2rem] border border-netflix-red/20 shadow-inner">
+                                            <Subtitles className="text-netflix-red" size={40} />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-4xl font-black text-white tracking-tighter uppercase italic">OpenSubtitles VIP</h3>
+                                            <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Elimina los límites de descarga 5/día</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-6">
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                            <div className="space-y-3">
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4 italic">Usuario</label>
+                                                <input 
+                                                    type="text"
+                                                    value={osUsername}
+                                                    onChange={(e) => setOsUsername(e.target.value)}
+                                                    placeholder="Tu usuario de OpenSubtitles..."
+                                                    className="w-full bg-black/60 border border-white/10 rounded-[2rem] px-10 py-7 text-lg text-white focus:outline-none focus:border-netflix-red transition-all shadow-inner"
+                                                />
+                                            </div>
+                                            <div className="space-y-3">
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4 italic">Contraseña</label>
+                                                <input 
+                                                    type="password"
+                                                    value={osPassword}
+                                                    onChange={(e) => setOsPassword(e.target.value)}
+                                                    placeholder="Tu contraseña..."
+                                                    className="w-full bg-black/60 border border-white/10 rounded-[2rem] px-10 py-7 text-lg text-white focus:outline-none focus:border-netflix-red transition-all shadow-inner"
+                                                />
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={handleSaveOSCredentials}
+                                            className={`w-full flex items-center justify-center rounded-[2rem] h-[86px] font-black uppercase tracking-[0.3em] transition-all duration-500 shadow-2xl ${isOSSaved ? 'bg-green-600 text-white' : 'bg-white text-black hover:bg-slate-200 active:scale-95'}`}
+                                        >
+                                            {isOSSaved ? <Check size={32} strokeWidth={4} /> : <span className="text-sm">Guardar Credenciales VIP</span>}
+                                        </button>
+                                        <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest text-center">
+                                            Si tienes cuenta VIP, introduce tus datos para obtener 1000 descargas diarias en lugar del límite gratuito (5).
+                                        </p>
                                     </div>
                                 </div>
                             </section>

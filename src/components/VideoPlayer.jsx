@@ -111,8 +111,20 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
                     console.log('[VideoPlayer] Autocarga: Subtítulo local detectado:', localRes.path);
                     handleSubtitleSelect({ ...localRes, type: 'local', label: 'Local' });
                 } else {
-                    // 2. If nothing local, fire the auto-search
-                    handleSearchSubtitles();
+                    // 2. Check for cloud persistence (Drive)
+                    const cloudRes = await api.checkCloudSubtitle(movie.id);
+                    if (cloudRes.found) {
+                        console.log('[VideoPlayer] Autocarga: Subtítulo en la nube detectado:', cloudRes.name);
+                        handleSubtitleSelect({ 
+                            id: cloudRes.fileId, 
+                            type: 'cloud', 
+                            label: `Drive (${cloudRes.name})`,
+                            provider: 'Drive Cache'
+                        });
+                    } else {
+                        // 3. Fallback to search
+                        handleSearchSubtitles();
+                    }
                 }
             } catch (err) {
                 console.warn('[VideoPlayer] Error en autocarga de subtítulos:', err);

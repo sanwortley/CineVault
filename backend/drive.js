@@ -476,7 +476,6 @@ const driveApi = {
             throw e;
         }
     },
-
     getFileContent: async (fileId) => {
         if (!driveApi.isAuthenticated()) throw new Error('Not authenticated');
         const drive = driveApi.getClient();
@@ -489,6 +488,53 @@ const driveApi = {
         } catch (e) {
             console.error(`[Drive] Error getting content for ${fileId}:`, e.message);
             throw e;
+        }
+    },
+
+    uploadBasicFile: async (filePath, folderId, fileName) => {
+        if (!driveApi.isAuthenticated()) throw new Error('Not authenticated');
+        const drive = driveApi.getClient();
+        try {
+            const media = {
+                mimeType: fileName.endsWith('.vtt') ? 'text/vtt' : 'text/plain',
+                body: fs.createReadStream(filePath)
+            };
+            const res = await drive.files.create({
+                requestBody: {
+                    name: fileName,
+                    parents: [folderId]
+                },
+                media: media,
+                fields: 'id'
+            });
+            
+            // Make publicly readable
+            try {
+                await drive.permissions.create({
+                    fileId: res.data.id,
+                    requestBody: { role: 'reader', type: 'anyone' }
+                });
+            } catch (e) {}
+
+            return res.data.id;
+        } catch (e) {
+            console.error('[Drive] Error uploading basic file:', e.message);
+            throw e;
+        }
+    },
+
+    getFileParent: async (fileId) => {
+        if (!driveApi.isAuthenticated()) throw new Error('Not authenticated');
+        const drive = driveApi.getClient();
+        try {
+            const res = await drive.files.get({
+                fileId: fileId,
+                fields: 'parents'
+            });
+            return res.data.parents?.[0];
+        } catch (e) {
+            console.error('[Drive] Error getting file parent:', e.message);
+            return null;
         }
     },
     

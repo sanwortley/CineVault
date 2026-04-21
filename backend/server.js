@@ -5,7 +5,7 @@
  */
 
 require('dotenv').config();
-const movieSearcher = require('./movieSearcher');
+const { searchAll, searchGlobal, searchSubtitlesFallback } = require('./movieSearcher');
 const debridManager = require('./debridManager');
 const express = require('express');
 const cors = require('cors');
@@ -18,6 +18,7 @@ const mime = require('mime-types');
 const cookieParser = require('cookie-parser');
 const iconv = require('iconv-lite');
 const chardet = require('chardet');
+const axios = require('axios');
 
 const driveApi = require('./drive');
 const driveProxy = require('./driveProxy');
@@ -478,6 +479,46 @@ app.delete('/api/drive/queue/:movieId', sessionMiddleware, adminMiddleware, (req
     res.json({ success: true });
 });
 
+app.get('/api/subtitles/cloud/check', sessionMiddleware, async (req, res) => {
+    const { movieId } = req.query;
+    if (!movieId) return res.status(400).json({ error: 'Missing movieId' });
+
+    try {
+        const movies = await db.findMovies({ id: movieId });
+        if (!movies || movies.length === 0 || !movies[0].drive_file_id) {
+            return res.json({ found: false });
+        }
+
+        const movie = movies[0];
+        const parentId = await driveApi.getFileParent(movie.drive_file_id);
+        if (!parentId) return res.json({ found: false });
+
+        const files = await driveApi.list(parentId);
+        const movieBaseName = (movie.official_title || movie.detected_title || `movie_${movie.id}`).toLowerCase();
+        
+        // Look for .vtt or .srt files that match the movie name
+        const subFile = files.find(f => {
+            const name = f.name.toLowerCase();
+            return (name.includes(movieBaseName) || name.startsWith('sub_')) && 
+                   (name.endsWith('.vtt') || name.endsWith('.srt'));
+        });
+
+        if (subFile) {
+            res.json({ 
+                found: true, 
+                fileId: subFile.id, 
+                name: subFile.name,
+                type: 'cloud'
+            });
+        } else {
+            res.json({ found: false });
+        }
+    } catch (e) {
+        console.error('[Cloud Sub Check] Error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // ─── Subtitles ────────────────────────────────────────────────────────────────
 app.post('/api/subtitles/search', async (req, res) => {
     const { imdbId, title } = req.body;
@@ -486,9 +527,17 @@ app.post('/api/subtitles/search', async (req, res) => {
     const url = `https://api.opensubtitles.com/api/v1/subtitles?${query}&languages=es,en`;
 
     try {
-        const response = await fetch(url, {
-            headers: { 'Content-Type': 'application/json', 'User-Agent': 'CineVault v1.0', 'Api-Key': apiKey }
-        });
+        const headers = { 
+            'Content-Type': 'application/json', 
+            'User-Agent': 'CineVault v1.0', 
+            'Api-Key': apiKey 
+        };
+
+        // If user has VIP credentials, we could potentially authenticate here
+        // or add them to the query if the API supports it.
+        // For now, we mainly need them for the DOWNLOAD step to bypass the 5/day limit.
+        
+        const response = await fetch(url, { headers });
         const data = await response.json();
         const movieTitleLower = (title || '').toLowerCase();
         
@@ -496,7 +545,7 @@ app.post('/api/subtitles/search', async (req, res) => {
         const keywords = ['yts', 'rarbg', 'psa', 'webrip', 'web-rip', 'bluray', 'blu-ray', 'brrip', 'x264', 'x265', '1080p', '720p', 'amzn', 'nf'];
         const activeKeywords = keywords.filter(k => movieTitleLower.includes(k));
 
-        const results = (data.data || [])
+        let results = (data.data || [])
             .filter(s => s.attributes?.files?.length > 0)
             .map(s => {
                 const attr = s.attributes;
@@ -534,10 +583,42 @@ app.post('/api/subtitles/search', async (req, res) => {
             })
             .sort((a, b) => b.score - a.score) // Order by best score first
             .slice(0, 15); // Limit to top 15 results
+        
+        // If results are empty or there was an error, try fallback
+        if (!results || results.length === 0) {
+            const fallback = await searchSubtitlesFallback(imdbId, title);
+            results = [...(results || []), ...fallback];
+        }
 
         res.json({ data: results });
     } catch (e) {
-        console.error('[Subtitles] Search error:', e.message);
+        // Even on error, try fallback before giving up
+        try {
+            const { imdbId, title } = req.query;
+            const fallback = await searchSubtitlesFallback(imdbId, title);
+            if (fallback.length > 0) return res.json({ data: fallback });
+        } catch (_) {}
+
+        console.error('[Subtitles Search] Error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Route for downloading fallback subtitles (YIFY, etc)
+app.get('/api/subtitles/fallback-download', sessionMiddleware, async (req, res) => {
+    const { url, movieId } = req.query;
+    if (!url) return res.status(400).json({ error: 'URL is required' });
+
+    try {
+        console.log(`[Subtitles] Downloading fallback subtitle from: ${url}`);
+        const response = await axios.get(url, { headers: { 'User-Agent': 'CineVault v1.0' }, responseType: 'arraybuffer' });
+        
+        // YIFY subs often return a ZIP or a page. If it's a page, we need to extract the final download link.
+        // For simplicity in this version, we assume the provided URL is direct or easily clickable.
+        // Actually YIFY zip downloads require a bit more logic.
+        
+        res.status(501).json({ error: 'Fallback download logic not fully implemented yet.' });
+    } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
@@ -549,14 +630,39 @@ app.post('/api/subtitles/download', async (req, res) => {
     const apiKey = process.env.OPENSUBTITLES_API_KEY;
     try {
         console.log(`[Subtitles] Solicitando descarga para fileId: ${fileId} (MovieId: ${movieId})`);
+        
+        const headers = { 
+            'Content-Type': 'application/json', 
+            'Accept': 'application/json', 
+            'User-Agent': 'CineVault v1.0', 
+            'Api-Key': apiKey 
+        };
+
+        // Try to get VIP token if credentials exist
+        const osUser = process.env.OS_USERNAME;
+        const osPass = process.env.OS_PASSWORD;
+        if (osUser && osPass) {
+            try {
+                const loginRes = await fetch('https://api.opensubtitles.com/api/v1/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'User-Agent': 'CineVault v1.0', 'Api-Key': apiKey },
+                    body: JSON.stringify({ username: osUser, password: osPass })
+                });
+                if (loginRes.ok) {
+                    const loginData = await loginRes.json();
+                    if (loginData.token) {
+                        headers['Authorization'] = `Bearer ${loginData.token}`;
+                        console.log('[Subtitles] VIP authenticated for download');
+                    }
+                }
+            } catch (loginErr) {
+                console.warn('[Subtitles] VIP Login failed, falling back to guest:', loginErr.message);
+            }
+        }
+
         const response = await fetch('https://api.opensubtitles.com/api/v1/download', {
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json', 
-                'Accept': 'application/json', 
-                'User-Agent': 'CineVault v1.0', 
-                'Api-Key': apiKey 
-            },
+            headers,
             body: JSON.stringify({ file_id: fileId })
         });
         
@@ -607,6 +713,32 @@ app.post('/api/subtitles/download', async (req, res) => {
                         finalPath = localPath;
                         savedLocally = true;
                         console.log(`[Subtitles] Guardado junto a la película: ${finalPath}`);
+                    } else if (movie.drive_file_id && driveApi.isAuthenticated()) {
+                        // Persistent cloud storage: Upload to the same Drive folder
+                        try {
+                            const parentId = await driveApi.getFileParent(movie.drive_file_id);
+                            if (parentId) {
+                                const movieName = movie.official_title || movie.detected_title || `movie_${movie.id}`;
+                                console.log(`[Subtitles] Subiendo persistencia a Drive (folder: ${parentId})...`);
+                                
+                                // Save locally first (to temp) then upload
+                                fs.writeFileSync(finalPath, finalBuffer);
+                                await driveApi.uploadBasicFile(finalPath, parentId, `${movieName}.srt`);
+                                
+                                // Also upload VTT for web efficiency
+                                const vttPath = finalPath.replace(/\.srt$/, '.vtt');
+                                ffmpeg(finalPath).output(vttPath).on('end', async () => {
+                                    try {
+                                        await driveApi.uploadBasicFile(vttPath, parentId, `${movieName}.vtt`);
+                                        console.log(`[Subtitles] Persistencia VTT completada en Drive.`);
+                                    } catch (e) {}
+                                }).run();
+                                
+                                savedLocally = true; // Mark as saved so it doesn't just sit in temp
+                            }
+                        } catch (driveErr) {
+                            console.warn('[Subtitles] Falló persistencia en Drive:', driveErr.message);
+                        }
                     }
                 }
             } catch (dbErr) {
@@ -1263,6 +1395,40 @@ app.post('/api/admin/config/tmdb-key', sessionMiddleware, adminMiddleware, (req,
         fs.writeFileSync(envPath, envContent);
     }
     res.json({ message: 'API Key de TMDB actualizada' });
+});
+
+app.get('/api/admin/config/os-credentials', sessionMiddleware, adminMiddleware, (req, res) => {
+    res.json({ 
+        username: process.env.OS_USERNAME || '',
+        password: process.env.OS_PASSWORD ? '********' : '' 
+    });
+});
+
+app.post('/api/admin/config/os-credentials', sessionMiddleware, adminMiddleware, (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
+    
+    process.env.OS_USERNAME = username;
+    process.env.OS_PASSWORD = password;
+    
+    const envPath = path.resolve(__dirname, '../.env');
+    if (fs.existsSync(envPath)) {
+        let envContent = fs.readFileSync(envPath, 'utf8');
+        const updates = {
+            'OS_USERNAME': username,
+            'OS_PASSWORD': password
+        };
+        
+        Object.entries(updates).forEach(([key, val]) => {
+            if (envContent.includes(`${key}=`)) {
+                envContent = envContent.replace(new RegExp(`${key}=.*`), `${key}=${val}`);
+            } else {
+                envContent += `\n${key}=${val}`;
+            }
+        });
+        fs.writeFileSync(envPath, envContent);
+    }
+    res.json({ message: 'Credenciales de OpenSubtitles actualizadas' });
 });
 
 app.use('/api/discover', discoverRouter);

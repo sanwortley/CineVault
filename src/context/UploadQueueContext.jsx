@@ -129,7 +129,6 @@ export function UploadQueueProvider({ children }) {
                             updateItem(id, { progress: data.progress ?? 0, isOptimizing: data.isOptimizing ?? false });
                             if (data.status === 'done' || data.progress === 100) {
                                 updateItem(id, { status: 'done', progress: 100 });
-                                autoRemove(id);
                                 unsub();
                             }
                         }
@@ -139,7 +138,7 @@ export function UploadQueueProvider({ children }) {
         } catch (e) {
             console.error('Retry failed:', e);
         }
-    }, [updateItem, autoRemove]);
+    }, [updateItem]);
 
     const addToQueue = useCallback(async (movie) => {
         if (queue.some(item => item.id === movie.id)) return;

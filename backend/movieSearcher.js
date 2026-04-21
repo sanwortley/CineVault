@@ -187,4 +187,43 @@ async function searchAll(query) {
     return combined.sort((a, b) => b.seeds - a.seeds);
 }
 
-module.exports = { searchAll, searchGlobal };
+async function searchSubtitlesFallback(imdbId, title) {
+    try {
+        console.log(`[Searcher] Fallback subtitle search (YIFY) for: ${title}`);
+        // YIFY Subtitles search is often based on the slugified title or IMDB ID
+        // The most reliable search is via IMDB ID if possible
+        const searchUrl = `https://yifysubtitles.org/movie-imdb/${imdbId}`;
+        const response = await axios.get(searchUrl, { headers: COMMON_HEADERS, timeout: 8000 });
+        
+        const $ = cheerio.load(response.data);
+        const results = [];
+        
+        $('.other-subs tr').each((i, el) => {
+            const lang = $(el).find('.flag').attr('class')?.replace('flag ', '') || '';
+            const language = lang === 'es' ? 'es' : (lang === 'en' ? 'en' : '');
+            
+            if (language) {
+                const subLink = $(el).find('a').attr('href');
+                const release = $(el).find('.sub-download').prev().text().trim();
+                
+                if (subLink) {
+                    results.push({
+                        id: subLink.split('/').pop(),
+                        language,
+                        release: release || title,
+                        provider: 'YIFY (Fallback)',
+                        type: 'cloud',
+                        link: `https://yifysubtitles.org${subLink}`
+                    });
+                }
+            }
+        });
+        
+        return results;
+    } catch (err) {
+        console.warn('[Searcher] Fallback subtitles search failed:', err.message);
+        return [];
+    }
+}
+
+module.exports = { searchAll, searchGlobal, searchSubtitlesFallback };

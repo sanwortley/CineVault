@@ -188,7 +188,13 @@ export const api = {
     },
 
     findLocalSubtitle: (movieId) => {
-        return backendFetch(`/api/subtitles/find-local?movieId=${movieId}`);
+        if (isElectron()) return window.electronAPI.findLocalSubtitle(movieId);
+        return backendFetch(`/api/subtitles/local/check?movieId=${movieId}`);
+    },
+
+    checkCloudSubtitle: (movieId) => {
+        if (isElectron()) return window.electronAPI.checkCloudSubtitle ? window.electronAPI.checkCloudSubtitle(movieId) : Promise.resolve({ found: false });
+        return backendFetch(`/api/subtitles/cloud/check?movieId=${movieId}`);
     },
 
     // ── Google Drive ──────────────────────────────────────────────────────────
@@ -500,6 +506,19 @@ export const api = {
         return backendFetch('/api/admin/config/tmdb-key', {
             method: 'POST',
             body: JSON.stringify({ key })
+        });
+    },
+
+    getOSCredentials: () => {
+        if (isElectron()) return window.electronAPI.getOSCredentials ? window.electronAPI.getOSCredentials() : Promise.resolve({});
+        return backendFetch('/api/admin/config/os-credentials');
+    },
+
+    saveOSCredentials: (username, password) => {
+        if (isElectron()) return window.electronAPI.saveOSCredentials ? window.electronAPI.saveOSCredentials(username, password) : Promise.resolve();
+        return backendFetch('/api/admin/config/os-credentials', {
+            method: 'POST',
+            body: JSON.stringify({ username, password })
         });
     },
 
