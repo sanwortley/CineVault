@@ -259,7 +259,7 @@ const driveApi = {
     // Proxy byte-range requests from Electron's web player directly to Google Drive
     // Optionally transcodes on-the-fly for browser compatibility
     streamVideo: async (fileId, rangeHeader, res, transcodeOptions = {}) => {
-        const cleanId = fileId?.includes('_') ? fileId.split('_').pop() : fileId;
+        const cleanId = typeof fileId === 'string' ? fileId.replace(/^\d+_/, '') : fileId;
         const hasToken = driveApi.isAuthenticated();
         const apiKey = process.env.GOOGLE_API_KEY;
 
@@ -531,7 +531,7 @@ const driveApi = {
 
     getFileParent: async (fileId) => {
         if (!driveApi.isAuthenticated()) throw new Error('Not authenticated');
-        const cleanId = fileId?.includes('_') ? fileId.split('_').pop() : fileId;
+        const cleanId = typeof fileId === 'string' ? fileId.replace(/^\d+_/, '') : fileId;
         const drive = driveApi.getClient();
         try {
             const res = await drive.files.get({
