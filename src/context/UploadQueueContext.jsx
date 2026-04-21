@@ -40,7 +40,7 @@ export function UploadQueueProvider({ children }) {
 
                     // Manage subscriptions for active items
                     serverQueue.forEach(item => {
-                        const isWorking = ['uploading', 'pending', 'fetching', 'downloading'].some(s => item.status.includes(s));
+                        const isWorking = ['uploading', 'pending', 'fetching', 'downloading', 'converting'].some(s => item.status.includes(s));
                         if (isWorking && !activeUnsubs[item.movieId]) {
                             activeUnsubs[item.movieId] = api.onDriveUploadProgress(item.movieId, (data) => {
                                 if (data && isMounted) {

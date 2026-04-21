@@ -229,6 +229,14 @@ class UploadManager extends EventEmitter {
             Object.assign(job, updates);
             this.saveQueue();
             this.emit('queue_updated', this.queue);
+            
+            // Emit progress event so the SSE broadcaster in server.js picks it up
+            this.emit('job_progress', {
+                movieId: String(job.movieId),
+                progress: job.progress ?? 0,
+                status: job.status,
+                ...updates
+            });
         }
     }
 }
