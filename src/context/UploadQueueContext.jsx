@@ -16,25 +16,35 @@ export function UploadQueueProvider({ children }) {
     useEffect(() => {
         let activeUnsubs = {};
         let isMounted = true;
+        let pollInterval = null;
 
-        const initQueue = async () => {
+        const syncQueue = async () => {
             if (api.isElectron()) return;
             try {
                 const serverQueue = await api.getUploadQueue();
                 if (Array.isArray(serverQueue) && isMounted) {
-                    setQueue(serverQueue.map(item => ({
-                        id: item.movieId,
-                        title: item.title,
-                        progress: item.progress,
-                        status: item.status,
-                        errorMsg: item.error,
-                        isOptimizing: !!(item.options && item.options.optimize)
-                    })));
+                    setQueue(prev => {
+                        // Merge server data into existing state to keep locally-updated progress if more fresh
+                        const newQueue = serverQueue.map(item => {
+                            const existing = prev.find(p => p.id === item.movieId);
+                            return {
+                                id: item.movieId,
+                                title: item.title,
+                                progress: item.status === 'done' ? 100 : (item.progress ?? (existing?.progress || 0)),
+                                status: item.status,
+                                errorMsg: item.error,
+                                isOptimizing: !!(item.options && item.options.optimize)
+                            };
+                        });
+                        return newQueue;
+                    });
 
+                    // Manage subscriptions for active items
                     serverQueue.forEach(item => {
-                        if (item.status === 'uploading' || item.status === 'pending') {
+                        const isWorking = ['uploading', 'pending', 'fetching', 'downloading'].some(s => item.status.includes(s));
+                        if (isWorking && !activeUnsubs[item.movieId]) {
                             activeUnsubs[item.movieId] = api.onDriveUploadProgress(item.movieId, (data) => {
-                                if (data) {
+                                if (data && isMounted) {
                                     if (data.status === 'error') {
                                         updateItem(item.movieId, { status: 'error', errorMsg: data.error });
                                     } else {
@@ -50,13 +60,17 @@ export function UploadQueueProvider({ children }) {
                         }
                     });
                 }
-            } catch(e) {}
+            } catch(e) {
+                console.warn('[QueueSync] Fetch error:', e.message);
+            }
         };
 
-        initQueue();
+        syncQueue();
+        pollInterval = setInterval(syncQueue, 10000); // Poll every 10s
 
         return () => {
             isMounted = false;
+            if (pollInterval) clearInterval(pollInterval);
             Object.values(activeUnsubs).forEach(unsub => unsub && typeof unsub === 'function' && unsub());
         };
     }, [updateItem, autoRemove]);
