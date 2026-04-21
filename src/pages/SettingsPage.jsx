@@ -111,26 +111,26 @@ function SettingsPage({ onClose, onTabChange }) {
 
             <div className="grid gap-12">
                 {/* 1. Primary Action: Universal Sync */}
-                <section className="glass rounded-[3rem] p-8 md:p-16 border border-white/5 shadow-2xl relative overflow-hidden group">
+                <section className="glass rounded-[2rem] md:rounded-[3rem] p-6 md:p-16 border border-white/5 shadow-2xl relative overflow-hidden group">
                     <div className="absolute -top-24 -right-24 p-8 opacity-[0.03] group-hover:opacity-[0.07] transition-all duration-700 rotate-12 scale-150">
                         <Files size={400} strokeWidth={1} />
                     </div>
                     
-                    <div className="flex flex-col lg:flex-row items-center justify-between gap-12 relative z-10">
-                        <div className="flex flex-col md:flex-row items-center gap-12 text-center md:text-left">
-                            <div className="p-10 bg-white text-black rounded-[2.5rem] shadow-[0_0_50px_rgba(255,255,255,0.2)] hover:scale-110 transition-transform duration-500">
-                                <Plus size={48} strokeWidth={3} />
+                    <div className="flex flex-col lg:flex-row items-center justify-between gap-8 md:gap-12 relative z-10">
+                        <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12 text-center md:text-left">
+                            <div className="p-6 md:p-10 bg-white text-black rounded-[2rem] md:rounded-[2.5rem] shadow-[0_0_50px_rgba(255,255,255,0.2)] hover:scale-110 transition-transform duration-500">
+                                <Plus size={32} md:size={48} strokeWidth={3} />
                             </div>
                             <div className="max-w-2xl">
-                                <h2 className="text-3xl md:text-5xl font-black text-white tracking-tighter mb-4">Sincronización Universal</h2>
-                                <p className="text-slate-400 text-sm md:text-lg font-medium opacity-80 leading-relaxed">
+                                <h2 className="text-2xl md:text-5xl font-black text-white tracking-tighter mb-3 md:mb-4">Sincronización Universal</h2>
+                                <p className="text-slate-400 text-xs md:text-lg font-medium opacity-80 leading-relaxed">
                                     Añade tus películas desde cualquier ordenador usando el explorador de Windows clásico. CineVault reconocerá instantáneamente tus archivos y los añadirá a tu bóveda con carátulas y metadatos.
                                 </p>
                             </div>
                         </div>
                         <button 
                             onClick={() => onTabChange('upload')}
-                            className="w-full lg:w-auto px-16 py-8 bg-white text-black text-xs md:text-sm font-black uppercase tracking-[0.3em] rounded-[2rem] hover:bg-netflix-red hover:text-white transition-all duration-500 shadow-2xl active:scale-95 group/btn overflow-hidden relative"
+                            className="w-full lg:w-auto px-8 md:px-16 py-5 md:py-8 bg-white text-black text-[10px] md:text-sm font-black uppercase tracking-[0.2em] md:tracking-[0.3em] rounded-[1.5rem] md:rounded-[2rem] hover:bg-netflix-red hover:text-white transition-all duration-500 shadow-2xl active:scale-95 group/btn overflow-hidden relative"
                         >
                             <span className="relative z-10">Ir a Sincronizar</span>
                         </button>
@@ -140,35 +140,35 @@ function SettingsPage({ onClose, onTabChange }) {
                 {/* 2. Secondary Settings Grid */}
                 <div className="grid grid-cols-1 gap-12">
                     {/* Storage Management (Full Width for list visibility) */}
-                    <section className="glass rounded-[3rem] p-8 md:p-12 border border-white/5 flex flex-col min-h-[400px]">
-                        <div className="flex items-center gap-6 mb-12">
-                            <div className="p-5 bg-netflix-red/10 rounded-3xl border border-netflix-red/20 shadow-inner">
-                                <Database className="text-netflix-red" size={32} />
+                    <section className="glass rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 border border-white/5 flex flex-col min-h-[300px] md:min-h-[400px]">
+                        <div className="flex items-center gap-4 md:gap-6 mb-8 md:mb-12">
+                            <div className="p-3 md:p-5 bg-netflix-red/10 rounded-2xl md:rounded-3xl border border-netflix-red/20 shadow-inner">
+                                <Database className="text-netflix-red" size={24} md:size={32} />
                             </div>
                             <div>
-                                <h3 className="text-3xl font-black text-white tracking-tight uppercase italic underline decoration-netflix-red decoration-4 transition-all hover:decoration-white">Vault Storage</h3>
-                                <p className="text-xs font-bold text-slate-500 uppercase tracking-[0.3em] mt-1">Carpetas locales vinculadas al servidor</p>
+                                <h3 className="text-xl md:text-3xl font-black text-white tracking-tight uppercase italic underline decoration-netflix-red decoration-2 md:decoration-4 transition-all hover:decoration-white">Vault Storage</h3>
+                                <p className="text-[8px] md:text-xs font-bold text-slate-500 uppercase tracking-[0.2em] md:tracking-[0.3em] mt-1">Carpetas locales vinculadas al servidor</p>
                             </div>
                         </div>
 
-                        <div className="flex-1 space-y-4 mb-12 bg-black/40 rounded-[2.5rem] p-8 border border-white/[0.03] shadow-inner">
+                        <div className="flex-1 space-y-3 md:space-y-4 mb-8 md:mb-12 bg-black/40 rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-8 border border-white/[0.03] shadow-inner max-h-[300px] md:max-h-none overflow-y-auto">
                             {folders.length === 0 ? (
-                                <div className="h-full flex flex-col items-center justify-center text-center py-20 opacity-30">
-                                    <Folder size={64} strokeWidth={1} className="mb-6" />
-                                    <p className="text-sm font-black uppercase tracking-[0.5em]">La bóveda está vacía</p>
+                                <div className="h-full flex flex-col items-center justify-center text-center py-10 md:py-20 opacity-30">
+                                    <Folder size={48} md:size={64} strokeWidth={1} className="mb-4 md:mb-6" />
+                                    <p className="text-[10px] md:text-sm font-black uppercase tracking-[0.4em] md:tracking-[0.5em]">La bóveda está vacía</p>
                                 </div>
                             ) : (
                                 folders.map((folder, index) => (
-                                    <div key={index} className="flex justify-between items-center p-6 bg-white/[0.02] border border-white/5 rounded-2xl group hover:bg-white/[0.06] transition-all duration-500">
-                                        <div className="flex items-center gap-6 min-w-0">
-                                            <Folder size={20} className="text-slate-600 group-hover:text-netflix-red transition-colors" />
-                                            <span className="text-sm font-bold text-slate-400 group-hover:text-white truncate tracking-tight">{folder}</span>
+                                    <div key={index} className="flex justify-between items-center p-4 md:p-6 bg-white/[0.02] border border-white/5 rounded-xl md:rounded-2xl group hover:bg-white/[0.06] transition-all duration-500">
+                                        <div className="flex items-center gap-3 md:gap-6 min-w-0 flex-1">
+                                            <Folder size={16} md:size={20} className="text-slate-600 group-hover:text-netflix-red transition-colors shrink-0" />
+                                            <span className="text-xs md:text-sm font-bold text-slate-400 group-hover:text-white truncate tracking-tight">{folder}</span>
                                         </div>
                                         <button 
                                             onClick={() => handleDeleteFolder(folder)}
-                                            className="p-4 text-slate-600 hover:text-netflix-red hover:bg-netflix-red/10 rounded-xl transition-all"
+                                            className="p-2 md:p-4 text-slate-600 hover:text-netflix-red hover:bg-netflix-red/10 rounded-xl transition-all"
                                         >
-                                            <Trash2 size={24} />
+                                            <Trash2 size={18} md:size={24} />
                                         </button>
                                     </div>
                                 ))
@@ -178,9 +178,9 @@ function SettingsPage({ onClose, onTabChange }) {
                         <button 
                             onClick={handleAddFolder}
                             disabled={isAdding}
-                            className="w-full py-8 bg-white/5 text-white border border-white/10 text-xs md:text-sm font-black uppercase tracking-[0.4em] rounded-[2rem] hover:bg-white/10 active:scale-95 transition-all shadow-[0_0_40px_rgba(0,0,0,0.5)] flex items-center justify-center gap-4"
+                            className="w-full py-5 md:py-8 bg-white/5 text-white border border-white/10 text-[10px] md:text-sm font-black uppercase tracking-[0.3em] md:tracking-[0.4em] rounded-[1.5rem] md:rounded-[2rem] hover:bg-white/10 active:scale-95 transition-all shadow-[0_0_40px_rgba(0,0,0,0.5)] flex items-center justify-center gap-3 md:gap-4"
                         >
-                            <Plus size={24} />
+                            <Plus size={20} md:size={24} />
                             Añadir Disco o Carpeta Local
                         </button>
                     </section>
@@ -245,20 +245,20 @@ function SettingsPage({ onClose, onTabChange }) {
 
                                     <div className="space-y-8">
                                         <div className="space-y-6">
-                                            <label className="block text-xs font-black text-slate-500 uppercase tracking-[0.5em] mb-4 ml-2">REAL-DEBRID PRIVATE TOKEN</label>
-                                            <div className="flex flex-col lg:flex-row gap-6">
+                                            <label className="block text-[10px] md:text-xs font-black text-slate-500 uppercase tracking-[0.4em] md:tracking-[0.5em] mb-3 md:mb-4 ml-2">REAL-DEBRID PRIVATE TOKEN</label>
+                                            <div className="flex flex-col md:flex-row gap-4 md:gap-6">
                                                 <input 
                                                     type="password"
                                                     value={rdToken}
                                                     onChange={(e) => setRdToken(e.target.value)}
-                                                    placeholder="Tu Token Privado (apibay/apitoken)..."
-                                                    className="flex-1 bg-black/60 border border-white/10 rounded-[2rem] px-10 py-7 text-lg text-white focus:outline-none focus:border-netflix-red transition-all shadow-inner placeholder:text-slate-800 placeholder:uppercase"
+                                                    placeholder="Tu Token Privado..."
+                                                    className="flex-1 bg-black/60 border border-white/10 rounded-[1.5rem] md:rounded-[2rem] px-6 md:px-10 py-5 md:py-7 text-sm md:text-lg text-white focus:outline-none focus:border-netflix-red transition-all shadow-inner placeholder:text-slate-800"
                                                 />
                                                 <button 
                                                     onClick={handleSaveRDToken}
-                                                    className={`flex items-center justify-center rounded-[2rem] h-[86px] min-w-[240px] font-black uppercase tracking-[0.3em] transition-all duration-500 shadow-2xl ${isRDSaved ? 'bg-green-600 text-white' : 'bg-white text-black hover:bg-slate-200 active:scale-95'}`}
+                                                    className={`flex items-center justify-center rounded-[1.5rem] md:rounded-[2rem] h-[60px] md:h-[86px] min-w-full md:min-w-[240px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] transition-all duration-500 shadow-2xl ${isRDSaved ? 'bg-green-600 text-white' : 'bg-white text-black hover:bg-slate-200 active:scale-95'}`}
                                                 >
-                                                    {isRDSaved ? <Check size={32} strokeWidth={4} /> : <span className="text-sm">Vincular Bóveda</span>}
+                                                    {isRDSaved ? <Check size={28} md:size={32} strokeWidth={4} /> : <span className="text-[10px] md:text-sm">Vincular Bóveda</span>}
                                                 </button>
                                             </div>
                                         </div>
@@ -356,47 +356,49 @@ function SettingsPage({ onClose, onTabChange }) {
                                             <p className="text-xs font-bold text-slate-500">Todos tus archivos están sincronizados en la nube.</p>
                                         </div>
                                     ) : (
-                                        <div className="space-y-4">
+                                        <div className="space-y-3">
                                             {queue.map((job) => (
-                                                <div key={job.id} className="flex flex-col md:flex-row items-center gap-6 p-6 bg-white/[0.03] border border-white/5 rounded-[2rem] hover:bg-white/[0.06] transition-all group">
+                                                <div key={job.id} className="flex flex-col md:flex-row items-stretch md:items-center gap-4 md:gap-6 p-4 md:p-6 bg-white/[0.03] border border-white/5 rounded-[1.5rem] md:rounded-[2rem] hover:bg-white/[0.06] transition-all group">
                                                     <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-4 mb-2">
-                                                            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter ${
+                                                        <div className="flex items-center gap-3 mb-3">
+                                                            <span className={`shrink-0 px-2 py-0.5 rounded text-[7px] md:text-[8px] font-black uppercase tracking-tighter ${
                                                                 job.status === 'done' ? 'bg-green-500/20 text-green-400' :
                                                                 job.status === 'error' ? 'bg-red-500/20 text-red-400' :
                                                                 'bg-cyan-500/20 text-cyan-400'
                                                             }`}>
                                                                 {job.status}
                                                             </span>
-                                                            <h4 className="text-sm font-black text-white truncate">{job.title}</h4>
+                                                            <h4 className="text-xs md:text-sm font-black text-white truncate max-w-[200px] md:max-w-none">{job.title}</h4>
                                                         </div>
-                                                        <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden">
-                                                            <div 
-                                                                className={`h-full transition-all duration-700 ${
-                                                                    job.status === 'error' ? 'bg-red-500' : 
-                                                                    job.status === 'done' ? 'bg-green-500' : 'bg-cyan-500'
-                                                                }`}
-                                                                style={{ width: `${job.progress}%` }}
-                                                            ></div>
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="flex-1 h-1 md:h-1.5 bg-black/40 rounded-full overflow-hidden">
+                                                                <div 
+                                                                    className={`h-full transition-all duration-700 ${
+                                                                        job.status === 'error' ? 'bg-red-500' : 
+                                                                        job.status === 'done' ? 'bg-green-500' : 'bg-cyan-500'
+                                                                    }`}
+                                                                    style={{ width: `${job.progress}%` }}
+                                                                ></div>
+                                                            </div>
+                                                            <span className="shrink-0 text-[10px] md:text-xs font-black text-slate-400">{Math.round(job.progress)}%</span>
                                                         </div>
                                                     </div>
-                                                    <div className="flex items-center gap-4 ml-auto">
-                                                        <span className="text-xs font-black text-slate-400">{Math.round(job.progress)}%</span>
+                                                    <div className="flex items-center justify-end gap-3 md:gap-4 shrink-0 pt-2 md:pt-0 border-t border-white/5 md:border-t-0">
                                                         {job.status === 'error' && (
                                                             <button 
                                                                 onClick={() => retryQueueItem(job.id)}
-                                                                className="p-3 bg-white/5 hover:bg-white text-white hover:text-black rounded-xl transition-all"
+                                                                className="p-2 md:p-3 bg-white/5 hover:bg-white text-white hover:text-black rounded-lg md:rounded-xl transition-all"
                                                                 title="Reintentar"
                                                             >
-                                                                <RefreshCw size={16} />
+                                                                <RefreshCw size={14} md:size={16} />
                                                             </button>
                                                         )}
                                                         <button 
                                                             onClick={() => removeFromQueue(job.id)}
-                                                            className="p-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-all"
+                                                            className="p-2 md:p-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg md:rounded-xl transition-all"
                                                             title="Eliminar de la cola"
                                                         >
-                                                            <Trash2 size={16} />
+                                                            <Trash2 size={14} md:size={16} />
                                                         </button>
                                                     </div>
                                                 </div>

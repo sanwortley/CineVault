@@ -226,6 +226,7 @@ class UploadManager extends EventEmitter {
     updateJob(movieId, updates) {
         const job = this.queue.find(j => String(j.movieId) === String(movieId));
         if (job) {
+            const oldStatus = job.status;
             Object.assign(job, updates);
             this.saveQueue();
             this.emit('queue_updated', this.queue);
@@ -237,7 +238,14 @@ class UploadManager extends EventEmitter {
                 status: job.status,
                 ...updates
             });
+
+            // If it just became pending, trigger processing loop
+            if (updates.status === 'pending' || (oldStatus !== 'pending' && job.status === 'pending')) {
+                this.processNext();
+            }
+            return true;
         }
+        return false;
     }
 }
 

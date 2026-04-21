@@ -15,7 +15,7 @@ export default function UploadQueuePanel() {
     if (activeCount === 0 && errorItems.length === 0) return null;
 
     return (
-        <div className="fixed bottom-8 right-8 z-[200] max-w-sm animate-fade-in group hover:opacity-100 opacity-90 transition-opacity">
+        <div className="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-[200] w-[calc(100%-2rem)] md:max-w-sm animate-fade-in group hover:opacity-100 opacity-90 transition-opacity">
             <div className="glass-card rounded-2xl border border-white/10 shadow-xl overflow-hidden backdrop-blur-xl bg-black/60">
                 {/* Header / Global Status */}
                 <div className="flex items-center gap-3 px-4 py-3 bg-white/5">
