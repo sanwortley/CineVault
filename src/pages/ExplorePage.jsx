@@ -232,7 +232,7 @@ export default function ExplorePage() {
                             initial={{ opacity: 0, scale: 0.9, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="bg-[#111] border border-white/10 rounded-[2rem] max-w-5xl w-full max-h-[90vh] md:max-h-[85vh] overflow-hidden flex flex-col md:flex-row relative shadow-2xl"
+                            className="bg-[#111] border border-white/10 rounded-[2rem] max-w-5xl w-full h-[95vh] md:h-auto md:max-h-[85vh] overflow-hidden flex flex-col md:flex-row relative shadow-2xl"
                         >
                             <button 
                                 onClick={() => setSelectedMovie(null)}
@@ -242,12 +242,13 @@ export default function ExplorePage() {
                             </button>
 
                             {/* Poster Side */}
-                            <div className="w-full md:w-2/5 aspect-[2/3] md:aspect-auto">
+                            <div className="w-full md:w-2/5 h-48 md:h-auto shrink-0 relative">
                                 <img 
                                     src={selectedMovie.poster_path ? `https://image.tmdb.org/t/p/w780${selectedMovie.poster_path}` : 'https://via.placeholder.com/780x1170?text=Sin+Poster'} 
                                     alt={selectedMovie.title}
                                     className="w-full h-full object-cover"
                                 />
+                                <div className="absolute inset-0 bg-gradient-to-t from-[#111] via-transparent to-transparent md:hidden"></div>
                             </div>
 
                             {/* Info Side */}
