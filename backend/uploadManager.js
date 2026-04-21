@@ -24,6 +24,23 @@ class UploadManager extends EventEmitter {
         this.queue = [];
         this.isProcessing = false;
         this.loadQueue();
+        
+        // Auto-start loop on initialization
+        setTimeout(() => this.processNext(), 5000);
+
+        // Safety heartbeat: If isProcessing is true but no progress for 30 mins, reset it
+        this.lastProgressUpdate = Date.now();
+        setInterval(() => this.checkHeartbeat(), 5 * 60 * 1000); // Every 5 mins
+    }
+
+    checkHeartbeat() {
+        if (!this.isProcessing) return;
+        const idleTime = Date.now() - this.lastProgressUpdate;
+        if (idleTime > 30 * 60 * 1000) { // 30 mins
+            console.warn('[UploadManager] Proceso estancado detectado (30 min sin cambios). Reiniciando...');
+            this.isProcessing = false;
+            this.processNext();
+        }
     }
 
     loadQueue() {
@@ -155,7 +172,8 @@ class UploadManager extends EventEmitter {
                 const response = await axios({
                     method: 'get',
                     url: nextJob.filePath,
-                    responseType: 'stream'
+                    responseType: 'stream',
+                    timeout: 60000 // 1 minute timeout for connection
                 });
 
                 const totalLength = response.headers['content-length'];
@@ -186,6 +204,7 @@ class UploadManager extends EventEmitter {
             const result = await driveApi.uploadVideo(workingFilePath, nextJob.mimeType, (progress, uploaded, total) => {
                 nextJob.progress = progress;
                 // Emitir progreso por SSE
+                this.lastProgressUpdate = Date.now();
                 this.emit('job_progress', {
                     movieId: nextJob.movieId,
                     progress,

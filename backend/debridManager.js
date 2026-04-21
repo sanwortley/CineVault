@@ -7,7 +7,8 @@ const getRD = () => {
     const token = process.env.REAL_DEBRID_API_TOKEN;
     return axios.create({
         baseURL: BASE_URL,
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` },
+        timeout: 15000 // 15 seconds timeout
     });
 };
 

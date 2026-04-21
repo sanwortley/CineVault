@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Folder, ExternalLink, ShieldCheck, Database, Check, Cloud, CloudOff, Loader, UserPlus, X, Files, Settings, Shield, Subtitles } from 'lucide-react';
+import { Plus, Trash2, Folder, ExternalLink, ShieldCheck, Database, Check, Cloud, CloudOff, UserPlus, X, Files, Settings, Shield, Subtitles, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useUploadQueue } from '../context/UploadQueueContext';
