@@ -778,7 +778,38 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
                 </div>
             )}
 
-            {isDisplayLoading && !error && (
+            {movie?.drive_file_id === 'pending_cloud' && (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-950/90 z-[1010] p-8 text-center animate-in fade-in duration-500">
+                    <div className="max-w-md space-y-6">
+                        <div className="relative w-24 h-24 mx-auto">
+                            <div className="absolute inset-0 border-4 border-cyan-500/10 rounded-full"></div>
+                            <div className="absolute inset-0 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <Cloud size={32} className="text-cyan-500 animate-pulse" />
+                            </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <h2 className="text-2xl font-black text-white uppercase tracking-tight">Procesado en Progreso</h2>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] italic">Bóveda Global</p>
+                        </div>
+                        
+                        <p className="text-sm text-slate-400 font-medium leading-relaxed">
+                            Esta película se está descargando y optimizando para tu Bóveda. 
+                            <span className="block mt-2 text-cyan-400/80 font-black uppercase text-[9px] tracking-widest">Estará disponible en unos minutos.</span>
+                        </p>
+                        
+                        <button 
+                            onClick={() => onClose(0)}
+                            className="px-8 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
+                        >
+                            Cerrar y esperar
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {isDisplayLoading && !error && movie?.drive_file_id !== 'pending_cloud' && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10 transition-colors">
                     <div className="text-center">
                         <div className="relative">

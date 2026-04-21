@@ -139,34 +139,7 @@ app.get('/api/subtitles/external', (req, res) => {
     }
 });
 
-app.get('/api/subtitles/cloud', (req, res) => {
-    const { id } = req.query;
-    if (!id) return res.status(400).send('Missing id');
-    
-    const srtPath = path.join(os.tmpdir(), `sub_${id}.srt`);
-    const vttPath = path.join(os.tmpdir(), `sub_${id}.vtt`);
-    
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    
-    if (fs.existsSync(vttPath)) {
-        return res.sendFile(vttPath, { headers: { 'Content-Type': 'text/vtt' } });
-    }
-    
-    if (fs.existsSync(srtPath)) {
-        ffmpeg(srtPath)
-            .output(vttPath)
-            .on('end', () => {
-                res.sendFile(vttPath, { headers: { 'Content-Type': 'text/vtt' } });
-            })
-            .on('error', err => {
-                console.error('[Subtitles] Conversion failed:', err.message);
-                res.status(500).send('Error converting subtitles');
-            })
-            .run();
-    } else {
-        res.status(404).send('Not found');
-    }
-});
+
 
 // ─── Auth Routes ──────────────────────────────────────────────────────────────
 const REDIRECT_PORT = 19999;
@@ -253,6 +226,12 @@ app.get('/api/drive/stream/:fileId', sessionMiddleware, async (req, res) => {
     const startTime = req.query.t || 0;
     
     try {
+        if (fileId === 'pending_cloud') {
+            return res.status(202).json({ 
+                status: 'processing', 
+                message: 'La película de la Bóveda Global todavía se está procesando. Reintenta en unos minutos.' 
+            });
+        }
         await driveApi.streamVideo(fileId, range, res, { transcode, t: startTime });
     } catch (err) {
         console.error('[Server] Drive streaming route error:', err.message);
