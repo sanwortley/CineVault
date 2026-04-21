@@ -82,6 +82,8 @@ const database = {
         delete payload.modified_at;
         delete payload.created_at;
 
+        console.log('[DB] Attempting addMovie with payload:', JSON.stringify(payload, null, 2));
+
         try {
             const res = await supabaseFetch('movies', { 
                 method: 'POST', 
