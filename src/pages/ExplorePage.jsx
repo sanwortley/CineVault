@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, TrendingUp, Download, Play, Shield, Loader, Plus, X, Star, Calendar, Clock, Globe } from 'lucide-react';
+import { Search, TrendingUp, Download, Play, Shield, Loader, Plus, X, Star, Calendar, Clock, Globe, CheckCircle2 } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useUploadQueue } from '../context/UploadQueueContext';
