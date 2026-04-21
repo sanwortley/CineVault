@@ -152,7 +152,7 @@ const database = {
         return await supabaseFetch(`user_movie_progress?user_id=eq.${userId}&select=*`) || [];
     },
     saveUserProgress: async (userId, movieId, watchedDuration) => {
-        return await supabaseFetch('user_movie_progress', { 
+        return await supabaseFetch('user_movie_progress?on_conflict=user_id,movie_id', { 
             method: 'POST', 
             body: JSON.stringify({ 
                 user_id: userId,

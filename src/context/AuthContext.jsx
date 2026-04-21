@@ -212,7 +212,7 @@ export function AuthProvider({ children }) {
     const saveUserProgress = async (movieId, watchedDuration) => {
         if (!user?.access_token) return;
         try {
-            const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/user_movie_progress`, {
+            const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/user_movie_progress?on_conflict=user_id,movie_id`, {
                 method: 'POST',
                 headers: {
                     'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
@@ -232,7 +232,7 @@ export function AuthProvider({ children }) {
                 const refreshed = await refreshSession();
                 if (!refreshed) return;
                 
-                await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/user_movie_progress`, {
+                await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/user_movie_progress?on_conflict=user_id,movie_id`, {
                     method: 'POST',
                     headers: {
                         'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
