@@ -79,11 +79,15 @@ router.post('/download', adminMiddleware, async (req, res) => {
         }
 
         // --- Step 1: Create or Get Movie Entry ---
-        // Ensuring no NULL values for metadata fields to prevent NOT NULL constraint violations
+        // Ensuring no NULL values for mandatory columns (file_path, file_name are NOT NULL in production)
         let movie = await db.addMovie({
             official_title: tmdbDetails?.official_title || tmdbDetails?.title || title || '',
             detected_title: title || '',
             detected_year: year || tmdbDetails?.release_date?.substring(0, 4) || new Date().getFullYear().toString(),
+            file_name: title || 'unknown_movie',
+            file_path: `remote://cloud-ingestion/${title || 'unknown'}`,
+            file_size: 0,
+            extension: '.mp4',
             drive_file_id: 'pending_cloud', 
             poster_url: tmdbDetails?.poster_url || (tmdbDetails?.poster_path ? `https://image.tmdb.org/t/p/w500${tmdbDetails.poster_path}` : ''),
             backdrop_url: tmdbDetails?.backdrop_url || '',
