@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import { Bell, X, CheckCircle2, AlertCircle, RefreshCw, Trash2, Loader, ChevronRight, MessageSquare, Download, Check } from 'lucide-react';
 import { useUploadQueue } from '../context/UploadQueueContext';
 import { useAuth } from '../context/AuthContext';
