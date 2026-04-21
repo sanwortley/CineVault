@@ -54,14 +54,29 @@ async function backendFetch(path, options = {}, customHeaders = {}) {
         }
     });
     if (!res.ok) {
-        const err = await res.json().catch(() => ({ message: res.statusText }));
+        const text = await res.text().catch(() => '');
+        let err = { message: res.statusText };
+        try {
+            if (text.trim().startsWith('{')) err = JSON.parse(text);
+        } catch (e) {}
+        
         if (res.status === 401) {
-            // Trigger global event for session expiration
             window.dispatchEvent(new CustomEvent('session-expired'));
         }
         throw new Error(err.message || JSON.stringify(err));
     }
-    return res.json();
+
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+        return res.json();
+    }
+    const text = await res.text();
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        // Fallback for non-JSON or malformed JSON responses
+        return { success: res.ok, status: res.status, raw: text };
+    }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────

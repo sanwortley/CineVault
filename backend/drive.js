@@ -119,6 +119,17 @@ const driveApi = {
         return res.data;
     },
 
+    uploadBasicFile: async (filePath, folderId, fileName) => {
+        if (!driveApi.isAuthenticated()) throw new Error('Not authenticated');
+        const drive = driveApi.getClient();
+        return await drive.files.create({
+            requestBody: { name: fileName, parents: [folderId] },
+            media: { body: fs.createReadStream(filePath) },
+            supportsAllDrives: true,
+            fields: 'id'
+        });
+    },
+
     streamVideo: async (fileId, rangeHeader, res, transcodeOptions = {}) => {
         const drive = driveApi.getClient();
         const hasToken = driveApi.isAuthenticated();

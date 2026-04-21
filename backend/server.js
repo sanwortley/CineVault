@@ -479,6 +479,12 @@ app.delete('/api/drive/queue/:movieId', sessionMiddleware, adminMiddleware, (req
     res.json({ success: true });
 });
 
+app.get('/api/subtitles/local/check', sessionMiddleware, async (req, res) => {
+    // Basic implementation: Always return not found for now to avoid crashes
+    // In the future, this can look for sibling files in the local FS
+    res.json({ found: false });
+});
+
 app.get('/api/subtitles/cloud/check', sessionMiddleware, async (req, res) => {
     const { movieId } = req.query;
     if (!movieId) return res.status(400).json({ error: 'Missing movieId' });
