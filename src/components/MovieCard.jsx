@@ -113,6 +113,11 @@ function MovieCard({ movie, onPlay, onInfo, compact = false, myList = [], toggle
                             <Cloud size={10} strokeWidth={3} />
                         </div>
                     )}
+                    {movie.versions && movie.versions.length > 1 && (
+                        <div className="px-1.5 py-0.5 bg-netflix-red/90 rounded text-[8px] font-black text-white border border-white/10 flex items-center gap-1 shadow-lg">
+                            <span>{movie.versions.length} VERSIONES</span>
+                        </div>
+                    )}
                 </div>
 
                 {/* Hover Overlay */}

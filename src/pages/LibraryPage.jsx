@@ -4,6 +4,7 @@ import Hero from '../components/Hero';
 import MovieRow from '../components/MovieRow';
 import MovieCard from '../components/MovieCard';
 import { api } from '../api';
+import { groupMoviesByTitle } from '../utils/movieUtils';
 
 // Custom Dropdown Component moved outside to prevent re-mounting issues
 const SelectField = ({ label, value, options, isOpen, onToggle, onSelect }) => (
@@ -48,23 +49,15 @@ function LibraryPage({
     const [continueSort, setContinueSort] = useState('Recientes');
     const [isContinueSortOpen, setIsContinueSortOpen] = useState(false);
 
-    // UI State for filtering and featured movie
-    const [selectedGenre, setSelectedGenre] = useState('All');
-    const [selectedYear, setSelectedYear] = useState('All');
-    const [selectedSort, setSelectedSort] = useState('A-Z');
-    const [isGenreOpen, setIsGenreOpen] = useState(false);
-    const [isYearOpen, setIsYearOpen] = useState(false);
-    const [isSortOpen, setIsSortOpen] = useState(false);
-    const [featuredMovies, setFeaturedMovies] = useState([]);
-
-    // Data fetching removed - now managed by parent (App.jsx)
+    // Group duplicates before any sorting or filtering
+    const groupedMoviesRaw = React.useMemo(() => groupMoviesByTitle(movies || []), [movies]);
 
     // Extract unique genres and years safely
-    const allGenres = ['All', ...new Set((movies || []).flatMap(m => (m && m.genres) ? m.genres.split(', ') : []))].sort();
-    const allYears = ['All', ...new Set((movies || []).map(m => m?.detected_year).filter(Boolean))].sort((a, b) => b - a);
+    const allGenres = ['All', ...new Set((groupedMoviesRaw || []).flatMap(m => (m && m.genres) ? m.genres.split(', ') : []))].sort();
+    const allYears = ['All', ...new Set((groupedMoviesRaw || []).map(m => m?.detected_year).filter(Boolean))].sort((a, b) => b - a);
 
     // Filter Logic
-    const filteredMovies = (viewOnlyList ? myList : movies).filter(m => {
+    const filteredMovies = (viewOnlyList ? myList : groupedMoviesRaw).filter(m => {
         if (!m) return false;
         const s = (search || '').toLowerCase();
         const matchesSearch = (m.official_title || m.detected_title || '').toLowerCase().includes(s) ||

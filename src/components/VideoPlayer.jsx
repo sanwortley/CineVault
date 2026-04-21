@@ -6,9 +6,9 @@ import {
 } from 'lucide-react';
 import { api, BACKEND_URL } from '../api';
 import { useAuth } from '../context/AuthContext';
-import DriveExplorer from './DriveExplorer';
+import { detectVersionInfo } from '../utils/movieUtils';
 
-function VideoPlayer({ movie, onClose, onOpenSettings, userProgress = {} }) {
+function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProgress = {} }) {
     const { user, saveUserProgress } = useAuth();
     const videoRef = useRef(null);
     const playerRef = useRef(null);
@@ -41,6 +41,9 @@ function VideoPlayer({ movie, onClose, onOpenSettings, userProgress = {} }) {
     const [subQuotaReached, setSubQuotaReached] = useState(false);
     const controlsTimeoutRef = useRef(null);
     const fileInputRef = useRef(null);
+    const [showVersionMenu, setShowVersionMenu] = useState(false);
+    
+    const versions = movie.versions || [movie];
     
     // Use userProgress prop first (now an object), fallback to movie.watched_duration
     const progressObj = userProgress[movie?.id];
@@ -995,15 +998,57 @@ function VideoPlayer({ movie, onClose, onOpenSettings, userProgress = {} }) {
                                     />
                                 </div>
                                 
-                                <button onClick={() => { setShowSubtitleMenu(!showSubtitleMenu); setShowControls(true); }} className={'p-3 rounded-full transition-colors ' + (selectedSubtitle ? 'text-cyan-400 bg-cyan-400/20' : 'text-white/70 hover:text-white')}>
+                                <button onClick={() => { setShowSubtitleMenu(!showSubtitleMenu); setShowVersionMenu(false); setShowControls(true); }} className={'p-3 rounded-full transition-colors ' + (selectedSubtitle ? 'text-cyan-400 bg-cyan-400/20' : 'text-white/70 hover:text-white')}>
                                     <Subtitles size={isMobile ? 24 : 28} />
                                 </button>
+
+                                {versions.length > 1 && (
+                                    <button onClick={() => { setShowVersionMenu(!showVersionMenu); setShowSubtitleMenu(false); setShowControls(true); }} className={'p-3 rounded-full transition-colors ' + (showVersionMenu ? 'text-netflix-red bg-netflix-red/20' : 'text-white/70 hover:text-white')}>
+                                        <Film size={isMobile ? 24 : 28} />
+                                    </button>
+                                )}
                                 
                                 <button onClick={toggleFullscreen} className="p-3 text-white/70 hover:text-white transition-colors active:scale-90">
                                     <Maximize size={isMobile ? 24 : 28} />
                                 </button>
                             </div>
                         </div>
+
+                        {showVersionMenu && (
+                            <div className="bg-slate-900/95 backdrop-blur rounded-xl p-4 mt-2">
+                                <div className="flex justify-between items-center mb-3">
+                                    <span className="text-white/60 text-xs font-bold uppercase tracking-widest">Cambiar Versión (Idioma/Calidad)</span>
+                                    <button onClick={() => setShowVersionMenu(false)} className="text-white/40">
+                                        <X size={16} />
+                                    </button>
+                                </div>
+                                <div className="space-y-2 max-h-56 overflow-y-auto custom-scrollbar pr-1">
+                                    {versions.map((ver) => {
+                                        const vInfo = detectVersionInfo(ver);
+                                        const isSelected = String(ver.id) === String(movie.id);
+                                        return (
+                                            <button
+                                                key={ver.id}
+                                                onClick={() => {
+                                                    if (onVersionChange) onVersionChange(ver);
+                                                    setShowVersionMenu(false);
+                                                }}
+                                                className={`w-full text-left p-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                                                    isSelected 
+                                                    ? 'bg-netflix-red text-white shadow-lg' 
+                                                    : 'text-white/60 hover:bg-white/5 hover:text-white border border-white/5'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <span>{vInfo.label}</span>
+                                                    {isSelected && <div className="w-2 h-2 bg-white rounded-full"></div>}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
 
                         {showSubtitleMenu && (
                             <div className="bg-slate-900/95 backdrop-blur rounded-xl p-4 mt-2">

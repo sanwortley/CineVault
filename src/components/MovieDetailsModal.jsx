@@ -4,6 +4,7 @@ import { useUploadQueue } from '../context/UploadQueueContext';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import EditMovieDialog from './EditMovieDialog';
+import { detectVersionInfo } from '../utils/movieUtils';
 
 function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }) {
     if (!movie) return null;
@@ -26,11 +27,20 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }
     const { isAdmin } = useAuth();
     const [isDeleting, setIsDeleting] = React.useState(false);
     const [isEditing, setIsEditing] = React.useState(false);
+    
+    // Versions handling
+    const versions = movie.versions || [movie];
+    const [selectedVersion, setSelectedVersion] = React.useState(movie);
+    
+    // Update selected version if the primary movie changes
+    React.useEffect(() => {
+        setSelectedVersion(movie);
+    }, [movie]);
 
     const title = official_title || detected_title;
 
     const { queue, addToQueue } = useUploadQueue();
-    const isInQueue = queue.some(item => item.id === movie.id);
+    const isInQueue = queue.some(item => String(item.id) === String(selectedVersion.id));
 
 
     return (
@@ -138,14 +148,40 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }
                         </div>
                     )}
 
+                    {/* Versions Selector */}
+                    {versions.length > 1 && (
+                        <div className="mb-10">
+                            <h3 className="text-xs uppercase font-black tracking-[0.2em] text-white/80 mb-4">Versiones Disponibles</h3>
+                            <div className="flex flex-wrap gap-3">
+                                {versions.map((ver) => {
+                                    const vInfo = detectVersionInfo(ver);
+                                    const isSelected = String(ver.id) === String(selectedVersion.id);
+                                    return (
+                                        <button
+                                            key={ver.id}
+                                            onClick={() => setSelectedVersion(ver)}
+                                            className={`px-5 py-3 rounded-xl border text-xs font-black uppercase tracking-widest transition-all ${
+                                                isSelected 
+                                                ? 'bg-netflix-red border-netflix-red text-white shadow-[0_0_20px_rgba(229,9,20,0.4)] scale-105' 
+                                                : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
+                                            }`}
+                                        >
+                                            {vInfo.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Action Buttons */}
                     <div className="flex flex-col gap-6">
                         <div className="flex flex-wrap gap-4">
                             <button 
-                                onClick={() => { onPlay(movie); onClose(); }}
+                                onClick={() => { onPlay(selectedVersion); onClose(); }}
                                 className="px-8 py-4 bg-white text-black rounded-2xl font-black flex items-center gap-3 hover:bg-zinc-200 transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-xl shadow-white/5"
                             >
-                                <Play size={20} fill="currentColor" /> REPRODUCIR AHORA
+                                <Play size={20} fill="currentColor" /> REPRODUCIR {versions.length > 1 ? detectVersionInfo(selectedVersion).lang : 'AHORA'}
                             </button>
 
                             <button 

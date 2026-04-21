@@ -12,6 +12,7 @@ import VideoPlayer from './VideoPlayer';
 import MovieDetailsModal from './MovieDetailsModal';
 import ActivityCenter from './ActivityCenter';
 import Disclaimer from './Disclaimer';
+import { groupMoviesByTitle } from '../utils/movieUtils';
 
 // Lazy loaded pages to break dependency chains
 const LibraryPage = React.lazy(() => import('../pages/LibraryPage'));
@@ -93,6 +94,8 @@ export default function AppContent() {
             setIsLoadingData(false);
         }
     };
+
+    const groupedMovies = React.useMemo(() => groupMoviesByTitle(movies || []), [movies]);
 
     useEffect(() => {
         if (user) loadData();
@@ -223,6 +226,9 @@ export default function AppContent() {
                     onOpenSettings={() => {
                         setActiveTab('settings');
                         window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    onVersionChange={(newVersion) => {
+                        setPlayingMovie(newVersion);
                     }}
                 />
             )}
@@ -365,7 +371,7 @@ export default function AppContent() {
                 <React.Suspense fallback={null}>
                     {activeTab === 'library' && (
                     <LibraryPage 
-                        movies={movies}
+                        movies={groupedMovies}
                         isLoading={isLoadingData}
                         onPlayMovie={setPlayingMovie} 
                         onInfoMovie={setDetailMovie}
