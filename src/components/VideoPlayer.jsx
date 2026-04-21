@@ -860,16 +860,46 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
             </button>
 
             {subQuotaReached && (
-                <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[1100] animate-in slide-in-from-top-10 duration-500">
-                    <div className="glass-card px-6 py-4 rounded-2xl border border-netflix-red/30 bg-netflix-red/10 flex items-center gap-4 shadow-2xl backdrop-blur-xl">
-                        <AlertCircle className="text-netflix-red" size={20} />
-                        <div className="min-w-0">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-white">Límite de Subtítulos Alcanzado</p>
-                            <p className="text-[9px] font-bold text-slate-400 mt-0.5">Has usado tus 5 descargas diarias de OpenSubtitles. Usa un archivo local.</p>
+                <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[1100] animate-in slide-in-from-top-10 duration-500 w-[90%] max-w-md">
+                    <div className="glass-card px-6 py-5 rounded-3xl border border-netflix-red/30 bg-netflix-red/10 flex flex-col gap-4 shadow-2xl backdrop-blur-xl">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-netflix-red/20 rounded-full">
+                                <AlertCircle className="text-netflix-red" size={24} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-black uppercase tracking-widest text-white">Límite de Subtítulos Alcanzado</p>
+                                <p className="text-[10px] font-bold text-slate-400 mt-0.5 leading-relaxed">
+                                    Has usado tus 5 descargas diarias. Para buscar manualmente, prueba con estas etiquetas:
+                                </p>
+                            </div>
+                            <button onClick={() => setSubQuotaReached(false)} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
+                                <X size={18} className="text-slate-500" />
+                            </button>
                         </div>
-                        <button onClick={() => setSubQuotaReached(false)} className="p-1 hover:bg-white/10 rounded-lg">
-                            <X size={14} className="text-slate-500" />
-                        </button>
+                        
+                        <div className="flex flex-wrap gap-2 pt-2 border-t border-white/5">
+                            {(() => {
+                                const raw = (movie?.file_name || movie?.official_title || "").toLowerCase();
+                                const tags = [
+                                    "1080p", "720p", "2160p", "4k", 
+                                    "bluray", "brrip", "webrip", "web-dl", "dvdrip",
+                                    "x264", "x265", "h264", "hevc",
+                                    "yts", "rarbg", "psa", "lama", "tigole"
+                                ].filter(t => raw.includes(t.toLowerCase()));
+                                
+                                if (tags.length === 0) return <span className="text-[9px] font-bold text-slate-600 italic">No se detectaron etiquetas técnicas</span>;
+                                
+                                return tags.map(tag => (
+                                    <span key={tag} className="px-2 py-1 bg-white/5 border border-white/10 rounded-lg text-[9px] font-black uppercase tracking-wider text-cyan-400">
+                                        {tag}
+                                    </span>
+                                ));
+                            })()}
+                        </div>
+                        
+                        <p className="text-[9px] font-bold text-slate-500 italic text-center">
+                            Busca en Subdivx o YTS estas etiquetas junto al título.
+                        </p>
                     </div>
                 </div>
             )}
