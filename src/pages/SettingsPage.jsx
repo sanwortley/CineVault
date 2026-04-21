@@ -20,6 +20,18 @@ function SettingsPage({ onClose, onTabChange }) {
     const [isOSSaved, setIsOSSaved] = useState(false);
     const [stuckUploads, setStuckUploads] = useState([]);
     const [isCheckingStuck, setIsCheckingStuck] = useState(false);
+
+    const handleRemoveStuck = async (movieId, title) => {
+        if (!window.confirm(`¿Seguro que quieres eliminar "${title}" del Panel de Restauración? Esto limpiará la entrada huérfana de la base de datos.`)) return;
+        
+        try {
+            await api.deleteMovie(movieId);
+            setStuckUploads(prev => prev.filter(m => m.id !== movieId));
+        } catch (error) {
+            console.error('Error al eliminar peli huérfana:', error);
+            alert('Error al eliminar: ' + error.message);
+        }
+    };
     const { queue, removeFromQueue, retryQueueItem } = useUploadQueue();
 
     const fetchConfig = async () => {
@@ -470,25 +482,45 @@ function SettingsPage({ onClose, onTabChange }) {
                                                 Se han detectado películas registradas que nunca terminaron de subirse a Google Drive y no están siendo procesadas actualmente. Dale a "Restaurar" para intentar re-encolarlas.
                                             </p>
                                         </div>
-                                        {stuckUploads.map((movie) => (
-                                            <div key={movie.id} className="flex items-center justify-between p-6 bg-black/40 border border-white/5 rounded-[2rem] hover:bg-black/60 transition-all">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-12 h-18 bg-slate-800 rounded-lg overflow-hidden shrink-0">
-                                                        {movie.poster_url && <img src={movie.poster_url} alt="" className="w-full h-full object-cover" />}
+                                        {stuckUploads.map((movie) => {
+                                            const isRecoverable = !!movie.cloud_source_url;
+                                            return (
+                                                <div key={movie.id} className="flex flex-col md:flex-row items-center justify-between p-6 bg-black/40 border border-white/5 rounded-[2rem] hover:bg-black/60 transition-all gap-6">
+                                                    <div className="flex items-center gap-4 w-full">
+                                                        <div className="w-12 h-18 bg-slate-800 rounded-lg overflow-hidden shrink-0">
+                                                            {movie.poster_url && <img src={movie.poster_url} alt="" className="w-full h-full object-cover" />}
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <h4 className="font-bold text-white uppercase tracking-tight truncate">{movie.official_title || movie.detected_title}</h4>
+                                                            <div className="flex items-center gap-3 mt-1">
+                                                                <p className="text-[10px] text-slate-500 font-black tracking-widest uppercase">ID: {movie.id}</p>
+                                                                {!isRecoverable && (
+                                                                    <span className="text-[9px] font-black uppercase tracking-tighter text-red-500/80 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">Irrecuperable</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <h4 className="font-bold text-white uppercase tracking-tight">{movie.official_title || movie.detected_title}</h4>
-                                                        <p className="text-[10px] text-slate-500 font-black tracking-widest uppercase mt-1">ID: {movie.id}</p>
+                                                    
+                                                    <div className="flex items-center gap-3 w-full md:w-auto">
+                                                        {isRecoverable ? (
+                                                            <button 
+                                                                onClick={() => handleRetryStuck(movie.id)}
+                                                                className="flex-1 md:flex-none px-8 py-4 bg-orange-600 text-white font-black uppercase tracking-widest text-[10px] rounded-xl hover:bg-orange-500 transition-all shadow-lg active:scale-95"
+                                                            >
+                                                                Restaurar
+                                                            </button>
+                                                        ) : (
+                                                            <button 
+                                                                onClick={() => handleRemoveStuck(movie.id, movie.official_title || movie.detected_title)}
+                                                                className="flex-1 md:flex-none px-8 py-4 bg-red-600/20 text-red-500 border border-red-500/30 font-black uppercase tracking-widest text-[10px] rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-lg active:scale-95"
+                                                            >
+                                                                Eliminar Registro
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
-                                                <button 
-                                                    onClick={() => handleRetryStuck(movie.id)}
-                                                    className="px-8 py-4 bg-orange-600 text-white font-black uppercase tracking-widest text-[10px] rounded-xl hover:bg-orange-500 transition-all shadow-lg active:scale-95"
-                                                >
-                                                    Restaurar
-                                                </button>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             </section>
