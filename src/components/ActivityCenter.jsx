@@ -93,7 +93,13 @@ export default function ActivityCenter() {
                                                     <p className={`text-[9px] font-bold uppercase tracking-tighter ${
                                                         job.status === 'error' ? 'text-netflix-red' : 'text-slate-500'
                                                     }`}>
-                                                        {job.status === 'error' ? (job.errorMsg || 'Falló') : job.status}
+                                                        {job.status === 'error' ? (job.errorMsg || 'Falló') :
+                                                         job.status === 'done' ? 'Completado' :
+                                                         job.status.includes('converting') ? 'Procesando en la nube...' :
+                                                         job.status.includes('fetching') || job.status.includes('downloading') ? 'Descargando...' :
+                                                         job.status === 'uploading' ? 'Subiendo a Drive...' :
+                                                         job.status === 'pending' ? 'En cola...' :
+                                                         job.status}
                                                     </p>
                                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                         {job.status === 'error' && (

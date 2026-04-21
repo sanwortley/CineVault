@@ -25,9 +25,9 @@ export function UploadQueueProvider({ children }) {
                     setQueue(prev => {
                         // Merge server data into existing state to keep locally-updated progress if more fresh
                         const newQueue = serverQueue.map(item => {
-                            const existing = prev.find(p => p.id === item.movieId);
+                            const existing = prev.find(p => String(p.id) === String(item.movieId));
                             return {
-                                id: item.movieId,
+                                id: String(item.movieId),
                                 title: item.title,
                                 progress: item.status === 'done' ? 100 : (item.progress ?? (existing?.progress || 0)),
                                 status: item.status,
@@ -48,7 +48,7 @@ export function UploadQueueProvider({ children }) {
                                         updateItem(item.movieId, { status: 'error', errorMsg: data.error });
                                     } else {
                                         const prog = data.progress ?? 0;
-                                        updateItem(item.movieId, { progress: prog, isOptimizing: data.isOptimizing ?? false });
+                                        updateItem(item.movieId, { progress: prog, status: data.status || item.status, isOptimizing: data.isOptimizing ?? false });
                                         if (data.status === 'done' || prog === 100) {
                                             updateItem(item.movieId, { status: 'done', progress: 100 });
                                         }
@@ -59,16 +59,21 @@ export function UploadQueueProvider({ children }) {
                     });
                 }
             } catch(e) {
-                console.warn('[QueueSync] Fetch error:', e.message);
+                console.warn('[QueueSync] Fetch error (sesión inválida o servidor no disponible):', e.message);
             }
         };
 
         syncQueue();
-        pollInterval = setInterval(syncQueue, 10000); // Poll every 10s
+        pollInterval = setInterval(syncQueue, 3000); // Poll every 3s for responsiveness
+
+        // Re-sync when user returns to the app tab
+        const handleVisibility = () => { if (!document.hidden) syncQueue(); };
+        document.addEventListener('visibilitychange', handleVisibility);
 
         return () => {
             isMounted = false;
             if (pollInterval) clearInterval(pollInterval);
+            document.removeEventListener('visibilitychange', handleVisibility);
             Object.values(activeUnsubs).forEach(unsub => unsub && typeof unsub === 'function' && unsub());
         };
     }, [updateItem]);
