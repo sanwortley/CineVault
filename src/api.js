@@ -565,6 +565,25 @@ export const api = {
         return backendFetch(`/api/user/mylist/${movieId}`, { method: 'DELETE' }, { 'x-user-id': userId });
     },
 
+    // ── Movie Requests ────────────────────────────────────────────────────────
+    submitMovieRequest: (data) => {
+        return backendFetch('/api/requests', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    },
+
+    getAdminRequests: () => {
+        return backendFetch('/api/admin/requests');
+    },
+
+    updateRequestStatus: (id, status) => {
+        return backendFetch(`/api/admin/requests/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status })
+        });
+    },
+
     // ── Flags ─────────────────────────────────────────────────────────────────
     isElectron,
     isWeb: () => !isElectron(),

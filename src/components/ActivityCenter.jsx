@@ -1,14 +1,38 @@
-import React, { useState, useEffect } from 'react';
-import { Bell, X, CheckCircle2, AlertCircle, RefreshCw, Trash2, Loader, ChevronRight } from 'lucide-react';
+import { Bell, X, CheckCircle2, AlertCircle, RefreshCw, Trash2, Loader, ChevronRight, MessageSquare, Download, Check } from 'lucide-react';
 import { useUploadQueue } from '../context/UploadQueueContext';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../api';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ActivityCenter() {
     const [isOpen, setIsOpen] = useState(false);
     const { queue, removeFromQueue, retryQueueItem } = useUploadQueue();
+    const { isAdmin } = useAuth();
+    const [requests, setRequests] = useState([]);
+    const [isProcessingRequest, setIsProcessingRequest] = useState(null);
     
+    const fetchRequests = async () => {
+        if (!isAdmin()) return;
+        try {
+            const data = await api.getAdminRequests();
+            setRequests(data.filter(r => r.status === 'pending'));
+        } catch (e) {
+            console.error('[Activity] Error fetching requests:', e);
+        }
+    };
+
+    useEffect(() => {
+        fetchRequests();
+        if (isAdmin()) {
+            const interval = setInterval(fetchRequests, 30000);
+            return () => clearInterval(interval);
+        }
+    }, [isAdmin]);
+
     const activeCount = queue.filter(j => ['pending', 'uploading', 'fetching', 'downloading', 'converting'].some(s => j.status.includes(s))).length;
+    const requestCount = requests.length;
     const errorCount = queue.filter(j => j.status === 'error').length;
-    const hasActivity = activeCount > 0 || errorCount > 0;
+    const hasActivity = activeCount > 0 || errorCount > 0 || requestCount > 0;
 
     // Auto-close if clicked outside
     useEffect(() => {
@@ -40,7 +64,9 @@ export default function ActivityCenter() {
                         <div>
                             <h3 className="text-sm font-black uppercase tracking-wider text-white">Actividad</h3>
                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
-                                {activeCount > 0 ? `${activeCount} en curso` : 'Sin procesos activos'}
+                                {activeCount > 0 || requestCount > 0 
+                                    ? `${activeCount} procesos, ${requestCount} solicitudes` 
+                                    : 'Sin actividad pendiente'}
                             </p>
                         </div>
                         {queue.some(j => j.status === 'done') && (
@@ -54,7 +80,7 @@ export default function ActivityCenter() {
                     </header>
 
                     <div className="max-h-[70vh] overflow-y-auto no-scrollbar py-2">
-                        {queue.length === 0 ? (
+                        {queue.length === 0 && requests.length === 0 ? (
                             <div className="py-12 px-6 text-center">
                                 <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-4 opacity-20">
                                     <Bell size={20} />
@@ -63,6 +89,55 @@ export default function ActivityCenter() {
                             </div>
                         ) : (
                             <div className="divide-y divide-white/5">
+                                {/* Special section for Requests */}
+                                {requests.map(req => (
+                                    <div key={req.id} className="p-4 bg-cyan-500/[0.03] hover:bg-cyan-500/[0.06] transition-colors group">
+                                        <div className="flex items-start gap-4">
+                                            <div className="w-10 h-14 bg-white/5 rounded-lg overflow-hidden shrink-0 border border-white/10">
+                                                <img 
+                                                    src={req.poster_path ? `https://image.tmdb.org/t/p/w92${req.poster_path}` : 'https://via.placeholder.com/92x138'} 
+                                                    className="w-full h-full object-cover"
+                                                    alt="poster"
+                                                />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="px-1.5 py-0.5 bg-cyan-500 text-[8px] font-black uppercase text-black rounded">Solicitud</span>
+                                                    <span className="text-[9px] font-bold text-slate-500 truncate">{req.user_id}</span>
+                                                </div>
+                                                <p className="text-xs font-black text-white truncate mb-3">{req.title}</p>
+                                                
+                                                <div className="flex items-center gap-2">
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            window.location.href = `/explore?q=${encodeURIComponent(req.title)}`;
+                                                        }}
+                                                        className="flex-1 py-2 bg-white text-black text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-cyan-500 hover:text-white transition-all flex items-center justify-center gap-1.5"
+                                                    >
+                                                        <Download size={10} strokeWidth={3} />
+                                                        Procesar
+                                                    </button>
+                                                    <button 
+                                                        onClick={async (e) => {
+                                                            e.stopPropagation();
+                                                            setIsProcessingRequest(req.id);
+                                                            await api.updateRequestStatus(req.id, 'fulfilled');
+                                                            fetchRequests();
+                                                            setIsProcessingRequest(null);
+                                                        }}
+                                                        disabled={isProcessingRequest === req.id}
+                                                        className="p-2 bg-white/5 hover:bg-green-500/20 text-slate-400 hover:text-green-500 rounded-lg transition-all"
+                                                        title="Marcar como listo"
+                                                    >
+                                                        {isProcessingRequest === req.id ? <Loader size={12} className="animate-spin" /> : <Check size={12} />}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+
                                 {queue.map((job) => (
                                     <div key={job.id} className="p-4 hover:bg-white/[0.02] transition-colors group">
                                         <div className="flex items-start gap-4">

@@ -1446,6 +1446,53 @@ app.post('/api/admin/config/os-credentials', sessionMiddleware, adminMiddleware,
     res.json({ message: 'Credenciales de OpenSubtitles actualizadas' });
 });
 
+// --- Movie Requests ---
+
+app.post('/api/requests', sessionMiddleware, async (req, res) => {
+    const { tmdbId, title, posterPath } = req.body;
+    const userEmail = req.headers['x-user-email'];
+    const userId = req.headers['x-user-id'];
+
+    if (!tmdbId || !title) {
+        return res.status(400).json({ error: 'Faltan datos obligatorios (ID o título)' });
+    }
+
+    try {
+        const result = await db.addRequest({
+            user_id: userId || userEmail || 'anonymous',
+            tmdb_id: tmdbId.toString(),
+            title,
+            poster_path: posterPath,
+            status: 'pending'
+        });
+        res.json({ success: true, request: result });
+    } catch (err) {
+        console.error('[Requests] Error adding request:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/admin/requests', sessionMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const requests = await db.getRequests();
+        res.json(requests);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.patch('/api/admin/requests/:id', sessionMiddleware, adminMiddleware, async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    try {
+        await db.updateRequest(id, { status });
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.use('/api/discover', discoverRouter);
 
 // Support SPA routing (must be AFTER static and API routes)

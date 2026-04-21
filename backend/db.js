@@ -252,6 +252,28 @@ const database = {
         }
         return expired.length;
     },
+
+    // Movie Requests
+    addRequest: async (requestData) => {
+        return await supabaseFetch('movie_requests', {
+            method: 'POST',
+            body: JSON.stringify(requestData),
+            headers: { 'Prefer': 'return=representation' }
+        });
+    },
+    getRequests: async (filters = {}) => {
+        const queryParams = Object.entries(filters)
+            .map(([key, val]) => `${key}=eq.${encodeURIComponent(val)}`)
+            .join('&');
+        const endpoint = `movie_requests?select=*${queryParams ? '&' + queryParams : ''}&order=created_at.desc`;
+        return await supabaseFetch(endpoint) || [];
+    },
+    updateRequest: async (id, data) => {
+        return await supabaseFetch(`movie_requests?id=eq.${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(data)
+        });
+    },
     
     supabaseFetch: supabaseFetch
 };

@@ -20,6 +20,8 @@ export default function ExplorePage() {
     const [searchMode, setSearchMode] = useState('catalog'); // 'catalog' or 'global'
     const [globalResults, setGlobalResults] = useState([]);
     const [hasSearched, setHasSearched] = useState(false);
+    const [isRequesting, setIsRequesting] = useState(false);
+    const [requestSuccess, setRequestSuccess] = useState(false);
 
     useEffect(() => {
         if (selectedMovie) {
@@ -114,6 +116,23 @@ export default function ExplorePage() {
         }
     };
 
+    const handleRequestMovie = async (movie) => {
+        setIsRequesting(true);
+        try {
+            await api.submitMovieRequest({
+                tmdbId: movie.id,
+                title: movie.title,
+                posterPath: movie.poster_path
+            });
+            setRequestSuccess(true);
+            setTimeout(() => setRequestSuccess(false), 3000);
+        } catch (err) {
+            alert('Error al enviar solicitud: ' + err.message);
+        } finally {
+            setIsRequesting(false);
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="h-screen flex items-center justify-center bg-black">
@@ -143,12 +162,14 @@ export default function ExplorePage() {
                             >
                                 Catálogo
                             </button>
-                            <button 
-                                onClick={() => setSearchMode('global')}
-                                className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${searchMode === 'global' ? 'bg-white text-black shadow-xl scale-105' : 'text-slate-500 hover:text-white'}`}
-                            >
-                                Bóveda Global
-                            </button>
+                            {isAdmin() && (
+                                <button 
+                                    onClick={() => setSearchMode('global')}
+                                    className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${searchMode === 'global' ? 'bg-white text-black shadow-xl scale-105' : 'text-slate-500 hover:text-white'}`}
+                                >
+                                    Bóveda Global
+                                </button>
+                            )}
                         </div>
 
                         <form onSubmit={handleSearch} className="w-full md:w-96 relative group">
@@ -286,12 +307,23 @@ export default function ExplorePage() {
                                 <div className="mt-auto">
                                     <h3 className="text-lg font-black text-white mb-6 flex items-center gap-2">
                                         <Shield size={18} className="text-netflix-red" />
-                                        {isAdmin() ? 'Opciones de Obtención (Dual Audio/HD)' : 'Solo Administradores pueden añadir pelis'}
+                                        {isAdmin() ? 'Opciones de Obtención (Dual Audio/HD)' : '¿No está en la Bóveda?'}
                                     </h3>
 
                                     {!isAdmin() ? (
                                         <div className="p-8 border border-white/5 bg-white/[0.02] rounded-3xl text-center">
-                                            <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">No tienes permisos para descargar películas.</p>
+                                            <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-6 px-4">
+                                                Esta película no se encuentra actualmente disponible en tu colección privada.
+                                            </p>
+                                            <button 
+                                                onClick={() => handleRequestMovie(selectedMovie)}
+                                                disabled={isRequesting || requestSuccess}
+                                                className={`w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${requestSuccess ? 'bg-green-500 text-white' : 'bg-white text-black hover:bg-netflix-red hover:text-white'}`}
+                                            >
+                                                {isRequesting ? <Loader className="animate-spin" size={14} /> : 
+                                                 requestSuccess ? <CheckCircle2 size={14} /> : <Plus size={14} strokeWidth={3} />}
+                                                {requestSuccess ? '¡Solicitud enviada!' : 'Solicitar para la Bóveda'}
+                                            </button>
                                         </div>
                                     ) : (
                                         <div className="space-y-3">
