@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Play, Pause, Volume2, VolumeX, Maximize, X, 
     Loader2, Subtitles, SkipBack, SkipForward, Lock, Unlock, Film,
-    Plus, Cloud, Upload
+    Plus, Cloud, Upload, AlertCircle
 } from 'lucide-react';
 import { api, BACKEND_URL } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -42,8 +42,12 @@ function VideoPlayer({ movie, onClose, userProgress = {} }) {
     const controlsTimeoutRef = useRef(null);
     const fileInputRef = useRef(null);
     
-    // Use userProgress prop first, fallback to movie.watched_duration
-    const movieUserProgress = userProgress[movie?.id] ?? movie?.watched_duration ?? 0;
+    // Use userProgress prop first (now an object), fallback to movie.watched_duration
+    const progressObj = userProgress[movie?.id];
+    const movieUserProgress = (progressObj && typeof progressObj === 'object') 
+        ? progressObj.duration 
+        : (progressObj ?? movie?.watched_duration ?? 0);
+        
     const initialSeek = movieUserProgress > 0 ? Math.floor(movieUserProgress) : 0;
     const [seekOffset] = useState(initialSeek);
 
