@@ -130,6 +130,17 @@ const driveApi = {
         });
     },
 
+    getFileContent: async (fileId) => {
+        if (!driveApi.isAuthenticated()) throw new Error('Not authenticated');
+        const drive = driveApi.getClient();
+        const res = await drive.files.get({
+            fileId,
+            alt: 'media',
+            supportsAllDrives: true
+        });
+        return res.data;
+    },
+
     streamVideo: async (fileId, rangeHeader, res, transcodeOptions = {}) => {
         const drive = driveApi.getClient();
         const hasToken = driveApi.isAuthenticated();
