@@ -713,6 +713,8 @@ app.get('/api/subtitles/fallback-download', sessionMiddleware, async (req, res) 
 
 // --- OpenSubtitles Helpers ---
 
+let osLoginPromise = null;
+
 async function getOpenSubtitlesHeaders() {
     const apiKey = process.env.OPENSUBTITLES_API_KEY;
     const osUser = process.env.OS_USERNAME;
@@ -726,14 +728,32 @@ async function getOpenSubtitlesHeaders() {
     };
 
     if (osUser && osPass) {
+        // 1. If we have a valid cached token, use it
         if (osTokenCache.token && osTokenCache.expiresAt > Date.now()) {
             headers['Authorization'] = `Bearer ${osTokenCache.token}`;
-        } else {
+            return headers;
+        }
+
+        // 2. If a login is already in progress, wait for it
+        if (osLoginPromise) {
+            console.log(`[Subtitles] Waiting for in-progress VIP login for ${osUser}...`);
+            const token = await osLoginPromise;
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            return headers;
+        }
+
+        // 3. Start a new login and lock it
+        osLoginPromise = (async () => {
             try {
                 console.log(`[Subtitles] Attempting VIP login for: ${osUser}...`);
                 const loginRes = await fetch('https://api.opensubtitles.com/api/v1/login', {
                     method: 'POST',
-                    headers: headers,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'User-Agent': 'CineVault v1.0',
+                        'Api-Key': apiKey
+                    },
                     body: JSON.stringify({ username: osUser, password: osPass })
                 });
                 
@@ -741,15 +761,22 @@ async function getOpenSubtitlesHeaders() {
                 if (loginRes.ok && loginData.token) {
                     osTokenCache.token = loginData.token;
                     osTokenCache.expiresAt = Date.now() + (23 * 60 * 60 * 1000);
-                    headers['Authorization'] = `Bearer ${loginData.token}`;
                     console.log(`[Subtitles] VIP login SUCCESS for ${osUser}.`);
+                    return loginData.token;
                 } else {
                     console.warn(`[Subtitles] VIP login REJECTED for ${osUser}:`, loginData.message || 'Unknown error');
+                    return null;
                 }
             } catch (loginErr) {
                 console.error('[Subtitles] VIP Login ERROR:', loginErr.message);
+                return null;
+            } finally {
+                osLoginPromise = null; // Unlock
             }
-        }
+        })();
+
+        const token = await osLoginPromise;
+        if (token) headers['Authorization'] = `Bearer ${token}`;
     }
     return headers;
 }
