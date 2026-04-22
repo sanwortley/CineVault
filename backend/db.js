@@ -76,17 +76,26 @@ const database = {
         const endpoint = `movies?select=*${queryParams ? '&' + queryParams : ''}`;
         return await supabaseFetch(endpoint) || [];
     },
-    addMovie: async (movieData) => {
-        // Remove fields that do not exist in the database schema or shouldn't be overridden
-        const payload = { ...movieData };
-        // Fields that definitely don't exist in production schema
-        delete payload.original_title;
-        delete payload.imdb_rating;
-        delete payload.tmdb_id;
-        delete payload.release_date;
-        delete payload.modified_at;
-        delete payload.created_at;
+    sanitizePayload: (data) => {
+        const payload = { ...data };
+        // Remove fields that definitely don't exist in production schema
+        const legacyFields = ['original_title', 'imdb_rating', 'tmdb_id', 'release_date', 'modified_at', 'created_at', 'id'];
+        legacyFields.forEach(f => delete payload[f]);
 
+        // Convert empty strings to null for numeric fields to avoid Supabase errors
+        const numericFields = ['detected_year', 'runtime', 'rating', 'watched_duration'];
+        numericFields.forEach(f => {
+            if (payload[f] === '') payload[f] = null;
+            if (f === 'detected_year' && payload[f]) {
+                const year = parseInt(payload[f]);
+                payload[f] = isNaN(year) ? null : year;
+            }
+        });
+
+        return payload;
+    },
+    addMovie: async (movieData) => {
+        const payload = database.sanitizePayload(movieData);
         console.log('[DB] Attempting addMovie with payload:', JSON.stringify(payload, null, 2));
 
         try {
@@ -126,15 +135,7 @@ const database = {
         });
     },
     updateMovie: async (id, movieData) => {
-        const payload = { ...movieData };
-        // Fields that definitely don't exist in production schema
-        delete payload.original_title;
-        delete payload.imdb_rating;
-        delete payload.tmdb_id;
-        delete payload.release_date;
-        delete payload.modified_at;
-        delete payload.created_at;
-        delete payload.id; // Usually in URL, not in body for PATCH
+        const payload = database.sanitizePayload(movieData);
 
         return await supabaseFetch(`movies?id=eq.${id}`, {
             method: 'PATCH',
