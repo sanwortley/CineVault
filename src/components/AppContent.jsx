@@ -429,7 +429,7 @@ export default function AppContent() {
                     />
                 )}
                 {activeTab === 'explore' && (
-                    <div className="pt-20 md:pt-24">
+                    <div className="pt-14 md:pt-24">
                         <ExplorePage />
                     </div>
                 )}

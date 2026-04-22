@@ -165,10 +165,10 @@ export default function ExplorePage() {
     }
 
     return (
-        <div className="p-4 md:p-12 md:pt-16 pb-40 max-w-7xl mx-auto animate-fade-in no-drag relative z-10">
+        <div className="px-4 md:p-12 pt-2 md:pt-16 pb-40 max-w-7xl mx-auto animate-fade-in no-drag relative z-10">
             {/* Header & Search */}
-            <header className="mb-4 md:mb-10">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <header className="mb-2 md:mb-10">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-2 md:gap-4">
                     <div className="text-center md:text-left">
                         <h1 className="text-2xl md:text-5xl font-black tracking-tighter text-white mb-0 md:mb-1 leading-none">
                             <span className="bg-clip-text text-transparent bg-gradient-to-br from-white via-slate-400 to-slate-600">Explorar</span>
