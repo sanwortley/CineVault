@@ -92,8 +92,7 @@ async function getOMDbDetails(title, year = null, fallbackTitle = null) {
 
             return {
                 rt_rating: rtRating,
-                metascore: metaRating,
-                imdb_rating: imdbRating
+                metascore: metaRating
             };
         } catch (error) {
             if (error.response && error.response.status === 401) {

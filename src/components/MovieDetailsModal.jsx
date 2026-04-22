@@ -52,11 +52,11 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }
             ></div>
 
             {/* Modal Content */}
-            <div className="relative w-full md:max-w-5xl h-full md:h-auto md:max-h-[90vh] glass-card overflow-hidden shadow-2xl rounded-none md:rounded-3xl flex flex-col md:flex-row animate-in slide-in-from-bottom-8 duration-500">
+            <div className="relative w-full md:max-w-5xl h-full md:h-auto md:max-h-[90vh] bg-[#0a0a0a] md:bg-transparent glass-card overflow-hidden shadow-2xl rounded-none md:rounded-3xl flex flex-col md:flex-row animate-in slide-in-from-bottom-8 duration-500 z-[200]">
                 {/* Close Button */}
                 <button 
                     onClick={onClose}
-                    className="absolute top-6 right-6 z-10 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-white"
+                    className="absolute top-6 right-6 z-[250] p-3 bg-black/50 hover:bg-white/10 rounded-full transition-colors text-white"
                 >
                     <X size={24} />
                 </button>

@@ -6,7 +6,7 @@ import { useUploadQueue } from '../context/UploadQueueContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import MovieNews from '../components/MovieNews';
 
-export default function ExplorePage() {
+export default function ExplorePage({ onInfoMovie, onPlayMovie }) {
     const { isAdmin } = useAuth();
     const { addToQueue } = useUploadQueue();
     const [trending, setTrending] = useState([]);
@@ -94,20 +94,18 @@ export default function ExplorePage() {
         }
     };
 
-    const openMovieModal = async (movie) => {
-        setSelectedMovie(movie);
-        setTorrents([]);
-        if (isAdmin()) {
-            setIsFetchingTorrents(true);
-            try {
-                const data = await api.findTorrents(movie.title || movie.original_title);
-                setTorrents(data);
-            } catch (err) {
-                console.error('Error fetching torrents:', err);
-            } finally {
-                setIsFetchingTorrents(false);
-            }
-        }
+    const openMovieModal = (movie) => {
+        // Map TMDB structure to our app structure if needed
+        const mappedMovie = {
+            ...movie,
+            official_title: movie.title || movie.original_title,
+            detected_year: movie.release_date?.substring(0, 4),
+            poster_url: movie.poster_path ? `https://image.tmdb.org/t/p/w780${movie.poster_path}` : null,
+            backdrop_url: movie.backdrop_path ? `https://image.tmdb.org/t/p/original${movie.backdrop_path}` : null,
+            summary: movie.overview,
+            tmdb_id: movie.id
+        };
+        onInfoMovie(mappedMovie);
     };
 
     const handleDownload = async (torrent, customMovie = null) => {
@@ -297,114 +295,7 @@ export default function ExplorePage() {
                 )}
             </main>
 
-            {/* Movie Detail Modal */}
-            <AnimatePresence>
-                {selectedMovie && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 bg-black/90 backdrop-blur-xl">
-                        <motion.div 
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="bg-[#111] border border-white/10 rounded-none md:rounded-[2rem] max-w-5xl w-full h-full md:h-auto md:max-h-[85vh] overflow-hidden flex flex-col md:flex-row relative shadow-2xl"
-                        >
-                            <button 
-                                onClick={() => setSelectedMovie(null)}
-                                className="absolute top-6 right-6 p-3 bg-black/50 hover:bg-white/10 rounded-full text-white z-10 transition-colors"
-                            >
-                                <X size={24} />
-                            </button>
-
-                            {/* Poster Side */}
-                            <div className="w-full md:w-2/5 h-48 md:h-auto shrink-0 relative">
-                                <img 
-                                    src={selectedMovie.poster_path ? `https://image.tmdb.org/t/p/w780${selectedMovie.poster_path}` : 'https://via.placeholder.com/780x1170?text=Sin+Poster'} 
-                                    alt={selectedMovie.title}
-                                    className="w-full h-full object-cover"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-[#111] via-transparent to-transparent md:hidden"></div>
-                            </div>
-
-                            {/* Info Side */}
-                            <div className="w-full md:w-3/5 p-8 md:p-12 overflow-y-auto custom-scrollbar bg-gradient-to-br from-transparent to-black/20">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <span className="px-3 py-1 bg-netflix-red text-[10px] font-black uppercase text-white rounded-full">TMDb Discovery</span>
-                                    <div className="flex items-center gap-1.5 ml-2">
-                                        <Star className="text-yellow-500" size={14} fill="currentColor" />
-                                        <span className="text-sm font-bold text-white">{selectedMovie.vote_average?.toFixed(1)}</span>
-                                    </div>
-                                </div>
-
-                                <h2 className="text-3xl md:text-5xl font-black text-white tracking-tighter mb-4 leading-tight">{selectedMovie.title}</h2>
-                                <div className="flex flex-wrap gap-4 text-xs font-bold text-slate-400 mb-8 uppercase tracking-widest">
-                                    <div className="flex items-center gap-1.5"><Calendar size={14} /> {selectedMovie.release_date?.substring(0, 4)}</div>
-                                    <div className="flex items-center gap-1.5"><Globe size={14} /> {selectedMovie.original_language?.toUpperCase()}</div>
-                                </div>
-
-                                <p className="text-slate-400 text-sm md:text-base leading-relaxed mb-12 opacity-80">{selectedMovie.overview}</p>
-
-                                {/* Torrent Selection (Admin Only) */}
-                                <div className="mt-auto">
-                                    <h3 className="text-lg font-black text-white mb-6 flex items-center gap-2">
-                                        <Shield size={18} className="text-netflix-red" />
-                                        {isAdmin() ? 'Opciones de Obtención (Dual Audio/HD)' : '¿No está en la Bóveda?'}
-                                    </h3>
-
-                                    {!isAdmin() ? (
-                                        <div className="p-8 border border-white/5 bg-white/[0.02] rounded-3xl text-center">
-                                            <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-6 px-4">
-                                                Esta película no se encuentra actualmente disponible en tu colección privada.
-                                            </p>
-                                            <button 
-                                                onClick={() => handleRequestMovie(selectedMovie)}
-                                                disabled={isRequesting || requestSuccess}
-                                                className={`w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${requestSuccess ? 'bg-green-500 text-white' : 'bg-white text-black hover:bg-netflix-red hover:text-white'}`}
-                                            >
-                                                {isRequesting ? <Loader className="animate-spin" size={14} /> : 
-                                                 requestSuccess ? <CheckCircle2 size={14} /> : <Plus size={14} strokeWidth={3} />}
-                                                {requestSuccess ? '¡Solicitud enviada!' : 'Solicitar para la Bóveda'}
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            {isFetchingTorrents ? (
-                                                <div className="p-8 flex flex-col items-center justify-center opacity-40">
-                                                    <Loader className="animate-spin mb-4" size={32} />
-                                                    <p className="text-[10px] font-black uppercase tracking-widest">Buscando el mejor torrent...</p>
-                                                </div>
-                                            ) : torrents.length === 0 ? (
-                                                <div className="p-8 border border-dashed border-white/10 rounded-3xl text-center opacity-40">
-                                                    <p className="text-[10px] font-black uppercase tracking-widest">No se encontraron fuentes para esta película.</p>
-                                                </div>
-                                            ) : (
-                                                torrents.slice(0, 6).map((torrent, idx) => (
-                                                    <button 
-                                                        key={idx}
-                                                        onClick={() => handleDownload(torrent)}
-                                                        disabled={downloadingMovieId === selectedMovie.id}
-                                                        className="w-full flex items-center justify-between p-4 bg-white/5 border border-white/5 hover:border-netflix-red/50 hover:bg-white/[0.08] rounded-2xl group transition-all"
-                                                    >
-                                                        <div className="flex flex-col items-start gap-1">
-                                                            <span className="text-[11px] font-black text-white text-left truncate max-w-[250px] group-hover:text-netflix-red transition-colors">{torrent.title}</span>
-                                                            <div className="flex items-center gap-3 text-[9px] font-bold text-slate-500 uppercase">
-                                                                <span className="flex items-center gap-1 text-green-500"><Download size={10} /> {torrent.size}</span>
-                                                                <span className="flex items-center gap-1 text-blue-500"><TrendingUp size={10} /> {torrent.seeds} semillas</span>
-                                                                <span className="px-1.5 py-0.5 bg-white/5 rounded-md">{torrent.provider}</span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="p-3 bg-white/5 group-hover:bg-netflix-red rounded-xl text-white transition-all">
-                                                            <Plus size={18} />
-                                                        </div>
-                                                    </button>
-                                                ))
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+            {/* Redundant modal removed as it now uses the global one in AppContent */}
         </div>
     );
 }
@@ -418,26 +309,31 @@ function MovieCard({ movie, onClick }) {
             onClick={onClick}
             className="flex-none w-full group cursor-pointer"
         >
-            <div className="relative aspect-[2/3] rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-2xl transition-all duration-500 border border-white/5 group-hover:border-netflix-red/50">
+            <div className="relative aspect-[2/3] rounded-[1rem] md:rounded-[2rem] overflow-hidden shadow-2xl transition-all duration-500 border border-white/5 group-hover:border-netflix-red/50">
                 <img 
                     src={movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : 'https://images.placeholders.dev/?width=500&height=750&text=Sin%20Poster&bgColor=%23141414&textColor=%23555555'} 
                     alt={movie.title}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                     loading="lazy"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-5">
-                    <div className="flex items-center gap-2 mb-2">
+                
+                {/* Info Overlay - More subtle on mobile */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3 md:p-5">
+                    <div className="hidden md:flex items-center gap-2 mb-2">
                         <span className="px-2 py-0.5 bg-netflix-red text-[8px] font-black uppercase rounded-full text-white">TMDB</span>
                         <div className="flex items-center gap-1">
                             <Star className="text-yellow-500" size={10} fill="currentColor" />
                             <span className="text-[10px] font-black text-white">{movie.vote_average?.toFixed(1)}</span>
                         </div>
                     </div>
-                    <h3 className="text-sm font-black text-white leading-tight mb-1 truncate">{movie.title}</h3>
-                    <p className="text-[10px] font-bold text-white/60 mb-2">{movie.release_date?.substring(0, 4)}</p>
-                    <button className="w-full py-2.5 bg-white text-black text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-netflix-red hover:text-white transition-colors">
-                        Ver Detalles
-                    </button>
+                    <h3 className="text-[9px] md:text-sm font-black text-white leading-tight mb-1 truncate">{movie.title}</h3>
+                    <p className="text-[8px] md:text-[10px] font-bold text-white/60 mb-1 md:mb-2">{movie.release_date?.substring(0, 4)}</p>
+                    
+                    {!isMobile && (
+                        <button className="w-full py-2.5 bg-white text-black text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-netflix-red hover:text-white transition-colors">
+                            Ver Detalles
+                        </button>
+                    )}
                 </div>
             </div>
         </motion.div>

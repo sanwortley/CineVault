@@ -440,7 +440,7 @@ export default function AppContent() {
                 )}
                 {activeTab === 'explore' && (
                     <div className="pt-14 md:pt-24">
-                        <ExplorePage />
+                        <ExplorePage onInfoMovie={setDetailMovie} onPlayMovie={setPlayingMovie} />
                     </div>
                 )}
                 {activeTab === 'upload' && (
@@ -464,7 +464,7 @@ export default function AppContent() {
                 </React.Suspense>
             </main>
 
-            {!playingMovie && !detailMovie && <Disclaimer />}
+            {!playingMovie && !detailMovie && !isChangePasswordOpen && !isAvatarPickerOpen && <Disclaimer />}
 
             {isChangePasswordOpen && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-6 animate-in fade-in duration-300">
