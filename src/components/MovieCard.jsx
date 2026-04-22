@@ -121,29 +121,29 @@ function MovieCard({ movie, onPlay, onInfo, compact = false, myList = [], toggle
                 </div>
 
                 {/* Hover Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4 z-10">
-                    <div className="flex items-center gap-1.5 mb-3">
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-2 sm:p-4 z-10">
+                    <div className="flex items-center gap-1 sm:gap-1.5 mb-2 sm:mb-3">
                         <button 
                             onClick={handlePlay}
-                            className="p-2 bg-white text-black rounded-full hover:bg-white/80 transition-transform active:scale-95 shadow-xl"
+                            className="p-1.5 sm:p-2 bg-white text-black rounded-full hover:bg-white/80 transition-transform active:scale-95 shadow-xl"
                         >
-                            <Play size={16} fill="currentColor" />
+                            <Play size={isMobile ? 14 : 16} fill="currentColor" />
                         </button>
                         
                         <button 
                             onClick={(e) => { e.stopPropagation(); toggleMyList(movie); }}
-                            className={`p-2 rounded-full transition-all active:scale-95 border border-white/20 ${isAdded ? 'bg-netflix-red text-white' : 'bg-netflix-black/80 text-white hover:bg-zinc-800'}`}
+                            className={`p-1.5 sm:p-2 rounded-full transition-all active:scale-95 border border-white/20 ${isAdded ? 'bg-netflix-red text-white' : 'bg-netflix-black/80 text-white hover:bg-zinc-800'}`}
                             title={isAdded ? "Quitar de Mi Lista" : "Añadir a Mi Lista"}
                         >
-                            {isAdded ? <Check size={16} strokeWidth={3} /> : <Plus size={16} strokeWidth={3} />}
+                            {isAdded ? <Check size={isMobile ? 14 : 16} strokeWidth={3} /> : <Plus size={isMobile ? 14 : 16} strokeWidth={3} />}
                         </button>
 
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); onInfo(movie); }}
-                                className="p-2 bg-netflix-black/80 text-white rounded-full hover:bg-zinc-800 transition-transform active:scale-95 border border-white/20"
-                            >
-                                <Info size={16} />
-                            </button>
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); onInfo(movie); }}
+                            className="p-1.5 sm:p-2 bg-netflix-black/80 text-white rounded-full hover:bg-zinc-800 transition-transform active:scale-95 border border-white/20 ml-auto"
+                        >
+                            <Info size={isMobile ? 14 : 16} />
+                        </button>
                             
                             {onHideProgress && userProgress[movie.id] && (
                                 <button 
