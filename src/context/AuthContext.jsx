@@ -418,23 +418,37 @@ export function AuthProvider({ children }) {
     };
 
     const updateUserMetadata = async (metadata) => {
-        const { data, error } = await supabase.auth.updateUser({ 
-            data: metadata 
-        });
-        if (error) throw error;
-        
-        // Update local user state with the fresh data from Supabase
-        const stored = localStorage.getItem('cinevault_user');
-        if (stored) {
-            const userData = JSON.parse(stored);
-            const newUserData = {
-                ...userData,
-                user_metadata: data.user.user_metadata || {}
-            };
-            localStorage.setItem('cinevault_user', JSON.stringify(newUserData));
-            setUser(newUserData);
+        try {
+            // Ensure we have a fresh session before updating
+            await refreshSession();
+            
+            const { data, error } = await supabase.auth.updateUser({ 
+                data: metadata 
+            });
+            
+            if (error) {
+                if (error.message.includes('session missing') || error.message.includes('not logged in')) {
+                    throw new Error('Tu sesión ha expirado. Por favor, inicia sesión de nuevo.');
+                }
+                throw error;
+            }
+            
+            // Update local user state with the fresh data from Supabase
+            const stored = localStorage.getItem('cinevault_user');
+            if (stored) {
+                const userData = JSON.parse(stored);
+                const newUserData = {
+                    ...userData,
+                    user_metadata: data.user.user_metadata || {}
+                };
+                localStorage.setItem('cinevault_user', JSON.stringify(newUserData));
+                setUser(newUserData);
+            }
+            return data.user;
+        } catch (err) {
+            console.error('[Auth] Error al actualizar metadatos:', err);
+            throw err;
         }
-        return data.user;
     };
 
     const value = {

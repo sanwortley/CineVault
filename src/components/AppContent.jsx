@@ -557,7 +557,7 @@ export default function AppContent() {
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-6 animate-in fade-in duration-300">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={() => !isUpdatingAvatar && setIsAvatarPickerOpen(false)}></div>
                     <div className="relative w-full max-w-2xl glass-card rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-                        <div className="p-8 md:p-12">
+                        <div className="p-5 sm:p-8 md:p-12">
                             <div className="flex items-center justify-between mb-8">
                                 <div>
                                     <h2 className="text-3xl font-black text-white tracking-tighter mb-1">Tu Avatar</h2>
@@ -605,14 +605,16 @@ export default function AppContent() {
                                                     setIsUpdatingAvatar(false);
                                                 }
                                             }}
-                                            className="aspect-square rounded-[1.5rem] md:rounded-[2rem] bg-zinc-800/50 border border-white/5 overflow-hidden hover:border-netflix-red hover:bg-white/5 transition-all group relative active:scale-90 shadow-lg"
+                                            className="w-full aspect-square rounded-[1.5rem] md:rounded-[2rem] bg-zinc-800/50 border border-white/5 overflow-hidden hover:border-netflix-red hover:bg-white/5 transition-all group relative active:scale-90 shadow-lg flex items-center justify-center p-0"
                                         >
                                             <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                            <img 
-                                                src={url} 
-                                                alt={style} 
-                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 p-1 md:p-2" 
-                                            />
+                                            <div className="w-full h-full p-2 md:p-3 overflow-hidden">
+                                                <img 
+                                                    src={url} 
+                                                    alt={style} 
+                                                    className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500" 
+                                                />
+                                            </div>
                                             <div className="absolute inset-0 bg-netflix-red/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
                                                 <Check size={28} className="text-white drop-shadow-lg" strokeWidth={3} />
                                             </div>
