@@ -175,41 +175,40 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }
                     )}
 
                     {/* Action Buttons */}
-                    <div className="flex flex-col gap-6">
-                        <div className="flex flex-wrap gap-4">
-                            <button 
-                                onClick={() => { onPlay(selectedVersion); onClose(); }}
-                                className="px-8 py-4 bg-white text-black rounded-2xl font-black flex items-center gap-3 hover:bg-zinc-200 transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-xl shadow-white/5"
-                            >
-                                <Play size={20} fill="currentColor" /> REPRODUCIR {versions.length > 1 ? detectVersionInfo(selectedVersion).lang : 'AHORA'}
-                            </button>
+                    <div className="flex flex-col gap-4 md:gap-6">
+                        {/* Primary Action */}
+                        <button 
+                            onClick={() => { onPlay(selectedVersion); onClose(); }}
+                            className="w-full md:w-auto px-8 py-5 bg-white text-black rounded-[2rem] font-black flex items-center justify-center md:justify-start gap-3 hover:bg-zinc-200 transition-all duration-300 transform hover:scale-[1.02] active:scale-95 shadow-2xl shadow-white/5 group"
+                        >
+                            <Play size={24} fill="currentColor" className="group-hover:scale-110 transition-transform" /> 
+                            <span className="text-lg md:text-xl">REPRODUCIR {versions.length > 1 ? detectVersionInfo(selectedVersion).lang : 'AHORA'}</span>
+                        </button>
 
+                        <div className="grid grid-cols-2 md:flex md:flex-wrap gap-3 md:gap-4">
                             <button 
                                 onClick={() => toggleMyList(movie)}
-                                className={`px-8 py-4 border rounded-2xl font-bold flex items-center gap-3 transition-all duration-300 transform hover:scale-105 active:scale-95 ${myList.some(m => m.id === movie.id) ? 'bg-netflix-red border-netflix-red text-white' : 'bg-slate-800/50 text-white border-white/10 hover:bg-slate-800'}`}
+                                className={`px-4 md:px-8 py-4 border rounded-2xl font-bold flex items-center justify-center gap-3 transition-all duration-300 transform hover:scale-105 active:scale-95 text-[10px] md:text-sm tracking-tighter md:tracking-normal ${myList.some(m => m.id === movie.id) ? 'bg-netflix-red border-netflix-red text-white' : 'bg-slate-800/50 text-white border-white/10 hover:bg-slate-800'}`}
                             >
-                                {myList.some(m => m.id === movie.id) ? <Check size={20} strokeWidth={3} /> : <Plus size={20} strokeWidth={3} />}
-                                {myList.some(m => m.id === movie.id) ? 'QUITAR DE MI LISTA' : 'MI LISTA'}
+                                {myList.some(m => m.id === movie.id) ? <Check size={18} strokeWidth={3} /> : <Plus size={18} strokeWidth={3} />}
+                                <span>{myList.some(m => m.id === movie.id) ? 'EN MI LISTA' : 'MI LISTA'}</span>
                             </button>
 
-                            {!drive_file_id && !isInQueue && isAdmin() && (
+                            {!drive_file_id && isAdmin() && (
                                 <button 
-                                    onClick={(e) => { e.stopPropagation(); addToQueue(movie); onClose(); }}
-                                    className="px-8 py-4 bg-slate-800/50 text-white border border-white/10 rounded-2xl font-bold flex items-center gap-3 transition-all duration-300 hover:bg-slate-800 hover:border-cyan-500/50 hover:text-cyan-400 transform hover:scale-105 active:scale-95"
+                                    onClick={(e) => { e.stopPropagation(); if(!isInQueue) addToQueue(movie); onClose(); }}
+                                    disabled={isInQueue}
+                                    className={`px-4 md:px-8 py-4 bg-slate-800/50 text-white border border-white/10 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-slate-800 hover:border-cyan-500/50 hover:text-cyan-400 transform hover:scale-105 active:scale-95 text-[10px] md:text-sm ${isInQueue ? 'opacity-70 animate-pulse text-cyan-400' : ''}`}
                                 >
-                                    <Cloud size={20} className="text-cyan-400" /> SUBIR A LA NUBE
-                                </button>
-                            )}
-                            {!drive_file_id && isInQueue && isAdmin() && (
-                                <button disabled className="px-8 py-4 bg-slate-800/50 text-cyan-400 border border-cyan-500/30 rounded-2xl font-bold flex items-center gap-3 opacity-70 cursor-not-allowed animate-pulse">
-                                    <Cloud size={20} className="text-cyan-400" /> EN COLA...
+                                    <Cloud size={18} className="text-cyan-400" /> 
+                                    <span>{isInQueue ? 'EN COLA...' : 'SUBIR'}</span>
                                 </button>
                             )}
                             
                             {isAdmin() && (
                                 <button 
                                     onClick={async () => {
-                                        if (window.confirm(`¿Estás seguro de que quieres eliminar "${title}"? Esta acción borrará la película de la base de datos y de Google Drive (Papelera).`)) {
+                                        if (window.confirm(`¿Estás seguro de que quieres eliminar "${title}"?`)) {
                                             setIsDeleting(true);
                                             try {
                                                 await api.deleteMovie(selectedVersion.id);
@@ -222,20 +221,20 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }
                                         }
                                     }}
                                     disabled={isDeleting}
-                                    className="px-8 py-4 bg-red-500/10 text-red-500 border border-red-500/20 rounded-2xl font-bold flex items-center gap-3 transition-all duration-300 hover:bg-red-500 hover:text-white transform hover:scale-105 active:scale-95 disabled:opacity-50"
+                                    className="px-4 md:px-8 py-4 bg-red-500/10 text-red-500 border border-red-500/20 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-red-500 hover:text-white transform hover:scale-105 active:scale-95 disabled:opacity-50 text-[10px] md:text-sm"
                                 >
-                                    <Trash2 size={20} className={isDeleting ? 'animate-spin' : ''} />
-                                    {isDeleting ? 'ELIMINANDO...' : 'ELIMINAR PELÍCULA'}
+                                    <Trash2 size={18} className={isDeleting ? 'animate-spin' : ''} />
+                                    <span>{isDeleting ? 'BORRANDO' : 'ELIMINAR'}</span>
                                 </button>
                             )}
 
                             {isAdmin() && (
                                 <button 
                                     onClick={() => setIsEditing(true)}
-                                    className="px-8 py-4 bg-white/10 text-white border border-white/20 rounded-2xl font-bold flex items-center gap-3 transition-all duration-300 hover:bg-white hover:text-black transform hover:scale-105 active:scale-95"
+                                    className="px-4 md:px-8 py-4 bg-white/10 text-white border border-white/20 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-white hover:text-black transform hover:scale-105 active:scale-95 text-[10px] md:text-sm"
                                 >
-                                    <Edit3 size={20} />
-                                    EDITAR INFORMACIÓN
+                                    <Edit3 size={18} />
+                                    <span>EDITAR</span>
                                 </button>
                             )}
                         </div>

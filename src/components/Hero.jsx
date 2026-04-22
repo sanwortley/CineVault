@@ -21,16 +21,16 @@ function Hero({ movies, onPlay, onInfo }) {
     const prevSlide = () => setCurrentIndex((prev) => (prev - 1 + movies.length) % movies.length);
 
     return (
-        <div className="relative h-[90vh] w-full overflow-hidden bg-black">
+        <div className="relative h-[90vh] w-full overflow-hidden bg-black isolate transform-gpu">
             {/* Carousel Items */}
             <div className="absolute inset-0 transition-opacity duration-1000 ease-in-out">
                 {/* Background Image / Backdrop */}
-                <div className="absolute inset-0 animate-fade-in">
+                <div className="absolute inset-0 animate-fade-in overflow-hidden">
                     <img 
                         key={movie.id}
                         src={movie.backdrop_url || movie.poster_url} 
                         alt={movie.official_title}
-                        className="w-full h-full object-cover transition-transform duration-[10s] scale-105 animate-ken-burns"
+                        className="w-full h-full object-cover transition-transform duration-[10s] scale-105 animate-ken-burns transform-gpu will-change-transform"
                     />
                     <div className="absolute inset-0 bg-gradient-to-r from-black via-black/40 to-transparent"></div>
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
