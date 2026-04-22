@@ -1,47 +1,47 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Newspaper, Calendar, ArrowRight, Sparkles, Trophy, Ticket } from 'lucide-react';
+import { Newspaper, Calendar, ArrowRight, Sparkles, Trophy, Ticket, Zap } from 'lucide-react';
 
 const NEWS_ITEMS = [
     {
         id: 1,
-        category: 'Estreno',
-        title: 'The Fall Guy: Acción Pura con Ryan Gosling',
-        description: 'La esperada cinta que rinde homenaje a los especialistas de riesgo llega a los cines con una química explosiva entre Gosling y Emily Blunt.',
-        date: '25 de Abril, 2024',
-        image: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&q=80&w=1000',
-        color: 'from-orange-500 to-red-600',
-        icon: <Ticket size={16} />
+        category: 'Exclusiva',
+        title: 'The Batman Part II: Revelado el Primer Teaser',
+        description: 'Matt Reeves rompe el silencio y muestra las primeras imágenes de Robert Pattinson enfrentándose a la Corte de los Búhos en una Gotham sumida en el caos.',
+        date: '22 de Abril, 2026',
+        image: 'https://images.unsplash.com/photo-1478720568477-152d9b164e26?auto=format&fit=crop&q=80&w=1000',
+        color: 'from-gray-700 to-black',
+        icon: <Zap size={16} />
     },
     {
         id: 2,
-        category: 'Festival',
-        title: 'BAFICI: 25 Años de Cine Independiente',
-        description: 'El festival de Buenos Aires celebra su cuarto de siglo con más de 200 películas y una apuesta renovada por el cine de autor.',
-        date: '17 - 28 de Abril, 2024',
-        image: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&q=80&w=1000',
-        color: 'from-blue-500 to-indigo-600',
+        category: 'Producción',
+        title: 'Avengers: Doomsday inicia Rodaje en Londres',
+        description: 'Robert Downey Jr. ha sido visto en el set como Victor Von Doom. La producción promete ser el evento cinematográfico más grande de la década.',
+        date: '20 de Abril, 2026',
+        image: 'https://images.unsplash.com/photo-1534809027769-b00d750a6bac?auto=format&fit=crop&q=80&w=1000',
+        color: 'from-green-600 to-emerald-900',
         icon: <Sparkles size={16} />
     },
     {
         id: 3,
-        category: 'Tendencia',
-        title: 'Civil War domina la Conversación Global',
-        description: 'Lo nuevo de Alex Garland para A24 se convierte en un fenómeno cultural y de taquilla, planteando interrogantes sobre el futuro de EE.UU.',
-        date: 'Abril 2024',
-        image: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?auto=format&fit=crop&q=80&w=1000',
-        color: 'from-slate-700 to-black',
-        icon: <Newspaper size={16} />
+        category: 'Estreno',
+        title: 'Avatar: Fire and Ash rompe Récords de Preventa',
+        description: 'La tercera entrega de James Cameron se posiciona como la película más esperada del año, con una tecnología de inmersión nunca antes vista.',
+        date: 'Abril 2026',
+        image: 'https://images.unsplash.com/photo-1460881680858-30d872d5b530?auto=format&fit=crop&q=80&w=1000',
+        color: 'from-blue-400 to-cyan-600',
+        icon: <Ticket size={16} />
     },
     {
         id: 4,
-        category: 'Premios',
-        title: 'Gala de los Premios Platino 2024',
-        description: 'La gran fiesta del cine iberoamericano celebró su XI edición en el Caribe mexicano, premiando lo mejor del audiovisual en español y portugués.',
-        date: '20 de Abril, 2024',
-        image: 'https://images.unsplash.com/photo-1533928298208-27ff66555d8d?auto=format&fit=crop&q=80&w=1000',
-        color: 'from-yellow-400 to-amber-600',
-        icon: <Trophy size={16} />
+        category: 'Casting',
+        title: 'Spider-Man 4: Tom Holland y el Regreso al Barrio',
+        description: 'Marvel y Sony confirman que la nueva entrega será una historia urbana centrada en Peter Parker lidiando con el legado de Kingpin en Nueva York.',
+        date: '18 de Abril, 2026',
+        image: 'https://images.unsplash.com/photo-1635805737707-575885ab0820?auto=format&fit=crop&q=80&w=1000',
+        color: 'from-red-600 to-blue-800',
+        icon: <Zap size={16} />
     }
 ];
 
