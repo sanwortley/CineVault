@@ -599,7 +599,7 @@ export default function AppContent() {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4 h-[420px] overflow-y-auto no-scrollbar pr-2 p-2">
+                            <div className="flex flex-wrap gap-3 sm:gap-4 h-[420px] overflow-y-auto no-scrollbar pr-2 p-2 content-start">
                                 {avatarOptions.map((opt) => {
                                     const url = `https://api.dicebear.com/7.x/${opt.style}/svg?seed=${opt.seed}`;
                                     return (
@@ -617,10 +617,10 @@ export default function AppContent() {
                                                     setIsUpdatingAvatar(false);
                                                 }
                                             }}
-                                            className="w-full aspect-square rounded-[1.2rem] md:rounded-[1.8rem] bg-zinc-900 border border-white/10 overflow-hidden hover:border-netflix-red hover:bg-zinc-800 transition-all group relative active:scale-95 shadow-xl flex items-center justify-center"
+                                            className="relative flex-none w-[calc(33.333%-0.5rem)] sm:w-[calc(25%-0.75rem)] md:w-[calc(20%-0.8rem)] aspect-square rounded-[1rem] md:rounded-[1.5rem] bg-zinc-900 border border-white/10 overflow-hidden hover:border-netflix-red hover:bg-zinc-800 transition-all group active:scale-95 shadow-xl flex items-center justify-center"
                                         >
                                             <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                            <div className="w-full h-full p-1.5 sm:p-2.5">
+                                            <div className="w-full h-full p-2 sm:p-3 pointer-events-none">
                                                 <img 
                                                     src={url} 
                                                     alt={opt.style} 
