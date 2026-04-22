@@ -61,7 +61,10 @@ async function getMovieDetails(movieId) {
 async function getOMDbDetails(title, year = null, fallbackTitle = null) {
     const OMDB_API_KEY = process.env.OMDB_API_KEY;
     if (!OMDB_API_KEY) {
-        console.log('[OMDb] Missing API Key, skipping ratings.');
+        console.error('────────────────────────────────────────────────────────────────');
+        console.error('[OMDb] ERROR: Falta la variable OMDB_API_KEY en el entorno.');
+        console.error('[OMDb] Debes añadirla en Railway (Variables) o en tu archivo .env');
+        console.error('────────────────────────────────────────────────────────────────');
         return null;
     }
 
