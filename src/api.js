@@ -599,6 +599,10 @@ export const api = {
     },
 
     // ── Flags ─────────────────────────────────────────────────────────────────
+    fetchMovieNews: () => {
+        return backendFetch('/api/news');
+    },
+
     isElectron,
     isWeb: () => !isElectron(),
 };

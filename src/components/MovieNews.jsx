@@ -1,51 +1,37 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Newspaper, Calendar, ArrowRight, Sparkles, Trophy, Ticket, Zap } from 'lucide-react';
-
-const NEWS_ITEMS = [
-    {
-        id: 1,
-        category: 'Exclusiva',
-        title: 'The Batman Part II: Revelado el Primer Teaser',
-        description: 'Matt Reeves rompe el silencio y muestra las primeras imágenes de Robert Pattinson enfrentándose a la Corte de los Búhos en una Gotham sumida en el caos.',
-        date: '22 de Abril, 2026',
-        image: 'https://images.unsplash.com/photo-1478720568477-152d9b164e26?auto=format&fit=crop&q=80&w=1000',
-        color: 'from-gray-700 to-black',
-        icon: <Zap size={16} />
-    },
-    {
-        id: 2,
-        category: 'Producción',
-        title: 'Avengers: Doomsday inicia Rodaje en Londres',
-        description: 'Robert Downey Jr. ha sido visto en el set como Victor Von Doom. La producción promete ser el evento cinematográfico más grande de la década.',
-        date: '20 de Abril, 2026',
-        image: 'https://images.unsplash.com/photo-1534809027769-b00d750a6bac?auto=format&fit=crop&q=80&w=1000',
-        color: 'from-green-600 to-emerald-900',
-        icon: <Sparkles size={16} />
-    },
-    {
-        id: 3,
-        category: 'Estreno',
-        title: 'Avatar: Fire and Ash rompe Récords de Preventa',
-        description: 'La tercera entrega de James Cameron se posiciona como la película más esperada del año, con una tecnología de inmersión nunca antes vista.',
-        date: 'Abril 2026',
-        image: 'https://images.unsplash.com/photo-1460881680858-30d872d5b530?auto=format&fit=crop&q=80&w=1000',
-        color: 'from-blue-400 to-cyan-600',
-        icon: <Ticket size={16} />
-    },
-    {
-        id: 4,
-        category: 'Casting',
-        title: 'Spider-Man 4: Tom Holland y el Regreso al Barrio',
-        description: 'Marvel y Sony confirman que la nueva entrega será una historia urbana centrada en Peter Parker lidiando con el legado de Kingpin en Nueva York.',
-        date: '18 de Abril, 2026',
-        image: 'https://images.unsplash.com/photo-1635805737707-575885ab0820?auto=format&fit=crop&q=80&w=1000',
-        color: 'from-red-600 to-blue-800',
-        icon: <Zap size={16} />
-    }
-];
+import { Newspaper, Calendar, ArrowRight, Sparkles, Trophy, Ticket, Zap, Loader } from 'lucide-react';
+import { api } from '../api';
 
 export default function MovieNews() {
+    const [news, setNews] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const loadNews = async () => {
+            try {
+                const data = await api.fetchMovieNews();
+                setNews(data);
+            } catch (err) {
+                console.error('Error loading news:', err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadNews();
+    }, []);
+
+    if (isLoading) {
+        return (
+            <div className="py-20 flex flex-col items-center justify-center opacity-30">
+                <Loader className="animate-spin mb-4" size={32} />
+                <p className="text-[10px] font-black uppercase tracking-[0.4em]">Sincronizando Cine News...</p>
+            </div>
+        );
+    }
+
+    if (news.length === 0) return null;
+
     return (
         <section className="mb-20">
             <div className="flex items-center justify-between mb-8">
@@ -64,14 +50,17 @@ export default function MovieNews() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {NEWS_ITEMS.map((item, index) => (
-                    <motion.div
+                {news.map((item, index) => (
+                    <motion.a
                         key={item.id}
+                        href={item.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.1 }}
                         whileHover={{ y: -10 }}
-                        className="group relative h-[450px] rounded-[2.5rem] overflow-hidden border border-white/5 shadow-2xl cursor-pointer"
+                        className="group relative h-[450px] rounded-[2.5rem] overflow-hidden border border-white/5 shadow-2xl cursor-pointer block"
                     >
                         {/* Background Image */}
                         <div className="absolute inset-0">
@@ -86,8 +75,8 @@ export default function MovieNews() {
                         {/* Content */}
                         <div className="absolute inset-0 p-8 flex flex-col justify-end">
                             <div className="flex items-center gap-2 mb-4">
-                                <div className={`px-3 py-1 bg-gradient-to-r ${item.color} rounded-full flex items-center gap-2 shadow-lg shadow-black/50`}>
-                                    {item.icon}
+                                <div className={`px-3 py-1 bg-netflix-red rounded-full flex items-center gap-2 shadow-lg shadow-black/50`}>
+                                    <Sparkles size={12} className="text-white" />
                                     <span className="text-[9px] font-black uppercase text-white tracking-widest">{item.category}</span>
                                 </div>
                                 <div className="flex items-center gap-1.5 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full border border-white/10">
@@ -96,7 +85,7 @@ export default function MovieNews() {
                                 </div>
                             </div>
 
-                            <h3 className="text-xl md:text-2xl font-black text-white leading-tight mb-4 group-hover:text-netflix-red transition-colors duration-300">
+                            <h3 className="text-xl md:text-2xl font-black text-white leading-tight mb-4 group-hover:text-netflix-red transition-colors duration-300 line-clamp-3">
                                 {item.title}
                             </h3>
 
@@ -111,7 +100,7 @@ export default function MovieNews() {
 
                         {/* Hover Overlay Light */}
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-700"></div>
-                    </motion.div>
+                    </motion.a>
                 ))}
             </div>
         </section>

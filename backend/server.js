@@ -27,6 +27,7 @@ const tmdb = require('./tmdb');
 const uploadManager = require('./uploadManager');
 const optimizer = require('./optimizer');
 const discoverRouter = require('./discover');
+const newsService = require('./newsService');
 
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
@@ -1570,6 +1571,15 @@ app.patch('/api/admin/requests/:id', sessionMiddleware, adminMiddleware, async (
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/news', async (req, res) => {
+    try {
+        const news = await newsService.fetchMovieNews();
+        res.json(news);
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch news' });
     }
 });
 
