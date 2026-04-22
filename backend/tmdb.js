@@ -41,7 +41,6 @@ async function getMovieDetails(movieId) {
         const data = response.data;
         return {
             official_title: data.title,
-            original_title: data.original_title,
             overview: data.overview,
             poster_url: data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : null,
             backdrop_url: data.backdrop_path ? `https://image.tmdb.org/t/p/original${data.backdrop_path}` : null,
@@ -50,7 +49,7 @@ async function getMovieDetails(movieId) {
             director: data.credits?.crew?.find(c => c.job === 'Director')?.name || 'Desconocido',
             cast: data.credits?.cast?.slice(0, 5).map(a => a.name).join(', ') || 'N/A',
             rating: data.vote_average,
-            release_date: data.release_date
+            detected_year: data.release_date ? data.release_date.substring(0, 4) : null
         };
     } catch (error) {
         console.error('TMDb Details Error:', error.message);

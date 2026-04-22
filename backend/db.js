@@ -79,6 +79,11 @@ const database = {
     addMovie: async (movieData) => {
         // Remove fields that do not exist in the database schema or shouldn't be overridden
         const payload = { ...movieData };
+        // Fields that definitely don't exist in production schema
+        delete payload.original_title;
+        delete payload.imdb_rating;
+        delete payload.tmdb_id;
+        delete payload.release_date;
         delete payload.modified_at;
         delete payload.created_at;
 
@@ -122,8 +127,14 @@ const database = {
     },
     updateMovie: async (id, movieData) => {
         const payload = { ...movieData };
+        // Fields that definitely don't exist in production schema
+        delete payload.original_title;
+        delete payload.imdb_rating;
+        delete payload.tmdb_id;
+        delete payload.release_date;
         delete payload.modified_at;
         delete payload.created_at;
+        delete payload.id; // Usually in URL, not in body for PATCH
 
         return await supabaseFetch(`movies?id=eq.${id}`, {
             method: 'PATCH',
