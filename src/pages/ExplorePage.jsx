@@ -17,6 +17,7 @@ export default function ExplorePage({ onInfoMovie, onPlayMovie }) {
     const [searchMode, setSearchMode] = useState('catalog'); // 'catalog' or 'global'
     const [globalResults, setGlobalResults] = useState([]);
     const [hasSearched, setHasSearched] = useState(false);
+    const [downloadingMovieId, setDownloadingMovieId] = useState(null);
 
 
     useEffect(() => {
@@ -91,6 +92,33 @@ export default function ExplorePage({ onInfoMovie, onPlayMovie }) {
         onInfoMovie(mappedMovie);
     };
 
+
+    const handleDownload = async (torrent, customMovie = null) => {
+        if (!isAdmin()) return;
+        
+        const movieId = customMovie ? customMovie.id : 'unknown';
+        setDownloadingMovieId(movieId);
+        try {
+            const result = await api.downloadMovie(
+                movieId, 
+                customMovie.title, 
+                torrent.link,
+                new Date().getFullYear().toString(),
+                { isPage: torrent.isPage, isHash: torrent.isHash }
+            );
+
+            const registeredMovieId = result?.movieId || movieId;
+            addToQueue({ 
+                id: registeredMovieId, 
+                official_title: customMovie.title,
+                _directQueue: true 
+            });
+        } catch (err) {
+            alert('Error al iniciar la descarga: ' + err.message);
+        } finally {
+            setDownloadingMovieId(null);
+        }
+    };
 
     if (isLoading) {
         return (
