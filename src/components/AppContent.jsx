@@ -20,6 +20,13 @@ const SettingsPage = React.lazy(() => import('../pages/SettingsPage'));
 const UploadPage = React.lazy(() => import('../pages/UploadPage'));
 const ExplorePage = React.lazy(() => import('../pages/ExplorePage'));
 
+const DICEBEAR_STYLES = [
+    'adventurer', 'avataaars', 'bottts', 'fun-emoji', 
+    'lorelei', 'miniavs', 'personas', 'pixel-art',
+    'big-smile', 'croodles', 'notionists', 'notionists-neutral', 
+    'open-peeps', 'shapes', 'thumbs'
+];
+
 export default function AppContent() {
     const { user, isAdmin, logout, getUserMylist, getUserProgress, addToMylist, removeFromMylist, isInMylist, hideMovieFromContinue, changePassword, updateUserMetadata } = useAuth();
     const navigate = useNavigate();
@@ -39,6 +46,17 @@ export default function AppContent() {
     const [search, setSearch] = useState('');
     const [deferredPrompt, setDeferredPrompt] = useState(null);
     const [movies, setMovies] = useState([]);
+
+    // Generate flat list of avatar options
+    const avatarOptions = React.useMemo(() => {
+        return DICEBEAR_STYLES.flatMap(style => 
+            [1, 2, 3].map(i => ({
+                id: `${style}-${i}-${gallerySeed}`,
+                style,
+                seed: `${user?.id || 'anon'}-${style}-${i}-${gallerySeed}`
+            }))
+        );
+    }, [user?.id, gallerySeed]);
     const [myList, setMyList] = useState([]);
     const [userProgress, setUserProgress] = useState({});
     const [isLoadingData, setIsLoadingData] = useState(true);
@@ -581,18 +599,12 @@ export default function AppContent() {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 h-[420px] overflow-y-auto no-scrollbar pr-2 p-1">
-                                {[
-                                    'adventurer', 'avataaars', 'bottts', 'fun-emoji', 
-                                    'lorelei', 'miniavs', 'personas', 'pixel-art',
-                                    'big-smile', 'croodles', 'notionists', 'notionists-neutral', 
-                                    'open-peeps', 'shapes', 'thumbs'
-                                ].flatMap(style => [1, 2, 3].map(i => ({ style, i }))).map(({ style, i }) => {
-                                    const seed = `${user?.id}-${style}-${i}-${gallerySeed}`;
-                                    const url = `https://api.dicebear.com/7.x/${style}/svg?seed=${seed}`;
+                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4 h-[420px] overflow-y-auto no-scrollbar pr-2 p-2">
+                                {avatarOptions.map((opt) => {
+                                    const url = `https://api.dicebear.com/7.x/${opt.style}/svg?seed=${opt.seed}`;
                                     return (
                                         <button
-                                            key={`${style}-${i}-${gallerySeed}`}
+                                            key={opt.id}
                                             disabled={isUpdatingAvatar}
                                             onClick={async () => {
                                                 setIsUpdatingAvatar(true);
@@ -605,18 +617,18 @@ export default function AppContent() {
                                                     setIsUpdatingAvatar(false);
                                                 }
                                             }}
-                                            className="w-full aspect-square rounded-[1.5rem] md:rounded-[2rem] bg-zinc-800/50 border border-white/5 overflow-hidden hover:border-netflix-red hover:bg-white/5 transition-all group relative active:scale-90 shadow-lg flex items-center justify-center p-0"
+                                            className="w-full aspect-square rounded-[1.2rem] md:rounded-[1.8rem] bg-zinc-900 border border-white/10 overflow-hidden hover:border-netflix-red hover:bg-zinc-800 transition-all group relative active:scale-95 shadow-xl flex items-center justify-center"
                                         >
                                             <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                            <div className="w-full h-full p-2 md:p-3 overflow-hidden">
+                                            <div className="w-full h-full p-1.5 sm:p-2.5">
                                                 <img 
                                                     src={url} 
-                                                    alt={style} 
+                                                    alt={opt.style} 
                                                     className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500" 
                                                 />
                                             </div>
-                                            <div className="absolute inset-0 bg-netflix-red/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
-                                                <Check size={28} className="text-white drop-shadow-lg" strokeWidth={3} />
+                                            <div className="absolute inset-0 bg-netflix-red/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]">
+                                                <Check size={24} className="text-white drop-shadow-md" strokeWidth={3} />
                                             </div>
                                         </button>
                                     );
