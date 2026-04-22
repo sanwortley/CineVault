@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import { 
     Search, RefreshCw, Settings as SettingsIcon, Key, LogOut, 
-    Home, Bookmark, Upload, ShieldCheck, Check, Lock, AlertCircle, Loader2, Compass, User, UserCircle 
+    Home, Bookmark, Upload, ShieldCheck, Check, Lock, AlertCircle, Loader2, Compass, User, UserCircle, X 
 } from 'lucide-react';
 
 // Components
