@@ -143,7 +143,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                             console.log('[VideoPlayer] Autocarga: Subtítulo en la nube detectado:', cloudRes.name);
                             handleSubtitleSelect({ 
                                 id: cloudRes.fileId, 
-                                type: 'cloud', 
+                                type: 'drive', 
                                 label: `Drive (${cloudRes.name})`,
                                 provider: 'Drive Cache'
                             });
@@ -482,11 +482,28 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                 setSubtitleCues(cues);
             } else if (url) {
                 const response = await fetch(url);
-                if (response.status === 429) {
-                    setSubQuotaReached(true);
-                    return;
+                
+                // If it's a 429 or 500, we should check if the body is JSON error or just a failure
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    let isQuota = response.status === 429;
+                    try {
+                        const errJson = JSON.parse(errorText);
+                        if (errJson.isQuota) isQuota = true;
+                    } catch(e) {}
+
+                    if (isQuota) setSubQuotaReached(true);
+                    throw new Error(`Error ${response.status}: ${errorText.substring(0, 100)}`);
                 }
+
                 const text = await response.text();
+                
+                // Safety check: if it looks like JSON, it's probably an error that bypassed the status check
+                if (text.trim().startsWith('{')) {
+                    console.error('[VideoPlayer] Received JSON instead of VTT:', text);
+                    throw new Error('Formato de subtítulo inválido (JSON)');
+                }
+
                 const cues = parseVTT(text);
                 if (cues.length === 0) {
                     console.warn('[VideoPlayer] Parser returned 0 cues. Malformed VTT?');
