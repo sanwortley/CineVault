@@ -1214,6 +1214,41 @@ app.patch('/api/movies/:id', sessionMiddleware, adminMiddleware, async (req, res
     }
 });
 
+app.post('/api/admin/refresh-all-metadata', sessionMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const movies = await db.getMovies();
+        console.log(`[Metadata Refresh] Starting full refresh for ${movies.length} movies...`);
+        
+        // Use a background process to avoid blocking
+        (async () => {
+            for (const movie of movies) {
+                try {
+                    // Only fetch if missing or explicit refresh requested
+                    const title = movie.official_title || movie.detected_title;
+                    const year = movie.detected_year;
+                    
+                    if (title) {
+                        const omdbDetails = await tmdb.getOMDbDetails(title, year);
+                        if (omdbDetails) {
+                            await db.updateMovie(movie.id, omdbDetails);
+                            console.log(`[Metadata Refresh] Updated ratings for: "${title}"`);
+                        }
+                    }
+                    // Throttling to avoid OMDb rate limits (if any)
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                } catch (err) {
+                    console.error(`[Metadata Refresh] Error on movie ${movie.id}:`, err.message);
+                }
+            }
+            console.log('[Metadata Refresh] Full library refresh complete');
+        })();
+
+        res.json({ success: true, message: 'Refresco de metadatos iniciado en segundo plano' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.post('/api/movies/:id/re-identify', sessionMiddleware, adminMiddleware, async (req, res) => {
     const { id } = req.params;
     const { title, year } = req.body;

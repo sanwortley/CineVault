@@ -59,9 +59,13 @@ async function getMovieDetails(movieId) {
 
 async function getOMDbDetails(title, year = null) {
     const OMDB_API_KEY = process.env.OMDB_API_KEY;
-    if (!OMDB_API_KEY) return null;
+    if (!OMDB_API_KEY) {
+        console.log('[OMDb] Missing API Key, skipping ratings.');
+        return null;
+    }
 
     try {
+        console.log(`[OMDb] Fetching ratings for: "${title}" (${year || 'N/A'})...`);
         const response = await axios.get(`http://www.omdbapi.com/`, {
             params: {
                 apikey: OMDB_API_KEY,
@@ -70,11 +74,16 @@ async function getOMDbDetails(title, year = null) {
             }
         });
 
-        if (response.data.Response === 'False') return null;
+        if (response.data.Response === 'False') {
+            console.log(`[OMDb] No match found for "${title}":`, response.data.Error);
+            return null;
+        }
 
         const rtRating = response.data.Ratings?.find(r => r.Source === 'Rotten Tomatoes')?.Value;
         const metaRating = response.data.Ratings?.find(r => r.Source === 'Metacritic')?.Value;
         const imdbRating = response.data.imdbRating;
+
+        console.log(`[OMDb] Success! RT: ${rtRating || 'N/A'}, Metascore: ${metaRating || 'N/A'}`);
 
         return {
             rt_rating: rtRating,
@@ -82,7 +91,7 @@ async function getOMDbDetails(title, year = null) {
             imdb_rating: imdbRating
         };
     } catch (error) {
-        console.error('OMDb Error:', error.message);
+        console.error('[OMDb] Error:', error.message);
         return null;
     }
 }

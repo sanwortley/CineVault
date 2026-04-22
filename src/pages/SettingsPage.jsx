@@ -129,9 +129,20 @@ function SettingsPage({ onClose, onTabChange }) {
             setIsOMDBSaved(true);
             setTimeout(() => setIsOMDBSaved(false), 3000);
         } catch (error) {
-            alert('Error al guardar la OMDb API Key');
+            alert('Error al guardar la API Key de OMDb');
         }
     };
+
+    const handleRefreshAllMetadata = async () => {
+        if (!window.confirm('¿Quieres refrescar las puntuaciones de Rotten Tomatoes de todas las películas de tu biblioteca? Esto se ejecutará en segundo plano.')) return;
+        try {
+            await api.refreshAllMetadata();
+            alert('Refresco de metadatos iniciado. Las puntuaciones aparecerán en unos minutos.');
+        } catch (error) {
+            alert('Error al iniciar el refresco: ' + error.message);
+        }
+    };
+
     const handleSaveRDToken = async () => {
         try {
             await api.saveRDToken(rdToken);
@@ -316,7 +327,18 @@ function SettingsPage({ onClose, onTabChange }) {
                                             {isOMDBSaved ? <Check size={32} strokeWidth={4} /> : <span className="text-sm">Vincular OMDb</span>}
                                         </button>
                                     </div>
-                                    <p className="text-[11px] text-slate-600 font-bold uppercase tracking-[0.2em] px-4">Necesario para mostrar puntuaciones críticas de Rotten Tomatoes</p>
+                                    <div className="flex flex-col md:flex-row items-center justify-between gap-4 px-4">
+                                        <p className="text-[11px] text-slate-600 font-bold uppercase tracking-[0.2em]">Necesario para mostrar puntuaciones críticas de Rotten Tomatoes</p>
+                                        {isOMDBSaved && (
+                                            <button 
+                                                onClick={handleRefreshAllMetadata}
+                                                className="flex items-center gap-3 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all group"
+                                            >
+                                                <RefreshCw size={14} className="group-hover:rotate-180 transition-transform duration-500" />
+                                                Refrescar Metadatos de la Biblioteca
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </section>

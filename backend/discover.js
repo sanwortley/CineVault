@@ -102,6 +102,16 @@ router.post('/download', adminMiddleware, async (req, res) => {
         // Ensuring no NULL values for mandatory columns
         const finalOfficialTitle = tmdbDetails?.title || tmdbDetails?.original_title || title || '';
         
+        // --- Step 1.6: Fetch OMDb Details (Ratings) ---
+        let omdbDetails = {};
+        try {
+            const { getOMDbDetails } = require('./tmdb');
+            const ratings = await getOMDbDetails(finalOfficialTitle, year || tmdbDetails?.release_date?.substring(0, 4));
+            if (ratings) omdbDetails = ratings;
+        } catch (omdbErr) {
+            console.warn('[Discover] OMDb fetch failed:', omdbErr.message);
+        }
+
         let movie = await db.addMovie({
             official_title: finalOfficialTitle,
             detected_title: title || '',
@@ -118,7 +128,8 @@ router.post('/download', adminMiddleware, async (req, res) => {
             director: tmdbDetails?.director || '',
             cast: tmdbDetails?.cast || '',
             rating: tmdbDetails?.rating || 0,
-            runtime: tmdbDetails?.runtime || 0
+            runtime: tmdbDetails?.runtime || 0,
+            ...omdbDetails
         });
 
         if (!movie || !movie.id) {

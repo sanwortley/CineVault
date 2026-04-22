@@ -152,6 +152,10 @@ export const api = {
         return backendFetch('/api/library/refresh', { method: 'POST' });
     },
 
+    refreshAllMetadata: () => {
+        return backendFetch('/api/admin/refresh-all-metadata', { method: 'POST' });
+    },
+
     updateMovie: (id, data) => {
         if (isElectron()) return window.electronAPI.updateMovie ? window.electronAPI.updateMovie(id, data) : Promise.reject(new Error('Not implemented in Electron yet'));
         return backendFetch(`/api/movies/${id}`, { 
