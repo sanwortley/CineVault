@@ -73,7 +73,7 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }
         if (isRequesting || requestSuccess) return;
         setIsRequesting(true);
         try {
-            await api.addRequest({
+            await api.submitMovieRequest({
                 tmdb_id: m.tmdb_id || m.id,
                 title: m.official_title || m.title,
                 year: m.detected_year || m.release_date?.substring(0, 4),
