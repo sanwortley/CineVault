@@ -399,7 +399,7 @@ export default function AppContent() {
                 </nav>
             )}
 
-            <main className="relative z-0 transform-gpu isolate -mt-4 pb-20 lg:pb-0">
+            <main className="relative z-0 pb-20 lg:pb-0">
                 <React.Suspense fallback={null}>
                     {activeTab === 'library' && (
                     <LibraryPage 

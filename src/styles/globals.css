@@ -17,6 +17,14 @@ body {
   min-height: 100vh;
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
+  /* Ensure scrolling is possible unless explicitly blocked by a modal class */
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+html {
+  overflow-x: hidden;
+  height: -webkit-fill-available;
 }
 
 ::selection {

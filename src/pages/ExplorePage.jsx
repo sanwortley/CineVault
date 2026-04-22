@@ -165,7 +165,7 @@ export default function ExplorePage() {
     }
 
     return (
-        <div className="px-4 md:p-12 pt-2 md:pt-16 pb-40 max-w-7xl mx-auto animate-fade-in no-drag relative z-10">
+        <div className="px-4 md:p-12 pt-2 md:pt-16 pb-40 max-w-7xl mx-auto animate-fade-in relative z-10">
             {/* Header & Search */}
             <header className="mb-2 md:mb-10">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-2 md:gap-4">
@@ -405,16 +405,18 @@ export default function ExplorePage() {
     );
 }
 
+const isMobile = typeof window !== 'undefined' && (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768);
+
 function MovieCard({ movie, onClick }) {
     return (
         <motion.div 
-            whileHover={{ scale: 1.05, y: -8 }}
+            whileHover={!isMobile ? { scale: 1.05, y: -8 } : {}}
             onClick={onClick}
             className="flex-none w-full group cursor-pointer"
         >
             <div className="relative aspect-[2/3] rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-2xl transition-all duration-500 border border-white/5 group-hover:border-netflix-red/50">
                 <img 
-                    src={movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : 'https://via.placeholder.com/500x750?text=Sin+Poster'} 
+                    src={movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : 'https://images.placeholders.dev/?width=500&height=750&text=Sin%20Poster&bgColor=%23141414&textColor=%23555555'} 
                     alt={movie.title}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                     loading="lazy"
@@ -441,9 +443,9 @@ function MovieCard({ movie, onClick }) {
 function GlobalResultCard({ result, onDownload, isAdmin, isDownloading }) {
     return (
         <motion.div 
-            initial={{ opacity: 0, y: 10 }}
+            initial={!isMobile ? { opacity: 0, y: 10 } : { opacity: 1, y: 0 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white/5 border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-6 flex flex-col justify-between hover:bg-white/[0.08] transition-all group"
+            className={`bg-white/5 border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-6 flex flex-col justify-between transition-all group ${!isMobile ? 'hover:bg-white/[0.08]' : ''}`}
         >
             <div className="mb-4 md:mb-6">
                 <div className="flex items-center gap-2 mb-2 md:mb-3">
