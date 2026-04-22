@@ -4,6 +4,7 @@ import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useUploadQueue } from '../context/UploadQueueContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import MovieNews from '../components/MovieNews';
 
 export default function ExplorePage() {
     const { isAdmin } = useAuth();
@@ -209,8 +210,11 @@ export default function ExplorePage() {
                 </div>
             </header>
 
-            {/* Search Results / Trending / Global Results */}
+            {/* Search Results / Trending / Global Results / News */}
             <main>
+                {/* Always show news if not searching or in global mode */}
+                {searchMode === 'catalog' && !query && !isSearching && <MovieNews />}
+
                 {searchMode === 'global' ? (
                     <section className="mb-20">
                         <div className="flex items-center justify-between mb-8">
