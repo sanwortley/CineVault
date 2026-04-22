@@ -81,7 +81,8 @@ export function AuthProvider({ children }) {
             id: data.user.id,
             email: data.user.email,
             access_token: data.session.access_token,
-            refresh_token: data.session.refresh_token
+            refresh_token: data.session.refresh_token,
+            user_metadata: data.user.user_metadata || {}
         };
 
         // Register session in backend
@@ -155,7 +156,8 @@ export function AuthProvider({ children }) {
                 id: data.user.id,
                 email: data.user.email,
                 access_token: data.session.access_token,
-                refresh_token: data.session.refresh_token
+                refresh_token: data.session.refresh_token,
+                user_metadata: data.user.user_metadata || {}
             };
             
             localStorage.setItem('cinevault_user', JSON.stringify(newUserData));
@@ -415,6 +417,26 @@ export function AuthProvider({ children }) {
         if (error) throw error;
     };
 
+    const updateUserMetadata = async (metadata) => {
+        const { data, error } = await supabase.auth.updateUser({ 
+            data: metadata 
+        });
+        if (error) throw error;
+        
+        // Update local user state with the fresh data from Supabase
+        const stored = localStorage.getItem('cinevault_user');
+        if (stored) {
+            const userData = JSON.parse(stored);
+            const newUserData = {
+                ...userData,
+                user_metadata: data.user.user_metadata || {}
+            };
+            localStorage.setItem('cinevault_user', JSON.stringify(newUserData));
+            setUser(newUserData);
+        }
+        return data.user;
+    };
+
     const value = {
         user,
         loading,
@@ -430,7 +452,8 @@ export function AuthProvider({ children }) {
         removeFromMylist,
         isInMylist,
         refreshSession,
-        changePassword
+        changePassword,
+        updateUserMetadata
     };
 
     return (

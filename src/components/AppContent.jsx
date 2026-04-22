@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import { 
     Search, RefreshCw, Settings as SettingsIcon, Key, LogOut, 
-    Home, Bookmark, Upload, ShieldCheck, Check, Lock, AlertCircle, Loader2, Compass 
+    Home, Bookmark, Upload, ShieldCheck, Check, Lock, AlertCircle, Loader2, Compass, User, UserCircle 
 } from 'lucide-react';
 
 // Components
@@ -21,7 +21,7 @@ const UploadPage = React.lazy(() => import('../pages/UploadPage'));
 const ExplorePage = React.lazy(() => import('../pages/ExplorePage'));
 
 export default function AppContent() {
-    const { user, isAdmin, logout, getUserMylist, getUserProgress, addToMylist, removeFromMylist, isInMylist, hideMovieFromContinue, changePassword } = useAuth();
+    const { user, isAdmin, logout, getUserMylist, getUserProgress, addToMylist, removeFromMylist, isInMylist, hideMovieFromContinue, changePassword, updateUserMetadata } = useAuth();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('library');
     const [playingMovie, setPlayingMovie] = useState(null);
@@ -32,6 +32,8 @@ export default function AppContent() {
     const [passwordError, setPasswordError] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+    const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
+    const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
     const [isScanning, setIsScanning] = useState(false);
     const [search, setSearch] = useState('');
     const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -322,7 +324,7 @@ export default function AppContent() {
                                 >
                                     <div className="w-9 h-9 md:w-11 md:h-11 rounded-full border-2 border-white/10 overflow-hidden bg-white/5 transition-all group-hover:border-netflix-red group-active:scale-95 shadow-lg">
                                         <img 
-                                            src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${user?.email || 'default'}`}
+                                            src={user?.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user?.email || 'default'}`}
                                             alt="Avatar"
                                             className="w-full h-full object-cover animate-in fade-in zoom-in duration-700"
                                         />
@@ -347,6 +349,15 @@ export default function AppContent() {
                                                         <Key size={14} className="text-blue-400" />
                                                     </div>
                                                     Cambiar Contraseña
+                                                </button>
+                                                <button 
+                                                    onClick={() => { setIsProfileOpen(false); setIsAvatarPickerOpen(true); }}
+                                                    className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 rounded-xl transition-all group"
+                                                >
+                                                    <div className="p-2 bg-purple-500/10 rounded-lg group-hover:bg-purple-500/20">
+                                                        <UserCircle size={14} className="text-purple-400" />
+                                                    </div>
+                                                    Cambiar Avatar
                                                 </button>
                                                 <button 
                                                     onClick={() => { logout(); navigate('/login'); }}
@@ -538,6 +549,69 @@ export default function AppContent() {
                                 </button>
                             </>
                         )}
+                    </div>
+                </div>
+            )}
+            {isAvatarPickerOpen && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-6 animate-in fade-in duration-300">
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={() => !isUpdatingAvatar && setIsAvatarPickerOpen(false)}></div>
+                    <div className="relative w-full max-w-2xl glass-card rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+                        <div className="p-8 md:p-12">
+                            <div className="flex items-center justify-between mb-8">
+                                <div>
+                                    <h2 className="text-3xl font-black text-white tracking-tighter mb-1">Tu Avatar</h2>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] opacity-60">Personaliza tu identidad en CineVault</p>
+                                </div>
+                                <button 
+                                    onClick={() => setIsAvatarPickerOpen(false)}
+                                    className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-400 hover:text-white transition-all"
+                                >
+                                    <RefreshCw size={20} />
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 h-[400px] overflow-y-auto no-scrollbar pr-2">
+                                {[
+                                    'adventurer', 'avataaars', 'bottts', 'fun-emoji', 
+                                    'lorelei', 'miniavs', 'personas', 'pixel-art'
+                                ].map((style) => (
+                                    [1, 2, 3, 4].map((i) => {
+                                        const seed = `${user?.id}-${style}-${i}`;
+                                        const url = `https://api.dicebear.com/7.x/${style}/svg?seed=${seed}`;
+                                        return (
+                                            <button
+                                                key={`${style}-${i}`}
+                                                disabled={isUpdatingAvatar}
+                                                onClick={async () => {
+                                                    setIsUpdatingAvatar(true);
+                                                    try {
+                                                        await updateUserMetadata({ avatar_url: url });
+                                                        setIsAvatarPickerOpen(false);
+                                                    } catch (err) {
+                                                        console.error('Error al actualizar avatar:', err);
+                                                    } finally {
+                                                        setIsUpdatingAvatar(false);
+                                                    }
+                                                }}
+                                                className="aspect-square rounded-2xl md:rounded-3xl bg-white/5 border border-white/10 overflow-hidden hover:border-netflix-red hover:bg-white/10 transition-all group relative active:scale-90"
+                                            >
+                                                <img src={url} alt={style} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                <div className="absolute inset-0 bg-netflix-red/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                    <Check size={24} className="text-white" strokeWidth={3} />
+                                                </div>
+                                            </button>
+                                        );
+                                    })
+                                ))}
+                            </div>
+
+                            {isUpdatingAvatar && (
+                                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex flex-col items-center justify-center z-10">
+                                    <Loader2 className="text-netflix-red animate-spin mb-4" size={40} />
+                                    <p className="text-xs font-black uppercase tracking-widest text-white">Actualizando...</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
