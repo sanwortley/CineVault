@@ -926,7 +926,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                             <div className="min-w-0 flex-1">
                                 <p className="text-[11px] font-black uppercase tracking-widest text-white">Límite de Subtítulos Alcanzado</p>
                                 <p className="text-[10px] font-bold text-slate-400 mt-0.5 leading-relaxed">
-                                    Has usado tus 5 descargas diarias. Para buscar manualmente, prueba con estas etiquetas:
+                                    OpenSubtitles ha limitado las descargas. Si tienes VIP, asegúrate de haber guardado tus credenciales en Ajustes.
                                 </p>
                             </div>
                             <button onClick={() => setSubQuotaReached(false)} className="p-2 hover:bg-white/10 rounded-xl transition-colors">

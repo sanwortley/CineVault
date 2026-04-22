@@ -730,30 +730,38 @@ app.post('/api/subtitles/download', async (req, res) => {
         const osUser = process.env.OS_USERNAME;
         const osPass = process.env.OS_PASSWORD;
         if (osUser && osPass) {
-            // Check cache first (valid for 2 hours)
             if (osTokenCache.token && osTokenCache.expiresAt > Date.now()) {
                 headers['Authorization'] = `Bearer ${osTokenCache.token}`;
-                console.log('[Subtitles] Using cached VIP token');
+                console.log(`[Subtitles] Using cached VIP token for user: ${osUser}`);
             } else {
                 try {
+                    console.log(`[Subtitles] Attempting VIP login for: ${osUser}...`);
                     const loginRes = await fetch('https://api.opensubtitles.com/api/v1/login', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'User-Agent': 'CineVault v1.0', 'Api-Key': apiKey },
+                        headers: { 
+                            'Content-Type': 'application/json', 
+                            'Accept': 'application/json', 
+                            'User-Agent': 'CineVault v1.0', 
+                            'Api-Key': apiKey 
+                        },
                         body: JSON.stringify({ username: osUser, password: osPass })
                     });
-                    if (loginRes.ok) {
-                        const loginData = await loginRes.json();
-                        if (loginData.token) {
-                            osTokenCache.token = loginData.token;
-                            osTokenCache.expiresAt = Date.now() + (2 * 60 * 60 * 1000); // 2 hours
-                            headers['Authorization'] = `Bearer ${loginData.token}`;
-                            console.log('[Subtitles] VIP authenticated and token cached');
-                        }
+                    
+                    const loginData = await loginRes.json();
+                    if (loginRes.ok && loginData.token) {
+                        osTokenCache.token = loginData.token;
+                        osTokenCache.expiresAt = Date.now() + (23 * 60 * 60 * 1000); // 23h (standard OS token life)
+                        headers['Authorization'] = `Bearer ${loginData.token}`;
+                        console.log('[Subtitles] VIP login SUCCESS. Token cached.');
+                    } else {
+                        console.warn('[Subtitles] VIP login REJECTED:', loginData.message || 'Unknown error');
                     }
                 } catch (loginErr) {
-                    console.warn('[Subtitles] VIP Login failed, falling back to guest:', loginErr.message);
+                    console.error('[Subtitles] VIP Login ERROR:', loginErr.message);
                 }
             }
+        } else {
+            console.log('[Subtitles] No VIP credentials found, using Guest mode.');
         }
 
         const response = await fetch('https://api.opensubtitles.com/api/v1/download', {
