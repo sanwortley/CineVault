@@ -95,7 +95,7 @@ export default function EditMovieDialog({ movie, onClose, onUpdate }) {
                         <div className="md:col-span-2 space-y-6">
                             <div className="flex flex-col gap-3">
                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-3">Título Sugerido / Oficial</label>
-                                <div className="flex gap-2">
+                                <div className="flex flex-col md:flex-row gap-3">
                                     <input 
                                         type="text" 
                                         name="official_title"
@@ -108,11 +108,11 @@ export default function EditMovieDialog({ movie, onClose, onUpdate }) {
                                         type="button"
                                         onClick={handleReidentify}
                                         disabled={isReidentifying}
-                                        className="px-6 bg-netflix-red text-white rounded-2xl hover:bg-white hover:text-netflix-red transition-all flex items-center gap-2 group shadow-lg active:scale-95 disabled:opacity-50"
+                                        className="w-full md:w-auto px-6 py-4 bg-netflix-red text-white rounded-2xl hover:bg-white hover:text-netflix-red transition-all flex items-center justify-center gap-2 group shadow-lg active:scale-95 disabled:opacity-50"
                                         title="Buscar en TMDB con este título"
                                     >
                                         {isReidentifying ? <RefreshCw className="animate-spin" size={18} /> : <Search size={18} className="group-hover:scale-110 transition-transform" />}
-                                        <span className="text-[10px] font-black uppercase">Re-Identificar</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Re-Identificar</span>
                                     </button>
                                 </div>
                             </div>
@@ -168,20 +168,20 @@ export default function EditMovieDialog({ movie, onClose, onUpdate }) {
                     </form>
                 </div>
 
-                <footer className="p-8 border-t border-white/5 bg-white/[0.02] flex gap-4">
+                <footer className="p-6 md:p-8 border-t border-white/5 bg-white/[0.02] flex flex-col md:flex-row gap-3 md:gap-4">
                     <button 
                         onClick={onClose}
-                        className="flex-1 py-5 bg-white/5 text-slate-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all font-black"
+                        className="w-full md:flex-1 py-4 md:py-5 bg-white/5 text-slate-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
                     >
                         Cancelar
                     </button>
                     <button 
                         onClick={handleSave}
                         disabled={isSaving}
-                        className="flex-1 py-5 bg-white text-black rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:bg-neutral-200 transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
+                        className="w-full md:flex-1 py-4 md:py-5 bg-white text-black rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:bg-neutral-200 transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
                     >
                         {isSaving ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} strokeWidth={2.5} />}
-                        {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+                        <span>{isSaving ? 'Guardando...' : 'Guardar Cambios'}</span>
                     </button>
                 </footer>
             </div>
