@@ -1223,19 +1223,33 @@ app.post('/api/admin/refresh-all-metadata', sessionMiddleware, adminMiddleware, 
         (async () => {
             for (const movie of movies) {
                 try {
-                    // Only fetch if missing or explicit refresh requested
-                    const title = movie.official_title || movie.detected_title;
+                    const localTitle = movie.official_title || movie.detected_title;
                     const year = movie.detected_year;
                     
-                    if (title) {
-                        const omdbDetails = await tmdb.getOMDbDetails(title, year);
+                    if (localTitle) {
+                        // 1. Try to find the English/Original title via TMDb if we don't have it
+                        // This helps OMDb find the movie much more reliably
+                        let fallbackTitle = null;
+                        try {
+                            const tmdbMatch = await tmdb.searchMovie(localTitle, year);
+                            if (tmdbMatch) {
+                                fallbackTitle = tmdbMatch.original_title;
+                                // If it's the same, don't bother
+                                if (fallbackTitle === localTitle) fallbackTitle = null;
+                            }
+                        } catch (tmdbErr) {
+                            console.warn(`[Metadata Refresh] TMDb lookup failed for ${localTitle}:`, tmdbErr.message);
+                        }
+
+                        // 2. Fetch from OMDb (with fallback support)
+                        const omdbDetails = await tmdb.getOMDbDetails(localTitle, year, fallbackTitle);
                         if (omdbDetails) {
                             await db.updateMovie(movie.id, omdbDetails);
-                            console.log(`[Metadata Refresh] Updated ratings for: "${title}"`);
+                            console.log(`[Metadata Refresh] Updated ratings for: "${localTitle}" ${fallbackTitle ? `(via ${fallbackTitle})` : ''}`);
                         }
                     }
-                    // Throttling to avoid OMDb rate limits (if any)
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    // Throttling to avoid rate limits
+                    await new Promise(resolve => setTimeout(resolve, 800));
                 } catch (err) {
                     console.error(`[Metadata Refresh] Error on movie ${movie.id}:`, err.message);
                 }

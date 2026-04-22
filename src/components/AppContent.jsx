@@ -525,8 +525,8 @@ export default function AppContent() {
             <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-netflix-red/5 blur-[150px] rounded-full translate-x-1/2 -translate-y-1/2 pointer-events-none -z-10"></div>
 
             {!detailMovie && !playingMovie && (
-                <div className="lg:hidden fixed bottom-6 left-6 right-6 z-[150] safe-bottom animate-in slide-in-from-bottom-6 duration-700">
-                    <div className="glass shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 rounded-[2rem] px-6 py-4 flex items-center justify-around gap-2 backdrop-blur-2xl">
+                <div className="lg:hidden fixed bottom-6 left-6 right-6 z-[150] safe-bottom animate-in slide-in-from-bottom-6 duration-700 pointer-events-none">
+                    <div className="glass shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 rounded-[2rem] px-6 py-4 flex items-center justify-around gap-2 backdrop-blur-2xl pointer-events-auto">
                         <button 
                             onClick={() => { setActiveTab('library'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                             className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'library' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}

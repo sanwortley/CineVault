@@ -272,7 +272,7 @@ export default function ExplorePage() {
                             <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Catálogo Internacional</h2>
                             {isSearching && <Loader className="animate-spin text-netflix-red" size={20} />}
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
+                        <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 md:gap-8 pb-32">
                             {searchResults.map(movie => (
                                 <MovieCard key={movie.id} movie={movie} onClick={() => openMovieModal(movie)} />
                             ))}
@@ -284,7 +284,7 @@ export default function ExplorePage() {
                             <TrendingUp className="text-netflix-red" size={24} />
                             <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Lo más visto esta semana</h2>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
+                        <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 md:gap-8 pb-32">
                             {trending.map(movie => (
                                 <MovieCard key={movie.id} movie={movie} onClick={() => openMovieModal(movie)} />
                             ))}
@@ -301,7 +301,7 @@ export default function ExplorePage() {
                             initial={{ opacity: 0, scale: 0.9, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="bg-[#111] border border-white/10 rounded-[2rem] max-w-5xl w-full h-[95vh] md:h-auto md:max-h-[85vh] overflow-hidden flex flex-col md:flex-row relative shadow-2xl"
+                            className="bg-[#111] border border-white/10 rounded-none md:rounded-[2rem] max-w-5xl w-full h-full md:h-auto md:max-h-[85vh] overflow-hidden flex flex-col md:flex-row relative shadow-2xl"
                         >
                             <button 
                                 onClick={() => setSelectedMovie(null)}

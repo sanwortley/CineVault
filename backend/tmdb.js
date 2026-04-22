@@ -41,6 +41,7 @@ async function getMovieDetails(movieId) {
         const data = response.data;
         return {
             official_title: data.title,
+            original_title: data.original_title,
             overview: data.overview,
             poster_url: data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : null,
             backdrop_url: data.backdrop_path ? `https://image.tmdb.org/t/p/original${data.backdrop_path}` : null,
@@ -57,43 +58,57 @@ async function getMovieDetails(movieId) {
     }
 }
 
-async function getOMDbDetails(title, year = null) {
+async function getOMDbDetails(title, year = null, fallbackTitle = null) {
     const OMDB_API_KEY = process.env.OMDB_API_KEY;
     if (!OMDB_API_KEY) {
         console.log('[OMDb] Missing API Key, skipping ratings.');
         return null;
     }
 
-    try {
-        console.log(`[OMDb] Fetching ratings for: "${title}" (${year || 'N/A'})...`);
-        const response = await axios.get(`http://www.omdbapi.com/`, {
-            params: {
-                apikey: OMDB_API_KEY,
-                t: title,
-                y: year
-            }
-        });
+    const tryFetch = async (queryTitle) => {
+        try {
+            console.log(`[OMDb] Fetching ratings for: "${queryTitle}" (${year || 'N/A'})...`);
+            const response = await axios.get(`http://www.omdbapi.com/`, {
+                params: {
+                    apikey: OMDB_API_KEY,
+                    t: queryTitle,
+                    y: year
+                }
+            });
 
-        if (response.data.Response === 'False') {
-            console.log(`[OMDb] No match found for "${title}":`, response.data.Error);
+            if (response.data.Response === 'False') {
+                console.log(`[OMDb] No match found for "${queryTitle}":`, response.data.Error);
+                return null;
+            }
+
+            const rtRating = response.data.Ratings?.find(r => r.Source === 'Rotten Tomatoes')?.Value;
+            const metaRating = response.data.Ratings?.find(r => r.Source === 'Metacritic')?.Value;
+            const imdbRating = response.data.imdbRating;
+
+            console.log(`[OMDb] Success! RT: ${rtRating || 'N/A'}, Metascore: ${metaRating || 'N/A'}`);
+
+            return {
+                rt_rating: rtRating,
+                metascore: metaRating,
+                imdb_rating: imdbRating
+            };
+        } catch (error) {
+            if (error.response && error.response.status === 401) {
+                console.error('[OMDb] ERROR: API Key inválida o no activada. Por favor, revisa tu email y haz clic en el enlace de activación.');
+            } else {
+                console.error(`[OMDb] Error for "${queryTitle}":`, error.message);
+            }
             return null;
         }
+    };
 
-        const rtRating = response.data.Ratings?.find(r => r.Source === 'Rotten Tomatoes')?.Value;
-        const metaRating = response.data.Ratings?.find(r => r.Source === 'Metacritic')?.Value;
-        const imdbRating = response.data.imdbRating;
-
-        console.log(`[OMDb] Success! RT: ${rtRating || 'N/A'}, Metascore: ${metaRating || 'N/A'}`);
-
-        return {
-            rt_rating: rtRating,
-            metascore: metaRating,
-            imdb_rating: imdbRating
-        };
-    } catch (error) {
-        console.error('[OMDb] Error:', error.message);
-        return null;
+    let result = await tryFetch(title);
+    if (!result && fallbackTitle && fallbackTitle !== title) {
+        console.log(`[OMDb] Retrying with fallback title: "${fallbackTitle}"`);
+        result = await tryFetch(fallbackTitle);
     }
+
+    return result;
 }
 
 module.exports = { searchMovie, getMovieDetails, getOMDbDetails };

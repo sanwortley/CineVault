@@ -106,7 +106,11 @@ router.post('/download', adminMiddleware, async (req, res) => {
         let omdbDetails = {};
         try {
             const { getOMDbDetails } = require('./tmdb');
-            const ratings = await getOMDbDetails(finalOfficialTitle, year || tmdbDetails?.release_date?.substring(0, 4));
+            const ratings = await getOMDbDetails(
+                finalOfficialTitle, 
+                year || tmdbDetails?.release_date?.substring(0, 4),
+                tmdbDetails?.original_title // Pass English title as fallback
+            );
             if (ratings) omdbDetails = ratings;
         } catch (omdbErr) {
             console.warn('[Discover] OMDb fetch failed:', omdbErr.message);

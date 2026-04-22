@@ -52,7 +52,7 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }
             ></div>
 
             {/* Modal Content */}
-            <div className="relative w-full max-w-5xl max-h-[90vh] glass-card overflow-hidden shadow-2xl rounded-3xl flex flex-col md:flex-row animate-in slide-in-from-bottom-8 duration-500">
+            <div className="relative w-full md:max-w-5xl h-full md:h-auto md:max-h-[90vh] glass-card overflow-hidden shadow-2xl rounded-none md:rounded-3xl flex flex-col md:flex-row animate-in slide-in-from-bottom-8 duration-500">
                 {/* Close Button */}
                 <button 
                     onClick={onClose}
@@ -78,7 +78,7 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }
                 </div>
 
                 {/* Right Side: Details */}
-                <div className="flex-1 overflow-y-auto bg-slate-950/40 p-8 md:p-12 text-white">
+                <div className="flex-1 overflow-y-auto bg-slate-950/40 p-6 md:p-12 pb-32 md:pb-12 text-white">
                     {/* Header Info */}
                     <div className="space-y-4 mb-8">
                         <div className="flex flex-wrap items-center gap-3">
