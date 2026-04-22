@@ -34,6 +34,7 @@ export default function AppContent() {
     const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
     const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
     const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
+    const [gallerySeed, setGallerySeed] = useState(Math.floor(Math.random() * 1000));
     const [isScanning, setIsScanning] = useState(false);
     const [search, setSearch] = useState('');
     const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -562,47 +563,62 @@ export default function AppContent() {
                                     <h2 className="text-3xl font-black text-white tracking-tighter mb-1">Tu Avatar</h2>
                                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] opacity-60">Personaliza tu identidad en CineVault</p>
                                 </div>
-                                <button 
-                                    onClick={() => setIsAvatarPickerOpen(false)}
-                                    className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-400 hover:text-white transition-all"
-                                >
-                                    <RefreshCw size={20} />
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button 
+                                        onClick={() => setGallerySeed(Math.floor(Math.random() * 10000))}
+                                        className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-400 hover:text-white transition-all flex items-center gap-2 group"
+                                        title="Generar nuevas opciones"
+                                    >
+                                        <RefreshCw size={18} className="group-active:rotate-180 transition-transform duration-500" />
+                                        <span className="text-[9px] font-black uppercase tracking-widest hidden sm:block">Refrescar</span>
+                                    </button>
+                                    <button 
+                                        onClick={() => setIsAvatarPickerOpen(false)}
+                                        className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-400 hover:text-white transition-all"
+                                    >
+                                        <X size={20} />
+                                    </button>
+                                </div>
                             </div>
 
-                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 h-[400px] overflow-y-auto no-scrollbar pr-2">
+                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 h-[420px] overflow-y-auto no-scrollbar pr-2 p-1">
                                 {[
                                     'adventurer', 'avataaars', 'bottts', 'fun-emoji', 
-                                    'lorelei', 'miniavs', 'personas', 'pixel-art'
-                                ].map((style) => (
-                                    [1, 2, 3, 4].map((i) => {
-                                        const seed = `${user?.id}-${style}-${i}`;
-                                        const url = `https://api.dicebear.com/7.x/${style}/svg?seed=${seed}`;
-                                        return (
-                                            <button
-                                                key={`${style}-${i}`}
-                                                disabled={isUpdatingAvatar}
-                                                onClick={async () => {
-                                                    setIsUpdatingAvatar(true);
-                                                    try {
-                                                        await updateUserMetadata({ avatar_url: url });
-                                                        setIsAvatarPickerOpen(false);
-                                                    } catch (err) {
-                                                        console.error('Error al actualizar avatar:', err);
-                                                    } finally {
-                                                        setIsUpdatingAvatar(false);
-                                                    }
-                                                }}
-                                                className="aspect-square rounded-2xl md:rounded-3xl bg-white/5 border border-white/10 overflow-hidden hover:border-netflix-red hover:bg-white/10 transition-all group relative active:scale-90"
-                                            >
-                                                <img src={url} alt={style} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                                                <div className="absolute inset-0 bg-netflix-red/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                    <Check size={24} className="text-white" strokeWidth={3} />
-                                                </div>
-                                            </button>
-                                        );
-                                    })
-                                ))}
+                                    'lorelei', 'miniavs', 'personas', 'pixel-art',
+                                    'big-smile', 'croodles', 'notionists', 'notionists-neutral', 
+                                    'open-peeps', 'shapes', 'thumbs'
+                                ].flatMap(style => [1, 2, 3].map(i => ({ style, i }))).map(({ style, i }) => {
+                                    const seed = `${user?.id}-${style}-${i}-${gallerySeed}`;
+                                    const url = `https://api.dicebear.com/7.x/${style}/svg?seed=${seed}`;
+                                    return (
+                                        <button
+                                            key={`${style}-${i}-${gallerySeed}`}
+                                            disabled={isUpdatingAvatar}
+                                            onClick={async () => {
+                                                setIsUpdatingAvatar(true);
+                                                try {
+                                                    await updateUserMetadata({ avatar_url: url });
+                                                    setIsAvatarPickerOpen(false);
+                                                } catch (err) {
+                                                    console.error('Error al actualizar avatar:', err);
+                                                } finally {
+                                                    setIsUpdatingAvatar(false);
+                                                }
+                                            }}
+                                            className="aspect-square rounded-[1.5rem] md:rounded-[2rem] bg-zinc-800/50 border border-white/5 overflow-hidden hover:border-netflix-red hover:bg-white/5 transition-all group relative active:scale-90 shadow-lg"
+                                        >
+                                            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                            <img 
+                                                src={url} 
+                                                alt={style} 
+                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 p-1 md:p-2" 
+                                            />
+                                            <div className="absolute inset-0 bg-netflix-red/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
+                                                <Check size={28} className="text-white drop-shadow-lg" strokeWidth={3} />
+                                            </div>
+                                        </button>
+                                    );
+                                })}
                             </div>
 
                             {isUpdatingAvatar && (
