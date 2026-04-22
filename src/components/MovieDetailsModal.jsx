@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Star, Calendar, Clock, User, Users, Play, Cloud, Plus, Check, Trash2, Edit3 } from 'lucide-react';
+import { X, Star, Calendar, Clock, User, Users, Play, Cloud, Plus, Check, Trash2, Edit3, Loader, CheckCircle2, Shield, Download, TrendingUp } from 'lucide-react';
 import { useUploadQueue } from '../context/UploadQueueContext';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
@@ -41,6 +41,77 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }
 
     const { queue, addToQueue } = useUploadQueue();
     const isInQueue = queue.some(item => String(item.id) === String(selectedVersion.id));
+
+    // Catalog/Discovery State
+    const [torrents, setTorrents] = React.useState([]);
+    const [isFetchingTorrents, setIsFetchingTorrents] = React.useState(false);
+    const [isRequesting, setIsRequesting] = React.useState(false);
+    const [requestSuccess, setRequestSuccess] = React.useState(false);
+    const [downloadingMovieId, setDownloadingMovieId] = React.useState(null);
+
+    const isLibraryMovie = !!movie.file_path;
+
+    // Fetch torrents for admins if it's a catalog movie
+    React.useEffect(() => {
+        if (!isLibraryMovie && isAdmin() && movie) {
+            const fetchTorrents = async () => {
+                setIsFetchingTorrents(true);
+                try {
+                    const data = await api.findTorrents(movie.official_title || movie.title);
+                    setTorrents(data);
+                } catch (err) {
+                    console.error('Error fetching torrents:', err);
+                } finally {
+                    setIsFetchingTorrents(false);
+                }
+            };
+            fetchTorrents();
+        }
+    }, [isLibraryMovie, movie, isAdmin()]);
+
+    const handleRequestMovie = async (m) => {
+        if (isRequesting || requestSuccess) return;
+        setIsRequesting(true);
+        try {
+            await api.addRequest({
+                tmdb_id: m.tmdb_id || m.id,
+                title: m.official_title || m.title,
+                year: m.detected_year || m.release_date?.substring(0, 4),
+                poster_url: m.poster_url || (m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : null)
+            });
+            setRequestSuccess(true);
+        } catch (err) {
+            alert('Error al solicitar: ' + err.message);
+        } finally {
+            setIsRequesting(false);
+        }
+    };
+
+    const handleDownload = async (torrent) => {
+        if (!isAdmin()) return;
+        setDownloadingMovieId(movie.id);
+        try {
+            const result = await api.downloadMovie(
+                movie.id, 
+                movie.official_title || movie.title, 
+                torrent.link,
+                movie.detected_year || movie.release_date?.substring(0, 4) || new Date().getFullYear().toString(),
+                { isPage: torrent.isPage, isHash: torrent.isHash }
+            );
+
+            const registeredMovieId = result?.movieId || movie.id;
+            addToQueue({ 
+                id: registeredMovieId, 
+                official_title: movie.official_title || movie.title,
+                _directQueue: true 
+            });
+            onClose();
+        } catch (err) {
+            alert('Error al iniciar la descarga: ' + err.message);
+        } finally {
+            setDownloadingMovieId(null);
+        }
+    };
 
 
     return (
@@ -149,7 +220,7 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }
                     </div>
 
                     {/* Cloud Status Banner */}
-                    {!drive_file_id && (
+                    {isLibraryMovie && !drive_file_id && (
                         <div className="mb-6 p-4 rounded-xl bg-orange-500/10 border border-orange-500/20 flex gap-4 animate-in fade-in duration-500">
                             <Cloud size={24} className="text-orange-500 shrink-0 mt-0.5 animate-pulse" />
                             <div>
@@ -189,69 +260,133 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }
                     )}
 
                     {/* Action Buttons */}
-                    <div className="flex flex-col gap-4 md:gap-6">
-                        {/* Primary Action */}
-                        <button 
-                            onClick={() => { onPlay(selectedVersion); onClose(); }}
-                            className="w-full md:w-auto px-8 py-5 bg-white text-black rounded-[2rem] font-black flex items-center justify-center md:justify-start gap-3 hover:bg-zinc-200 transition-all duration-300 transform hover:scale-[1.02] active:scale-95 shadow-2xl shadow-white/5 group"
-                        >
-                            <Play size={24} fill="currentColor" className="group-hover:scale-110 transition-transform" /> 
-                            <span className="text-lg md:text-xl">REPRODUCIR {versions.length > 1 ? detectVersionInfo(selectedVersion).lang : 'AHORA'}</span>
-                        </button>
+                    <div className="flex flex-col gap-4 md:gap-6 mt-8">
+                        {isLibraryMovie ? (
+                            <>
+                                {/* Primary Play Action */}
+                                {drive_file_id && (
+                                    <button 
+                                        onClick={() => { onPlay(selectedVersion); onClose(); }}
+                                        className="w-full md:w-auto px-8 py-5 bg-white text-black rounded-[2rem] font-black flex items-center justify-center md:justify-start gap-3 hover:bg-zinc-200 transition-all duration-300 transform hover:scale-[1.02] active:scale-95 shadow-2xl shadow-white/5 group"
+                                    >
+                                        <Play size={24} fill="currentColor" className="group-hover:scale-110 transition-transform" /> 
+                                        <span className="text-lg md:text-xl">REPRODUCIR {versions.length > 1 ? detectVersionInfo(selectedVersion).lang : 'AHORA'}</span>
+                                    </button>
+                                )}
 
-                        <div className="grid grid-cols-2 md:flex md:flex-wrap gap-3 md:gap-4">
-                            <button 
-                                onClick={() => toggleMyList(movie)}
-                                className={`px-4 md:px-8 py-4 border rounded-2xl font-bold flex items-center justify-center gap-3 transition-all duration-300 transform hover:scale-105 active:scale-95 text-[10px] md:text-sm tracking-tighter md:tracking-normal ${myList.some(m => m.id === movie.id) ? 'bg-netflix-red border-netflix-red text-white' : 'bg-slate-800/50 text-white border-white/10 hover:bg-slate-800'}`}
-                            >
-                                {myList.some(m => m.id === movie.id) ? <Check size={18} strokeWidth={3} /> : <Plus size={18} strokeWidth={3} />}
-                                <span>{myList.some(m => m.id === movie.id) ? 'EN MI LISTA' : 'MI LISTA'}</span>
-                            </button>
+                                <div className="grid grid-cols-2 md:flex md:flex-wrap gap-3 md:gap-4">
+                                    <button 
+                                        onClick={() => toggleMyList(movie)}
+                                        className={`px-4 md:px-8 py-4 border rounded-2xl font-bold flex items-center justify-center gap-3 transition-all duration-300 transform hover:scale-105 active:scale-95 text-[10px] md:text-sm tracking-tighter md:tracking-normal ${myList.some(m => m.id === movie.id) ? 'bg-netflix-red border-netflix-red text-white' : 'bg-slate-800/50 text-white border-white/10 hover:bg-slate-800'}`}
+                                    >
+                                        {myList.some(m => m.id === movie.id) ? <Check size={18} strokeWidth={3} /> : <Plus size={18} strokeWidth={3} />}
+                                        <span>{myList.some(m => m.id === movie.id) ? 'EN MI LISTA' : 'MI LISTA'}</span>
+                                    </button>
 
-                            {!drive_file_id && isAdmin() && (
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); if(!isInQueue) addToQueue(movie); onClose(); }}
-                                    disabled={isInQueue}
-                                    className={`px-4 md:px-8 py-4 bg-slate-800/50 text-white border border-white/10 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-slate-800 hover:border-cyan-500/50 hover:text-cyan-400 transform hover:scale-105 active:scale-95 text-[10px] md:text-sm ${isInQueue ? 'opacity-70 animate-pulse text-cyan-400' : ''}`}
-                                >
-                                    <Cloud size={18} className="text-cyan-400" /> 
-                                    <span>{isInQueue ? 'EN COLA...' : 'SUBIR'}</span>
-                                </button>
-                            )}
-                            
-                            {isAdmin() && (
-                                <button 
-                                    onClick={async () => {
-                                        if (window.confirm(`¿Estás seguro de que quieres eliminar "${title}"?`)) {
-                                            setIsDeleting(true);
-                                            try {
-                                                await api.deleteMovie(selectedVersion.id);
-                                                window.dispatchEvent(new Event('library-updated'));
-                                                onClose();
-                                            } catch (err) {
-                                                alert('Error al borrar: ' + err.message);
-                                                setIsDeleting(false);
-                                            }
-                                        }
-                                    }}
-                                    disabled={isDeleting}
-                                    className="px-4 md:px-8 py-4 bg-red-500/10 text-red-500 border border-red-500/20 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-red-500 hover:text-white transform hover:scale-105 active:scale-95 disabled:opacity-50 text-[10px] md:text-sm"
-                                >
-                                    <Trash2 size={18} className={isDeleting ? 'animate-spin' : ''} />
-                                    <span>{isDeleting ? 'BORRANDO' : 'ELIMINAR'}</span>
-                                </button>
-                            )}
+                                    {!drive_file_id && isAdmin() && (
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); if(!isInQueue) addToQueue(movie); onClose(); }}
+                                            disabled={isInQueue}
+                                            className={`px-4 md:px-8 py-4 bg-slate-800/50 text-white border border-white/10 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-slate-800 hover:border-cyan-500/50 hover:text-cyan-400 transform hover:scale-105 active:scale-95 text-[10px] md:text-sm ${isInQueue ? 'opacity-70 animate-pulse text-cyan-400' : ''}`}
+                                        >
+                                            <Cloud size={18} className="text-cyan-400" /> 
+                                            <span>{isInQueue ? 'EN COLA...' : 'SUBIR'}</span>
+                                        </button>
+                                    )}
+                                    
+                                    {isAdmin() && (
+                                        <button 
+                                            onClick={async () => {
+                                                if (window.confirm(`¿Estás seguro de que quieres eliminar "${title}"?`)) {
+                                                    setIsDeleting(true);
+                                                    try {
+                                                        await api.deleteMovie(selectedVersion.id);
+                                                        window.dispatchEvent(new Event('library-updated'));
+                                                        onClose();
+                                                    } catch (err) {
+                                                        alert('Error al borrar: ' + err.message);
+                                                        setIsDeleting(false);
+                                                    }
+                                                }
+                                            }}
+                                            disabled={isDeleting}
+                                            className="px-4 md:px-8 py-4 bg-red-500/10 text-red-500 border border-red-500/20 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-red-500 hover:text-white transform hover:scale-105 active:scale-95 disabled:opacity-50 text-[10px] md:text-sm"
+                                        >
+                                            <Trash2 size={18} className={isDeleting ? 'animate-spin' : ''} />
+                                            <span>{isDeleting ? 'BORRANDO' : 'ELIMINAR'}</span>
+                                        </button>
+                                    )}
 
-                            {isAdmin() && (
-                                <button 
-                                    onClick={() => setIsEditing(true)}
-                                    className="px-4 md:px-8 py-4 bg-white/10 text-white border border-white/20 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-white hover:text-black transform hover:scale-105 active:scale-95 text-[10px] md:text-sm"
-                                >
-                                    <Edit3 size={18} />
-                                    <span>EDITAR</span>
-                                </button>
-                            )}
-                        </div>
+                                    {isAdmin() && (
+                                        <button 
+                                            onClick={() => setIsEditing(true)}
+                                            className="px-4 md:px-8 py-4 bg-white/10 text-white border border-white/20 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all duration-300 hover:bg-white hover:text-black transform hover:scale-105 active:scale-95 text-[10px] md:text-sm"
+                                        >
+                                            <Edit3 size={18} />
+                                            <span>EDITAR</span>
+                                        </button>
+                                    )}
+                                </div>
+                            </>
+                        ) : (
+                            <div className="space-y-6">
+                                <h3 className="text-lg font-black text-white flex items-center gap-2">
+                                    <Shield size={18} className="text-netflix-red" />
+                                    {isAdmin() ? 'Opciones de Obtención (Dual Audio/HD)' : '¿No está en la Bóveda?'}
+                                </h3>
+
+                                {!isAdmin() ? (
+                                    <div className="p-8 border border-white/5 bg-white/[0.02] rounded-3xl text-center">
+                                        <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-6 px-4">
+                                            Esta película no se encuentra actualmente disponible en tu colección privada.
+                                        </p>
+                                        <button 
+                                            onClick={() => handleRequestMovie(movie)}
+                                            disabled={isRequesting || requestSuccess}
+                                            className={`w-full py-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${requestSuccess ? 'bg-green-500 text-white' : 'bg-white text-black hover:bg-netflix-red hover:text-white'}`}
+                                        >
+                                            {isRequesting ? <Loader className="animate-spin" size={14} /> : 
+                                             requestSuccess ? <CheckCircle2 size={14} /> : <Plus size={14} strokeWidth={3} />}
+                                            {requestSuccess ? '¡Solicitud enviada!' : 'Solicitar para la Bóveda'}
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {isFetchingTorrents ? (
+                                            <div className="p-8 flex flex-col items-center justify-center opacity-40">
+                                                <Loader className="animate-spin mb-4" size={32} />
+                                                <p className="text-[10px] font-black uppercase tracking-widest">Buscando el mejor torrent...</p>
+                                            </div>
+                                        ) : torrents.length === 0 ? (
+                                            <div className="p-8 border border-dashed border-white/10 rounded-3xl text-center opacity-40">
+                                                <p className="text-[10px] font-black uppercase tracking-widest">No se encontraron fuentes para esta película.</p>
+                                            </div>
+                                        ) : (
+                                            torrents.slice(0, 6).map((torrent, idx) => (
+                                                <button 
+                                                    key={idx}
+                                                    onClick={() => handleDownload(torrent)}
+                                                    disabled={downloadingMovieId === movie.id}
+                                                    className="w-full flex items-center justify-between p-4 bg-white/5 border border-white/5 hover:border-netflix-red/50 hover:bg-white/[0.08] rounded-2xl group transition-all"
+                                                >
+                                                    <div className="flex flex-col items-start gap-1">
+                                                        <span className="text-[11px] font-black text-white text-left truncate max-w-[250px] group-hover:text-netflix-red transition-colors">{torrent.title}</span>
+                                                        <div className="flex items-center gap-3 text-[9px] font-bold text-slate-500 uppercase">
+                                                            <span className="flex items-center gap-1 text-green-500"><Download size={10} /> {torrent.size}</span>
+                                                            <span className="flex items-center gap-1 text-blue-500"><TrendingUp size={10} /> {torrent.seeds} semillas</span>
+                                                            <span className="px-1.5 py-0.5 bg-white/5 rounded-md">{torrent.provider}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="p-3 bg-white/5 group-hover:bg-netflix-red rounded-xl text-white transition-all">
+                                                        <Plus size={18} />
+                                                    </div>
+                                                </button>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

@@ -14,27 +14,10 @@ export default function ExplorePage({ onInfoMovie, onPlayMovie }) {
     const [query, setQuery] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isSearching, setIsSearching] = useState(false);
-    const [selectedMovie, setSelectedMovie] = useState(null);
-    const [torrents, setTorrents] = useState([]);
-    const [isFetchingTorrents, setIsFetchingTorrents] = useState(false);
-    const [downloadingMovieId, setDownloadingMovieId] = useState(null);
     const [searchMode, setSearchMode] = useState('catalog'); // 'catalog' or 'global'
     const [globalResults, setGlobalResults] = useState([]);
     const [hasSearched, setHasSearched] = useState(false);
-    const [isRequesting, setIsRequesting] = useState(false);
-    const [requestSuccess, setRequestSuccess] = useState(false);
 
-    useEffect(() => {
-        if (selectedMovie) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = 'auto';
-        }
-        
-        return () => {
-            document.body.style.overflow = 'auto';
-        };
-    }, [selectedMovie]);
 
     useEffect(() => {
         const fetchTrending = async () => {
@@ -108,55 +91,6 @@ export default function ExplorePage({ onInfoMovie, onPlayMovie }) {
         onInfoMovie(mappedMovie);
     };
 
-    const handleDownload = async (torrent, customMovie = null) => {
-        const movie = customMovie || selectedMovie;
-        if (!movie || !isAdmin()) return;
-        
-        setDownloadingMovieId(movie.id);
-        try {
-            const result = await api.downloadMovie(
-                movie.id, 
-                movie.title || movie.original_title, 
-                torrent.link,
-                movie.release_date?.substring(0, 4) || new Date().getFullYear().toString(),
-                { isPage: torrent.isPage, isHash: torrent.isHash }
-            );
-
-            // Immediately register in the activity queue so the bell shows it right away
-            // The result contains the real movieId assigned by the backend
-            const registeredMovieId = result?.movieId || movie.id;
-            const movieTitle = movie.title || movie.original_title;
-            addToQueue({ 
-                id: registeredMovieId, 
-                official_title: movieTitle,
-                // These prevents UploadQueueContext from opening a file picker
-                _directQueue: true 
-            });
-
-            if (!customMovie) setSelectedMovie(null);
-        } catch (err) {
-            alert('Error al iniciar la descarga: ' + err.message);
-        } finally {
-            setDownloadingMovieId(null);
-        }
-    };
-
-    const handleRequestMovie = async (movie) => {
-        setIsRequesting(true);
-        try {
-            await api.submitMovieRequest({
-                tmdbId: movie.id,
-                title: movie.title,
-                posterPath: movie.poster_path
-            });
-            setRequestSuccess(true);
-            setTimeout(() => setRequestSuccess(false), 3000);
-        } catch (err) {
-            alert('Error al enviar solicitud: ' + err.message);
-        } finally {
-            setIsRequesting(false);
-        }
-    };
 
     if (isLoading) {
         return (
