@@ -123,6 +123,17 @@ function MovieCard({ movie, onPlay, onInfo, compact = false, myList = [], toggle
 
                 {/* Hover Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-2 sm:p-4 z-10">
+                    {/* Remove from Continue Watching - Now in top-left to avoid clipping */}
+                    {onHideProgress && userProgress[movie.id] && (
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); onHideProgress(movie.id); }}
+                            className="absolute top-2 left-2 p-1.5 bg-black/60 hover:bg-netflix-red text-white/80 hover:text-white rounded-full backdrop-blur-md border border-white/10 transition-all z-30 active:scale-90"
+                            title="Quitar de Continuar Viendo"
+                        >
+                            <X size={14} />
+                        </button>
+                    )}
+
                     <div className="flex items-center gap-1 sm:gap-1.5 mb-2 sm:mb-3">
                         <button 
                             onClick={handlePlay}
@@ -145,16 +156,6 @@ function MovieCard({ movie, onPlay, onInfo, compact = false, myList = [], toggle
                         >
                             <Info size={isMobile ? 14 : 16} />
                         </button>
-                            
-                            {onHideProgress && userProgress[movie.id] && !isMobile && (
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); onHideProgress(movie.id); }}
-                                    className="p-2 bg-netflix-black/80 text-white rounded-full hover:bg-netflix-red transition-all active:scale-95 border border-white/20"
-                                    title="Quitar de Continuar Viendo"
-                                >
-                                    <X size={16} />
-                                </button>
-                            )}
                             
                             {!drive_file_id && isAdmin() && (
                             <button 
