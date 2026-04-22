@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 
 function MovieCard({ movie, onPlay, onInfo, compact = false, myList = [], toggleMyList, userProgress = {}, onHideProgress }) {
     const { isAdmin } = useAuth();
+    const isMobile = typeof window !== 'undefined' && (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768);
     const {
         official_title,
         detected_title,
