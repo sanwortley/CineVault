@@ -39,6 +39,17 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const [subtitleCues, setSubtitleCues] = useState([]);
     const [subtitleOffset, setSubtitleOffset] = useState(0); // in seconds
     const [subQuotaReached, setSubQuotaReached] = useState(false);
+    
+    const [subtitleSettings, setSubtitleSettings] = useState(() => {
+        const stored = localStorage.getItem('cinevault_subtitle_settings');
+        return stored ? JSON.parse(stored) : { size: 'medium', color: 'white' };
+    });
+
+    const updateSubtitleSettings = (newSettings) => {
+        const updated = { ...subtitleSettings, ...newSettings };
+        setSubtitleSettings(updated);
+        localStorage.setItem('cinevault_subtitle_settings', JSON.stringify(updated));
+    };
     const controlsTimeoutRef = useRef(null);
     const fileInputRef = useRef(null);
     const [showVersionMenu, setShowVersionMenu] = useState(false);
@@ -782,9 +793,20 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             )}
 
             {currentSubtitle && (
-                <div className="absolute bottom-24 left-0 right-0 flex justify-center pointer-events-none px-4">
-                    <div className="bg-black/80 px-4 py-2 rounded-lg max-w-90 text-center">
-                        <p className="text-white text-lg md:text-xl font-medium">{currentSubtitle.text}</p>
+                <div className="absolute bottom-24 left-0 right-0 flex justify-center pointer-events-none px-4 z-[1001]">
+                    <div className="bg-black/80 px-4 py-2 rounded-lg max-w-[90%] text-center border border-white/5 backdrop-blur-md">
+                        <p className={`font-black tracking-tight drop-shadow-lg ${
+                            subtitleSettings.size === 'small' ? 'text-sm md:text-base' :
+                            subtitleSettings.size === 'large' ? 'text-2xl md:text-4xl' :
+                            subtitleSettings.size === 'extra' ? 'text-4xl md:text-6xl' :
+                            'text-lg md:text-2xl' // medium
+                        } ${
+                            subtitleSettings.color === 'yellow' ? 'text-yellow-400' :
+                            subtitleSettings.color === 'cyan' ? 'text-cyan-400' :
+                            'text-white'
+                        }`}>
+                            {currentSubtitle.text}
+                        </p>
                     </div>
                 </div>
             )}
@@ -1140,6 +1162,53 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                 >
                                     {isSearchingSubtitles ? 'Buscando...' : 'Buscar Online'}
                                 </button>
+
+                                <div className="space-y-4 pt-4 border-t border-white/10">
+                                    <div className="flex flex-col gap-3">
+                                        <span className="text-[10px] font-black uppercase text-white/30 tracking-widest text-center">Tamaño de Texto</span>
+                                        <div className="grid grid-cols-4 gap-1 p-1 bg-black/40 rounded-2xl border border-white/5">
+                                            {[
+                                                { id: 'small', label: 'T', size: 'text-[8px]' },
+                                                { id: 'medium', label: 'T', size: 'text-[10px]' },
+                                                { id: 'large', label: 'T', size: 'text-[13px]' },
+                                                { id: 'extra', label: 'T', size: 'text-[16px]' }
+                                            ].map((s) => (
+                                                <button
+                                                    key={s.id}
+                                                    onClick={() => updateSubtitleSettings({ size: s.id })}
+                                                    className={`py-2 rounded-xl flex items-center justify-center transition-all ${
+                                                        subtitleSettings.size === s.id 
+                                                        ? 'bg-white/10 text-white shadow-inner' 
+                                                        : 'text-white/30 hover:text-white/60'
+                                                    }`}
+                                                >
+                                                    <span className={`font-black ${s.size}`}>{s.label}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col gap-3">
+                                        <span className="text-[10px] font-black uppercase text-white/30 tracking-widest text-center">Color</span>
+                                        <div className="flex justify-center gap-4">
+                                            {[
+                                                { id: 'white', color: 'bg-white' },
+                                                { id: 'yellow', color: 'bg-yellow-400' },
+                                                { id: 'cyan', color: 'bg-cyan-500' }
+                                            ].map((c) => (
+                                                <button
+                                                    key={c.id}
+                                                    onClick={() => updateSubtitleSettings({ color: c.id })}
+                                                    className={`w-8 h-8 rounded-full border-2 transition-all ${
+                                                        subtitleSettings.color === c.id 
+                                                        ? 'border-white scale-125' 
+                                                        : 'border-white/10 scale-100 hover:scale-110'
+                                                    } ${c.color}`}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>
