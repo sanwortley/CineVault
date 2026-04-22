@@ -981,9 +981,14 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             {showControls && (
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-4 md:p-8">
                     <div className="flex flex-col gap-4 w-full">
-                        <div className="flex items-center justify-between text-white text-[10px] md:text-xs font-black uppercase tracking-widest opacity-60">
+                        <div className="flex items-center justify-between text-white text-[10px] md:text-xs font-black uppercase tracking-widest opacity-60 px-1">
                             <span>{formatTime(currentTime)}</span>
-                            <span>{duration === Infinity || duration === 0 ? (movie.runtime ? formatTime(movie.runtime * 60) : '--:--') : formatTime(duration)}</span>
+                            <span>
+                                {duration && duration !== Infinity 
+                                    ? `-${formatTime(Math.max(0, duration - currentTime))}`
+                                    : (movie.runtime ? `-${formatTime(Math.max(0, (movie.runtime * 60) - currentTime))}` : '--:--')
+                                }
+                            </span>
                         </div>
                         
                         {(() => {
