@@ -810,7 +810,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             )}
 
             {currentSubtitle && (
-                <div className="absolute bottom-24 left-0 right-0 flex justify-center pointer-events-none px-4 z-[1001]">
+                <div className={`absolute ${showControls ? 'bottom-32' : 'bottom-16'} left-0 right-0 flex justify-center pointer-events-none px-4 z-[1001] transition-all duration-300`}>
                     <div className="bg-black/80 px-4 py-2 rounded-lg max-w-[90%] text-center border border-white/5 backdrop-blur-md">
                         <p className={`font-black tracking-tight drop-shadow-lg ${
                             subtitleSettings.size === 'small' ? 'text-sm md:text-base' :
@@ -979,8 +979,8 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             )}
 
             {showControls && (
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-4 md:p-6">
-                    <div className="flex flex-col gap-4 max-w-6xl mx-auto w-full">
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-4 md:p-8">
+                    <div className="flex flex-col gap-4 w-full">
                         <div className="flex items-center justify-between text-white text-[10px] md:text-xs font-black uppercase tracking-widest opacity-60">
                             <span>{formatTime(currentTime)}</span>
                             <span>{duration === Infinity || duration === 0 ? (movie.runtime ? formatTime(movie.runtime * 60) : '--:--') : formatTime(duration)}</span>
@@ -1247,6 +1247,13 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                     }}
                 />
             )}
+            {/* Always visible progress bar at the very bottom */}
+            <div className="absolute bottom-0 left-0 right-0 h-1 md:h-1.5 bg-white/10 overflow-hidden z-[900]">
+                <div 
+                    className="h-full bg-netflix-red transition-all duration-200"
+                    style={{ width: `${(currentTime / (duration || movie.runtime * 60 || 1)) * 100}%` }}
+                />
+            </div>
         </div>
     );
 }

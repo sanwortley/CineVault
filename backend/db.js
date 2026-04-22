@@ -275,6 +275,38 @@ const database = {
         });
     },
     
+    // Global Config Persistence (using folders table as a hack for key-value store)
+    getGlobalConfig: async (key) => {
+        try {
+            const results = await supabaseFetch(`folders?folder_path=ilike.CONFIG:${key}:*&select=folder_path`);
+            if (results && results.length > 0) {
+                const prefix = `CONFIG:${key}:`;
+                return JSON.parse(results[0].folder_path.substring(prefix.length));
+            }
+        } catch (e) {
+            console.error(`[DB] getGlobalConfig error for ${key}:`, e.message);
+        }
+        return null;
+    },
+    setGlobalConfig: async (key, value) => {
+        try {
+            const prefix = `CONFIG:${key}:`;
+            const payload = prefix + JSON.stringify(value);
+            
+            // Delete existing
+            await supabaseFetch(`folders?folder_path=ilike.CONFIG:${key}:*`, { method: 'DELETE' });
+            
+            // Insert new
+            return await supabaseFetch('folders', {
+                method: 'POST',
+                body: JSON.stringify({ folder_path: payload }),
+                headers: { 'Prefer': 'resolution=merge-duplicates' }
+            });
+        } catch (e) {
+            console.error(`[DB] setGlobalConfig error for ${key}:`, e.message);
+        }
+    },
+    
     supabaseFetch: supabaseFetch
 };
 

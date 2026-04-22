@@ -227,7 +227,6 @@ export function AuthProvider({ children }) {
                     movie_id: movieId,
                     watched_duration: watchedDuration,
                     updated_at: new Date().toISOString()
-                    // Note: is_hidden will remain its previous value on conflict merge
                 })
             });
             

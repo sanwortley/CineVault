@@ -38,6 +38,34 @@ const { searchMovie, getMovieDetails } = require('./tmdb');
 const { scanDirectory } = require('./scanner');
 const { addMovie } = require('./db');
 
+// Load persistent config from DB on startup
+(async () => {
+    try {
+        // 1. OpenSubtitles
+        const osConfig = await db.getGlobalConfig('OS_CREDENTIALS');
+        if (osConfig) {
+            process.env.OS_USERNAME = osConfig.username || process.env.OS_USERNAME;
+            process.env.OS_PASSWORD = osConfig.password || process.env.OS_PASSWORD;
+        }
+
+        // 2. Real-Debrid
+        const rdConfig = await db.getGlobalConfig('RD_TOKEN');
+        if (rdConfig) {
+            process.env.REAL_DEBRID_API_TOKEN = rdConfig.token || process.env.REAL_DEBRID_API_TOKEN;
+        }
+
+        // 3. TMDB
+        const tmdbConfig = await db.getGlobalConfig('TMDB_KEY');
+        if (tmdbConfig) {
+            process.env.TMDB_API_KEY = tmdbConfig.key || process.env.TMDB_API_KEY;
+        }
+
+        console.log('[Server] Persistent configurations loaded from Database');
+    } catch (e) {
+        console.error('[Server] Failed to load config from DB:', e.message);
+    }
+})();
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 const isAdmin = (email) => email === (process.env.ADMIN_EMAIL || 'admin@cinevault.local');
@@ -1444,59 +1472,74 @@ app.get('/health', (req, res) => res.json({ status: 'ok', version: '1.0.0' }));
 
 // --- Config Management ---
 
-// --- Config Management ---
-app.get('/api/admin/config/rd-token', adminMiddleware, (req, res) => {
-    res.json({ token: process.env.REAL_DEBRID_API_TOKEN || '' });
+app.get('/api/admin/config/rd-token', sessionMiddleware, adminMiddleware, async (req, res) => {
+    const config = await db.getGlobalConfig('RD_TOKEN');
+    res.json({ token: config?.token || process.env.REAL_DEBRID_API_TOKEN || '' });
 });
 
-app.post('/api/admin/config/rd-token', adminMiddleware, (req, res) => {
-    const { token } = req.body;
-    if (!token) return res.status(400).json({ error: 'Token requerido' });
-    
-    // In a real app we'd save to DB, for now we update process.env and ideally the .env file
-    process.env.REAL_DEBRID_API_TOKEN = token;
-    
-    // Save to .env file for persistence
-    const fs = require('fs');
-    const path = require('path');
-    const envPath = path.resolve(__dirname, '../.env');
-    let envContent = '';
-    if (fs.existsSync(envPath)) {
-        envContent = fs.readFileSync(envPath, 'utf8');
-        if (envContent.includes('REAL_DEBRID_API_TOKEN=')) {
-            envContent = envContent.replace(/REAL_DEBRID_API_TOKEN=.*/, `REAL_DEBRID_API_TOKEN=${token}`);
-        } else {
-            envContent += `\nREAL_DEBRID_API_TOKEN=${token}`;
-        }
-    } else {
-        envContent = `REAL_DEBRID_API_TOKEN=${token}`;
-    }
-    fs.writeFileSync(envPath, envContent);
-    
-    res.json({ message: 'Token de Real-Debrid actualizado correctamente' });
-});
-
-// --- Config Management ---
-app.get('/api/admin/config/rd-token', sessionMiddleware, adminMiddleware, (req, res) => {
-    res.json({ token: process.env.REAL_DEBRID_API_TOKEN || '' });
-});
-
-app.post('/api/admin/config/rd-token', sessionMiddleware, adminMiddleware, (req, res) => {
+app.post('/api/admin/config/rd-token', sessionMiddleware, adminMiddleware, async (req, res) => {
     const { token } = req.body;
     if (!token) return res.status(400).json({ error: 'Token requerido' });
     process.env.REAL_DEBRID_API_TOKEN = token;
     
+    await db.setGlobalConfig('RD_TOKEN', { token });
+    
     const envPath = path.resolve(__dirname, '../.env');
     if (fs.existsSync(envPath)) {
-        let envContent = fs.readFileSync(envPath, 'utf8');
-        if (envContent.includes('REAL_DEBRID_API_TOKEN=')) {
-            envContent = envContent.replace(/REAL_DEBRID_API_TOKEN=.*/, `REAL_DEBRID_API_TOKEN=${token}`);
-        } else {
-            envContent += `\nREAL_DEBRID_API_TOKEN=${token}`;
-        }
-        fs.writeFileSync(envPath, envContent);
+        try {
+            let envContent = fs.readFileSync(envPath, 'utf8');
+            if (envContent.includes('REAL_DEBRID_API_TOKEN=')) {
+                envContent = envContent.replace(/REAL_DEBRID_API_TOKEN=.*/, `REAL_DEBRID_API_TOKEN=${token}`);
+            } else {
+                envContent += `\nREAL_DEBRID_API_TOKEN=${token}`;
+            }
+            fs.writeFileSync(envPath, envContent);
+        } catch (e) {}
     }
-    res.json({ message: 'Token de Real-Debrid actualizado' });
+    res.json({ message: 'Token de Real-Debrid actualizado y persistido' });
+});
+
+app.get('/api/admin/config/os-credentials', sessionMiddleware, adminMiddleware, async (req, res) => {
+    const config = await db.getGlobalConfig('OS_CREDENTIALS');
+    res.json({ 
+        username: config?.username || process.env.OS_USERNAME || '',
+        password: config?.password || process.env.OS_PASSWORD || ''
+    });
+});
+
+app.post('/api/admin/config/os-credentials', sessionMiddleware, adminMiddleware, async (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
+    
+    process.env.OS_USERNAME = username;
+    process.env.OS_PASSWORD = password;
+    
+    // Save to DB for persistence across deploys
+    await db.setGlobalConfig('OS_CREDENTIALS', { username, password });
+    
+    // Also save to .env if exists for local dev
+    const envPath = path.resolve(__dirname, '../.env');
+    if (fs.existsSync(envPath)) {
+        try {
+            let envContent = fs.readFileSync(envPath, 'utf8');
+            const updates = {
+                'OS_USERNAME': username,
+                'OS_PASSWORD': password
+            };
+            
+            Object.entries(updates).forEach(([key, val]) => {
+                if (envContent.includes(`${key}=`)) {
+                    envContent = envContent.replace(new RegExp(`${key}=.*`), `${key}=${val}`);
+                } else {
+                    envContent += `\n${key}=${val}`;
+                }
+            });
+            fs.writeFileSync(envPath, envContent);
+        } catch (e) {
+            console.warn('[Server] Failed to update .env file, but DB is updated:', e.message);
+        }
+    }
+    res.json({ message: 'Credenciales de OpenSubtitles actualizadas y persistidas' });
 });
 
 app.get('/api/admin/config/tmdb-key', sessionMiddleware, adminMiddleware, (req, res) => {
@@ -1521,39 +1564,6 @@ app.post('/api/admin/config/tmdb-key', sessionMiddleware, adminMiddleware, (req,
     res.json({ message: 'API Key de TMDB actualizada' });
 });
 
-app.get('/api/admin/config/os-credentials', sessionMiddleware, adminMiddleware, (req, res) => {
-    res.json({ 
-        username: process.env.OS_USERNAME || '',
-        password: process.env.OS_PASSWORD ? '********' : '' 
-    });
-});
-
-app.post('/api/admin/config/os-credentials', sessionMiddleware, adminMiddleware, (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
-    
-    process.env.OS_USERNAME = username;
-    process.env.OS_PASSWORD = password;
-    
-    const envPath = path.resolve(__dirname, '../.env');
-    if (fs.existsSync(envPath)) {
-        let envContent = fs.readFileSync(envPath, 'utf8');
-        const updates = {
-            'OS_USERNAME': username,
-            'OS_PASSWORD': password
-        };
-        
-        Object.entries(updates).forEach(([key, val]) => {
-            if (envContent.includes(`${key}=`)) {
-                envContent = envContent.replace(new RegExp(`${key}=.*`), `${key}=${val}`);
-            } else {
-                envContent += `\n${key}=${val}`;
-            }
-        });
-        fs.writeFileSync(envPath, envContent);
-    }
-    res.json({ message: 'Credenciales de OpenSubtitles actualizadas' });
-});
 
 // --- Movie Requests ---
 
