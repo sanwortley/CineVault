@@ -144,7 +144,7 @@ function SettingsPage({ onClose, onTabChange }) {
                     <div className="w-12 h-[3px] bg-netflix-red rounded-full hidden md:block"></div>
                     <span className="text-[10px] md:text-[12px] font-black uppercase tracking-[0.5em] text-white/90 glow-text">CineVault Control Center</span>
                 </div>
-                <h1 className="text-5xl md:text-8xl font-black tracking-tighter text-white mb-6 leading-none select-none">
+                <h1 className="text-3xl md:text-8xl font-black tracking-tighter text-white mb-6 leading-none select-none">
                     <span className="bg-clip-text text-transparent bg-gradient-to-br from-white via-slate-200 to-slate-500">Configuración</span>
                 </h1>
                 <p className="text-slate-500 text-[10px] md:text-base font-bold tracking-widest uppercase opacity-60">Personaliza y potencia tu experiencia cinematográfica de élite.</p>
@@ -240,7 +240,7 @@ function SettingsPage({ onClose, onTabChange }) {
                                         <ShieldCheck className="text-netflix-red" size={40} />
                                     </div>
                                     <div>
-                                        <h3 className="text-4xl font-black text-white tracking-tighter uppercase italic">TMDb Engine</h3>
+                                        <h3 className="text-2xl md:text-4xl font-black text-white tracking-tighter uppercase italic">TMDb Engine</h3>
                                         <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Sincronización de Cartelería y Arte</p>
                                     </div>
                                 </div>
@@ -279,7 +279,7 @@ function SettingsPage({ onClose, onTabChange }) {
                                             <Cloud className="text-netflix-red" size={40} />
                                         </div>
                                         <div>
-                                            <h3 className="text-4xl font-black text-white tracking-tighter uppercase italic">Bóveda Cloud</h3>
+                                            <h3 className="text-2xl md:text-4xl font-black text-white tracking-tighter uppercase italic">Bóveda Cloud</h3>
                                             <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Real-Debrid Premium Integration</p>
                                         </div>
                                     </div>
@@ -330,7 +330,7 @@ function SettingsPage({ onClose, onTabChange }) {
                                             <Subtitles className="text-netflix-red" size={40} />
                                         </div>
                                         <div>
-                                            <h3 className="text-4xl font-black text-white tracking-tighter uppercase italic">OpenSubtitles VIP</h3>
+                                            <h3 className="text-2xl md:text-4xl font-black text-white tracking-tighter uppercase italic">OpenSubtitles VIP</h3>
                                             <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Elimina los límites de descarga 5/día</p>
                                         </div>
                                     </div>
@@ -385,7 +385,7 @@ function SettingsPage({ onClose, onTabChange }) {
                                             <Cloud className="text-netflix-red" size={40} />
                                         </div>
                                         <div>
-                                            <h3 className="text-4xl font-black text-white tracking-tighter uppercase italic">Estado de Colas</h3>
+                                            <h3 className="text-2xl md:text-4xl font-black text-white tracking-tighter uppercase italic">Estado de Colas</h3>
                                             <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Trasmisiones en segundo plano y subidas</p>
                                         </div>
                                     </div>
@@ -463,7 +463,7 @@ function SettingsPage({ onClose, onTabChange }) {
                                                 <Database className="text-orange-500" size={40} />
                                             </div>
                                             <div>
-                                                <h3 className="text-4xl font-black text-white tracking-tighter uppercase italic">Panel de Restauración</h3>
+                                                <h3 className="text-2xl md:text-4xl font-black text-white tracking-tighter uppercase italic">Panel de Restauración</h3>
                                                 <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Huéspedes detectados (pendientes en DB pero no en cola)</p>
                                             </div>
                                         </div>

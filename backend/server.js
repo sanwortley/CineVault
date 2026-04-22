@@ -42,6 +42,12 @@ const PORT = process.env.PORT || 3001;
 const isAdmin = (email) => email === (process.env.ADMIN_EMAIL || 'admin@cinevault.local');
 const { sessionMiddleware, adminMiddleware } = require('./middleware');
 
+// Cache for OpenSubtitles tokens
+let osTokenCache = {
+    token: null,
+    expiresAt: 0
+};
+
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(cors({
     origin: true, 
@@ -723,21 +729,29 @@ app.post('/api/subtitles/download', async (req, res) => {
         const osUser = process.env.OS_USERNAME;
         const osPass = process.env.OS_PASSWORD;
         if (osUser && osPass) {
-            try {
-                const loginRes = await fetch('https://api.opensubtitles.com/api/v1/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'User-Agent': 'CineVault v1.0', 'Api-Key': apiKey },
-                    body: JSON.stringify({ username: osUser, password: osPass })
-                });
-                if (loginRes.ok) {
-                    const loginData = await loginRes.json();
-                    if (loginData.token) {
-                        headers['Authorization'] = `Bearer ${loginData.token}`;
-                        console.log('[Subtitles] VIP authenticated for download');
+            // Check cache first (valid for 2 hours)
+            if (osTokenCache.token && osTokenCache.expiresAt > Date.now()) {
+                headers['Authorization'] = `Bearer ${osTokenCache.token}`;
+                console.log('[Subtitles] Using cached VIP token');
+            } else {
+                try {
+                    const loginRes = await fetch('https://api.opensubtitles.com/api/v1/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'User-Agent': 'CineVault v1.0', 'Api-Key': apiKey },
+                        body: JSON.stringify({ username: osUser, password: osPass })
+                    });
+                    if (loginRes.ok) {
+                        const loginData = await loginRes.json();
+                        if (loginData.token) {
+                            osTokenCache.token = loginData.token;
+                            osTokenCache.expiresAt = Date.now() + (2 * 60 * 60 * 1000); // 2 hours
+                            headers['Authorization'] = `Bearer ${loginData.token}`;
+                            console.log('[Subtitles] VIP authenticated and token cached');
+                        }
                     }
+                } catch (loginErr) {
+                    console.warn('[Subtitles] VIP Login failed, falling back to guest:', loginErr.message);
                 }
-            } catch (loginErr) {
-                console.warn('[Subtitles] VIP Login failed, falling back to guest:', loginErr.message);
             }
         }
 
