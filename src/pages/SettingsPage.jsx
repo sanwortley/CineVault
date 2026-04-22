@@ -11,6 +11,8 @@ function SettingsPage({ onClose, onTabChange }) {
     const [folders, setFolders] = useState([]);
     const [apiKey, setApiKey] = useState('');
     const [isSaved, setIsSaved] = useState(false);
+    const [omdbKey, setOmdbKey] = useState('');
+    const [isOMDBSaved, setIsOMDBSaved] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
     const [isDriveConnected, setIsDriveConnected] = useState(false);
     const [rdToken, setRdToken] = useState('');
@@ -41,6 +43,9 @@ function SettingsPage({ onClose, onTabChange }) {
 
             const key = await api.getTMDBKey();
             if (key) { setApiKey(key); setIsSaved(true); }
+
+            const oKey = await api.getOMDbKey();
+            if (oKey) { setOmdbKey(oKey); setIsOMDBSaved(true); }
 
             const connected = await api.checkDriveAuth();
             setIsDriveConnected(connected);
@@ -115,6 +120,16 @@ function SettingsPage({ onClose, onTabChange }) {
             setTimeout(() => setIsSaved(false), 3000);
         } catch (error) {
             alert('Error al guardar la API Key');
+        }
+    };
+
+    const handleSaveOMDbKey = async () => {
+        try {
+            await api.saveOMDbKey(omdbKey);
+            setIsOMDBSaved(true);
+            setTimeout(() => setIsOMDBSaved(false), 3000);
+        } catch (error) {
+            alert('Error al guardar la OMDb API Key');
         }
     };
     const handleSaveRDToken = async () => {
@@ -263,6 +278,45 @@ function SettingsPage({ onClose, onTabChange }) {
                                         </button>
                                     </div>
                                     <p className="text-[11px] text-slate-600 font-bold uppercase tracking-[0.2em] px-4">Necesario para descargar posters y sinopsis automáticamente</p>
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* OMDb Metadatos (Rotten Tomatoes) */}
+                        <section className="glass rounded-[3rem] p-8 md:p-14 border border-white/5 relative overflow-hidden group">
+                           <div className="absolute top-0 right-0 p-12 opacity-[0.02] group-hover:opacity-[0.05] transition-opacity -rotate-12">
+                                <Database size={300} strokeWidth={1} />
+                            </div>
+                            
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-8 mb-12">
+                                    <div className="p-6 bg-yellow-500/10 rounded-[2rem] border border-yellow-500/20 shadow-inner">
+                                        <Database className="text-yellow-500" size={40} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-2xl md:text-4xl font-black text-white tracking-tighter uppercase italic">OMDb Engine</h3>
+                                        <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Puntuaciones de Rotten Tomatoes y Metacritic</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-6">
+                                    <label className="block text-xs font-black text-slate-500 uppercase tracking-[0.5em] mb-4 ml-2">OMDB API KEY (FREE/PAID)</label>
+                                    <div className="flex flex-col lg:flex-row gap-6">
+                                        <input 
+                                            type="password"
+                                            value={omdbKey}
+                                            onChange={(e) => setOmdbKey(e.target.value)}
+                                            placeholder="Introduce tu API Key de OMDb..."
+                                            className="flex-1 bg-black/60 border border-white/10 rounded-[2rem] px-10 py-7 text-lg text-white focus:outline-none focus:border-yellow-500 transition-all shadow-inner placeholder:text-slate-800 placeholder:uppercase"
+                                        />
+                                        <button 
+                                            onClick={handleSaveOMDbKey}
+                                            className={`flex items-center justify-center rounded-[2rem] h-[86px] min-w-[240px] font-black uppercase tracking-[0.3em] transition-all duration-500 shadow-2xl ${isOMDBSaved ? 'bg-green-600 text-white' : 'bg-white text-black hover:bg-slate-200 active:scale-95'}`}
+                                        >
+                                            {isOMDBSaved ? <Check size={32} strokeWidth={4} /> : <span className="text-sm">Vincular OMDb</span>}
+                                        </button>
+                                    </div>
+                                    <p className="text-[11px] text-slate-600 font-bold uppercase tracking-[0.2em] px-4">Necesario para mostrar puntuaciones críticas de Rotten Tomatoes</p>
                                 </div>
                             </div>
                         </section>

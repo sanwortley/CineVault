@@ -109,6 +109,12 @@ function MovieCard({ movie, onPlay, onInfo, compact = false, myList = [], toggle
                             <span>{rating.toFixed(1)}</span>
                         </div>
                     )}
+                    {movie.rt_rating && (
+                        <div className="px-1.5 py-0.5 bg-black/80 rounded text-[9px] font-black text-white border border-white/10 flex items-center gap-1">
+                            <img src="https://www.rottentomatoes.com/assets/cas/images/favicon.ico" className="w-3 h-3" alt="RT" />
+                            <span>{movie.rt_rating}</span>
+                        </div>
+                    )}
                     {drive_file_id && (
                         <div className="p-1 bg-green-500/20 backdrop-blur-md rounded border border-green-500/30 text-green-400">
                             <Cloud size={10} strokeWidth={3} />

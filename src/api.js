@@ -538,6 +538,19 @@ export const api = {
         });
     },
 
+    getOMDbKey: () => {
+        if (isElectron()) return Promise.resolve(''); // TODO: Implement in Electron
+        return backendFetch('/api/admin/config/omdb-key').then(res => res.key).catch(() => '');
+    },
+
+    saveOMDbKey: (key) => {
+        if (isElectron()) return Promise.resolve(); // TODO: Implement in Electron
+        return backendFetch('/api/admin/config/omdb-key', {
+            method: 'POST',
+            body: JSON.stringify({ key })
+        });
+    },
+
     getOSCredentials: () => {
         if (isElectron()) return window.electronAPI.getOSCredentials ? window.electronAPI.getOSCredentials() : Promise.resolve({});
         return backendFetch('/api/admin/config/os-credentials');

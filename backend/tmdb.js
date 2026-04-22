@@ -57,4 +57,34 @@ async function getMovieDetails(movieId) {
     }
 }
 
-module.exports = { searchMovie, getMovieDetails };
+async function getOMDbDetails(title, year = null) {
+    const OMDB_API_KEY = process.env.OMDB_API_KEY;
+    if (!OMDB_API_KEY) return null;
+
+    try {
+        const response = await axios.get(`http://www.omdbapi.com/`, {
+            params: {
+                apikey: OMDB_API_KEY,
+                t: title,
+                y: year
+            }
+        });
+
+        if (response.data.Response === 'False') return null;
+
+        const rtRating = response.data.Ratings?.find(r => r.Source === 'Rotten Tomatoes')?.Value;
+        const metaRating = response.data.Ratings?.find(r => r.Source === 'Metacritic')?.Value;
+        const imdbRating = response.data.imdbRating;
+
+        return {
+            rt_rating: rtRating,
+            metascore: metaRating,
+            imdb_rating: imdbRating
+        };
+    } catch (error) {
+        console.error('OMDb Error:', error.message);
+        return null;
+    }
+}
+
+module.exports = { searchMovie, getMovieDetails, getOMDbDetails };

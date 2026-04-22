@@ -298,19 +298,21 @@ export default function AppContent() {
                     </div>
 
                     <div className="flex items-center gap-3 flex-1 justify-end min-w-0">
-                        <div className="relative group flex-1 md:flex-none max-w-full md:max-w-[400px]">
-                            <Search 
-                                className={`absolute left-3 md:left-4 top-1/2 -translate-y-1/2 transition-colors ${search ? 'text-netflix-red' : 'text-slate-400 group-focus-within:text-white'}`} 
-                                size={18} 
-                            />
-                            <input
-                                type="text"
-                                placeholder="Títulos..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                className="w-full bg-black/40 border border-white/20 rounded-full py-2.5 pl-10 md:pl-14 pr-4 text-xs md:text-sm focus:outline-none focus:bg-black/60 transition-all duration-500 placeholder:text-slate-500 font-medium"
-                            />
-                        </div>
+                        {activeTab !== 'explore' && (
+                            <div className="relative group flex-1 md:flex-none max-w-full md:max-w-[400px]">
+                                <Search 
+                                    className={`absolute left-3 md:left-4 top-1/2 -translate-y-1/2 transition-colors ${search ? 'text-netflix-red' : 'text-slate-400 group-focus-within:text-white'}`} 
+                                    size={18} 
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="Títulos..."
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    className="w-full bg-black/40 border border-white/20 rounded-full py-2.5 pl-10 md:pl-14 pr-4 text-xs md:text-sm focus:outline-none focus:bg-black/60 transition-all duration-500 placeholder:text-slate-500 font-medium"
+                                />
+                            </div>
+                        )}
 
                         <div className="flex items-center gap-1.5 md:gap-4 shrink-0">
                             {isAdmin() && (
@@ -427,7 +429,7 @@ export default function AppContent() {
                     />
                 )}
                 {activeTab === 'explore' && (
-                    <div className="pt-24">
+                    <div className="pt-20 md:pt-24">
                         <ExplorePage />
                     </div>
                 )}

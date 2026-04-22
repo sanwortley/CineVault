@@ -89,6 +89,20 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }
                                 <Star size={16} fill="currentColor" />
                                 <span className="text-sm font-bold">{rating ? rating.toFixed(1) : 'N/A'}</span>
                             </div>
+                            {movie.rt_rating && (
+                                <div className="flex items-center gap-2">
+                                    <img src="https://www.rottentomatoes.com/assets/cas/images/favicon.ico" className="w-4 h-4" alt="RT" />
+                                    <span className="text-sm font-bold text-white">{movie.rt_rating}</span>
+                                </div>
+                            )}
+                            {movie.metascore && (
+                                <div className="flex items-center gap-2">
+                                    <div className={`w-5 h-5 flex items-center justify-center text-[10px] font-black rounded-sm ${parseInt(movie.metascore) >= 60 ? 'bg-green-600' : parseInt(movie.metascore) >= 40 ? 'bg-yellow-500 text-black' : 'bg-red-600'}`}>
+                                        {movie.metascore.replace('/100', '')}
+                                    </div>
+                                    <span className="text-[10px] font-black uppercase text-slate-400">Metascore</span>
+                                </div>
+                            )}
                         </div>
                         
                         <h1 className="text-4xl md:text-5xl font-black leading-tight tracking-tight">

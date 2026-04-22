@@ -34,7 +34,7 @@ const ffmpegPath = require('ffmpeg-static');
 ffmpeg.setFfmpegPath(ffmpegPath);
 
 const { normalizeFilename } = require('./parser');
-const { searchMovie, getMovieDetails } = require('./tmdb');
+const { searchMovie, getMovieDetails, getOMDbDetails } = require('./tmdb');
 const { scanDirectory } = require('./scanner');
 const { addMovie } = require('./db');
 
@@ -58,6 +58,11 @@ const { addMovie } = require('./db');
         const tmdbConfig = await db.getGlobalConfig('TMDB_KEY');
         if (tmdbConfig) {
             process.env.TMDB_API_KEY = tmdbConfig.key || process.env.TMDB_API_KEY;
+        }
+
+        const omdbConfig = await db.getGlobalConfig('OMDB_KEY');
+        if (omdbConfig) {
+            process.env.OMDB_API_KEY = omdbConfig.key || process.env.OMDB_API_KEY;
         }
 
         console.log('[Server] Persistent configurations loaded from Database');
@@ -1050,7 +1055,9 @@ app.post('/api/folders', sessionMiddleware, adminMiddleware, async (req, res) =>
                     const movie = await searchMovie(clean_title, year);
                     let metadata = {};
                     if (movie) {
-                        metadata = await getMovieDetails(movie.id);
+                        const tmdbDetails = await getMovieDetails(movie.id);
+                        const omdbDetails = await getOMDbDetails(tmdbDetails.official_title, year);
+                        metadata = { ...tmdbDetails, ...omdbDetails };
                     }
                     
                     const existing = await db.findMovies({ file_name: file.file_name });
@@ -1118,7 +1125,9 @@ app.post('/api/library/refresh', sessionMiddleware, adminMiddleware, async (req,
                             const movie = await searchMovie(clean_title, year);
                             let metadata = {};
                             if (movie) {
-                                metadata = await getMovieDetails(movie.id);
+                                const tmdbDetails = await getMovieDetails(movie.id);
+                                const omdbDetails = await getOMDbDetails(tmdbDetails.official_title, year);
+                                metadata = { ...tmdbDetails, ...omdbDetails };
                             }
 
                             const existing = await db.findMovies({ file_name: file.file_name });
@@ -1221,10 +1230,13 @@ app.post('/api/movies/:id/re-identify', sessionMiddleware, adminMiddleware, asyn
         }
         
         // 2. Get full details
-        const details = await tmdb.getMovieDetails(searchResult.id);
-        if (!details) {
+        const tmdbDetails = await tmdb.getMovieDetails(searchResult.id);
+        if (!tmdbDetails) {
             return res.status(500).json({ error: 'Error al obtener detalles del match de TMDB' });
         }
+        
+        const omdbDetails = await tmdb.getOMDbDetails(tmdbDetails.official_title, year);
+        const details = { ...tmdbDetails, ...omdbDetails };
         
         // 3. Update DB
         await db.updateMovie(id, details);
@@ -1542,26 +1554,48 @@ app.post('/api/admin/config/os-credentials', sessionMiddleware, adminMiddleware,
     res.json({ message: 'Credenciales de OpenSubtitles actualizadas y persistidas' });
 });
 
-app.get('/api/admin/config/tmdb-key', sessionMiddleware, adminMiddleware, (req, res) => {
-    res.json({ key: process.env.TMDB_API_KEY || '' });
+app.get('/api/admin/config/tmdb-key', sessionMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const config = await db.getGlobalConfig('TMDB_KEY');
+        res.json(config || { key: process.env.TMDB_API_KEY || '' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
-app.post('/api/admin/config/tmdb-key', sessionMiddleware, adminMiddleware, (req, res) => {
+app.post('/api/admin/config/tmdb-key', sessionMiddleware, adminMiddleware, async (req, res) => {
     const { key } = req.body;
-    if (!key) return res.status(400).json({ error: 'Key requerida' });
-    process.env.TMDB_API_KEY = key;
+    if (!key) return res.status(400).json({ error: 'Key is required' });
     
-    const envPath = path.resolve(__dirname, '../.env');
-    if (fs.existsSync(envPath)) {
-        let envContent = fs.readFileSync(envPath, 'utf8');
-        if (envContent.includes('TMDB_API_KEY=')) {
-            envContent = envContent.replace(/TMDB_API_KEY=.*/, `TMDB_API_KEY=${key}`);
-        } else {
-            envContent += `\nTMDB_API_KEY=${key}`;
-        }
-        fs.writeFileSync(envPath, envContent);
+    try {
+        await db.setGlobalConfig('TMDB_KEY', { key });
+        process.env.TMDB_API_KEY = key;
+        res.json({ success: true, message: 'API Key de TMDB actualizada' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
-    res.json({ message: 'API Key de TMDB actualizada' });
+});
+
+app.get('/api/admin/config/omdb-key', sessionMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const config = await db.getGlobalConfig('OMDB_KEY');
+        res.json(config || { key: process.env.OMDB_API_KEY || '' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/admin/config/omdb-key', sessionMiddleware, adminMiddleware, async (req, res) => {
+    const { key } = req.body;
+    if (!key) return res.status(400).json({ error: 'Key is required' });
+    
+    try {
+        await db.setGlobalConfig('OMDB_KEY', { key });
+        process.env.OMDB_API_KEY = key;
+        res.json({ success: true, message: 'API Key de OMDb actualizada' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
 

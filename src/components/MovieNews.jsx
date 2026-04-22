@@ -33,15 +33,15 @@ export default function MovieNews() {
     if (news.length === 0) return null;
 
     return (
-        <section className="mb-20">
-            <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-4">
-                    <div className="p-3 bg-netflix-red/10 rounded-2xl border border-netflix-red/20">
-                        <Newspaper className="text-netflix-red" size={24} />
+        <section className="mb-12">
+            <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-netflix-red/10 rounded-xl border border-netflix-red/20">
+                        <Newspaper className="text-netflix-red" size={18} />
                     </div>
                     <div>
-                        <h2 className="text-2xl md:text-4xl font-black text-white tracking-tighter uppercase italic">Cine News</h2>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.4em] mt-1">Lo más relevante de la semana</p>
+                        <h2 className="text-xl md:text-3xl font-black text-white tracking-tighter uppercase italic leading-none">Cine News</h2>
+                        <p className="text-[8px] font-bold text-slate-500 uppercase tracking-[0.3em] mt-0.5">Lo más relevante de la semana</p>
                     </div>
                 </div>
                 <button className="hidden md:flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors group">

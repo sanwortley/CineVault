@@ -43,7 +43,14 @@ function Hero({ movies, onPlay, onInfo }) {
                     </h1>
                     
                     <div className="flex items-center gap-4 mb-6 text-sm font-bold opacity-0 animate-fade-in-up [animation-delay:200ms] [animation-fill-mode:forwards]">
-                        <span className="text-green-500">{movie.rating ? (movie.rating * 10).toFixed(0) : '98'}% Coincidencia</span>
+                        {movie.rt_rating ? (
+                             <div className="flex items-center gap-2">
+                                <img src="https://www.rottentomatoes.com/assets/cas/images/favicon.ico" className="w-5 h-5" alt="RT" />
+                                <span className="text-white text-lg">{movie.rt_rating}</span>
+                            </div>
+                        ) : (
+                            <span className="text-green-500">{movie.rating ? (movie.rating * 10).toFixed(0) : '98'}% Coincidencia</span>
+                        )}
                         <span className="text-white">{movie.detected_year}</span>
                         <span className="border border-white/40 px-1 text-[10px] rounded">16+</span>
                         <span className="text-white">{movie.runtime ? `${movie.runtime}m` : '2h 14m'}</span>

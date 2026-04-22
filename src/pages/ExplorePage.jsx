@@ -165,45 +165,54 @@ export default function ExplorePage() {
     }
 
     return (
-        <div className="p-4 md:p-12 pb-40 max-w-7xl mx-auto animate-fade-in no-drag relative z-10">
+        <div className="p-4 md:p-12 md:pt-16 pb-40 max-w-7xl mx-auto animate-fade-in no-drag relative z-10">
             {/* Header & Search */}
-            <header className="mb-12">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-12">
-                    <div>
-                        <h1 className="text-4xl md:text-7xl font-black tracking-tighter text-white mb-2 leading-none">
+            <header className="mb-4 md:mb-10">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="text-center md:text-left">
+                        <h1 className="text-2xl md:text-5xl font-black tracking-tighter text-white mb-0 md:mb-1 leading-none">
                             <span className="bg-clip-text text-transparent bg-gradient-to-br from-white via-slate-400 to-slate-600">Explorar</span>
                         </h1>
-                        <p className="text-slate-500 text-[10px] md:text-sm font-bold tracking-widest uppercase opacity-60">Descubre y añade nuevas joyas a tu bóveda.</p>
+                        <p className="text-slate-500 text-[8px] md:text-xs font-bold tracking-widest uppercase opacity-60 hidden md:block">Descubre y solicita contenido para tu bóveda.</p>
                     </div>
 
-                    <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+                    <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
                         {/* Mode Selector */}
-                        <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 shrink-0">
+                        <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 shrink-0 scale-90 md:scale-100">
                             <button 
-                                onClick={() => setSearchMode('catalog')}
-                                className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${searchMode === 'catalog' ? 'bg-white text-black shadow-xl scale-105' : 'text-slate-500 hover:text-white'}`}
+                                onClick={() => { setSearchMode('catalog'); setHasSearched(false); setSearchResults([]); setGlobalResults([]); }}
+                                className={`px-4 md:px-6 py-2 md:py-3 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${searchMode === 'catalog' ? 'bg-white text-black shadow-xl' : 'text-slate-500 hover:text-white'}`}
                             >
                                 Catálogo
                             </button>
                             {isAdmin() && (
                                 <button 
-                                    onClick={() => setSearchMode('global')}
-                                    className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${searchMode === 'global' ? 'bg-white text-black shadow-xl scale-105' : 'text-slate-500 hover:text-white'}`}
+                                    onClick={() => { setSearchMode('global'); setHasSearched(false); setSearchResults([]); setGlobalResults([]); }}
+                                    className={`px-4 md:px-6 py-2 md:py-3 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${searchMode === 'global' ? 'bg-white text-black shadow-xl' : 'text-slate-500 hover:text-white'}`}
                                 >
                                     Bóveda Global
                                 </button>
                             )}
                         </div>
 
-                        <form onSubmit={handleSearch} className="w-full md:w-96 relative group">
+                        <form onSubmit={handleSearch} className="w-full md:w-80 relative group">
                             <input 
                                 type="text" 
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
                                 placeholder={searchMode === 'catalog' ? "Buscar en TMDb..." : "Buscar en toda la web..."}
-                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 pl-12 text-sm text-white focus:outline-none focus:border-netflix-red transition-all group-hover:bg-white/10"
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-5 py-2.5 md:py-3 pl-11 pr-10 text-xs md:text-sm text-white focus:outline-none focus:border-netflix-red transition-all group-hover:bg-white/10"
                             />
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-netflix-red transition-colors" size={18} />
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-netflix-red transition-colors" size={16} />
+                            {query && (
+                                <button 
+                                    type="button"
+                                    onClick={() => { setQuery(''); setHasSearched(false); setSearchResults([]); setGlobalResults([]); }}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+                                >
+                                    <X size={14} />
+                                </button>
+                            )}
                             <button type="submit" className="hidden">Buscar</button>
                         </form>
                     </div>
@@ -250,10 +259,10 @@ export default function ExplorePage() {
                                 <p className="text-slate-500 text-xs mt-2 font-bold uppercase tracking-widest">Intenta con otros términos de búsqueda (ej: nombre en inglés)</p>
                             </div>
                         ) : (
-                            <div className="py-20 border border-white/5 rounded-[3rem] flex flex-col items-center justify-center text-center bg-gradient-to-b from-white/[0.02] to-transparent">
-                                <Globe className="text-slate-500 mb-6" size={64} strokeWidth={1} />
-                                <h3 className="text-xl font-black text-white/40 uppercase tracking-tighter">Explora la Web Profunda</h3>
-                                <p className="text-slate-600 text-[10px] mt-2 font-black uppercase tracking-[0.2em]">Busca cualquier torrent directamente aquí</p>
+                            <div className="py-10 md:py-20 border border-white/5 rounded-[2rem] md:rounded-[3rem] flex flex-col items-center justify-center text-center bg-gradient-to-b from-white/[0.02] to-transparent">
+                                <Globe className="text-slate-500 mb-4 md:mb-6" size={48} md:size={64} strokeWidth={1} />
+                                <h3 className="text-lg md:text-xl font-black text-white/40 uppercase tracking-tighter">Explora la Web Profunda</h3>
+                                <p className="text-slate-600 text-[9px] md:text-[10px] mt-1 md:mt-2 font-black uppercase tracking-[0.2em]">Busca cualquier torrent directamente aquí</p>
                             </div>
                         )}
                     </section>
@@ -434,23 +443,23 @@ function GlobalResultCard({ result, onDownload, isAdmin, isDownloading }) {
         <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col justify-between hover:bg-white/[0.08] transition-all group"
+            className="bg-white/5 border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-6 flex flex-col justify-between hover:bg-white/[0.08] transition-all group"
         >
-            <div className="mb-6">
-                <div className="flex items-center gap-2 mb-3">
-                    <span className="px-2 py-0.5 bg-cyan-500/10 text-cyan-400 text-[8px] font-black uppercase rounded-md border border-cyan-500/20">{result.provider}</span>
+            <div className="mb-4 md:mb-6">
+                <div className="flex items-center gap-2 mb-2 md:mb-3">
+                    <span className="px-2 py-0.5 bg-cyan-500/10 text-cyan-400 text-[7px] md:text-[8px] font-black uppercase rounded-md border border-cyan-500/20">{result.provider}</span>
                 </div>
-                <h3 className="text-sm font-black text-white leading-snug group-hover:text-cyan-400 transition-colors line-clamp-2 mb-4">{result.title}</h3>
-                <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                    <span className="flex items-center gap-1.5"><Download size={12} /> {result.size}</span>
-                    <span className="flex items-center gap-1.5"><TrendingUp size={12} /> {result.seeds} Seeds</span>
+                <h3 className="text-xs md:text-sm font-black text-white leading-snug group-hover:text-cyan-400 transition-colors line-clamp-2 mb-3 md:mb-4">{result.title}</h3>
+                <div className="flex items-center gap-3 md:gap-4 text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                    <span className="flex items-center gap-1.5"><Download size={10} md:size={12} /> {result.size}</span>
+                    <span className="flex items-center gap-1.5"><TrendingUp size={10} md:size={12} /> {result.seeds} Seeds</span>
                 </div>
             </div>
             
             <button 
                 onClick={onDownload}
                 disabled={!isAdmin || isDownloading}
-                className={`w-full py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${isAdmin ? 'bg-white text-black hover:bg-netflix-red hover:text-white' : 'bg-white/5 text-slate-600 border border-white/5 cursor-not-allowed'} ${isDownloading ? 'opacity-50 animate-pulse' : ''}`}
+                className={`w-full py-3 md:py-3.5 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${isAdmin ? 'bg-white text-black hover:bg-netflix-red hover:text-white' : 'bg-white/5 text-slate-600 border border-white/5 cursor-not-allowed'} ${isDownloading ? 'opacity-50 animate-pulse' : ''}`}
             >
                 {isDownloading ? <Loader className="animate-spin" size={12} /> : <Plus size={14} strokeWidth={3} />}
                 {isAdmin ? 'Añadir a la Bóveda' : 'Acceso Denegado'}
