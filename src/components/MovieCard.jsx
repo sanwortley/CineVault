@@ -146,7 +146,7 @@ function MovieCard({ movie, onPlay, onInfo, compact = false, myList = [], toggle
                             <Info size={isMobile ? 14 : 16} />
                         </button>
                             
-                            {onHideProgress && userProgress[movie.id] && (
+                            {onHideProgress && userProgress[movie.id] && !isMobile && (
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); onHideProgress(movie.id); }}
                                     className="p-2 bg-netflix-black/80 text-white rounded-full hover:bg-netflix-red transition-all active:scale-95 border border-white/20"
