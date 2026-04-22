@@ -711,59 +711,57 @@ app.get('/api/subtitles/fallback-download', sessionMiddleware, async (req, res) 
     }
 });
 
+// --- OpenSubtitles Helpers ---
+
+async function getOpenSubtitlesHeaders() {
+    const apiKey = process.env.OPENSUBTITLES_API_KEY;
+    const osUser = process.env.OS_USERNAME;
+    const osPass = process.env.OS_PASSWORD;
+    
+    const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'CineVault v1.0',
+        'Api-Key': apiKey
+    };
+
+    if (osUser && osPass) {
+        if (osTokenCache.token && osTokenCache.expiresAt > Date.now()) {
+            headers['Authorization'] = `Bearer ${osTokenCache.token}`;
+        } else {
+            try {
+                console.log(`[Subtitles] Attempting VIP login for: ${osUser}...`);
+                const loginRes = await fetch('https://api.opensubtitles.com/api/v1/login', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({ username: osUser, password: osPass })
+                });
+                
+                const loginData = await loginRes.json();
+                if (loginRes.ok && loginData.token) {
+                    osTokenCache.token = loginData.token;
+                    osTokenCache.expiresAt = Date.now() + (23 * 60 * 60 * 1000);
+                    headers['Authorization'] = `Bearer ${loginData.token}`;
+                    console.log(`[Subtitles] VIP login SUCCESS for ${osUser}.`);
+                } else {
+                    console.warn(`[Subtitles] VIP login REJECTED for ${osUser}:`, loginData.message || 'Unknown error');
+                }
+            } catch (loginErr) {
+                console.error('[Subtitles] VIP Login ERROR:', loginErr.message);
+            }
+        }
+    }
+    return headers;
+}
+
 app.post('/api/subtitles/download', async (req, res) => {
     const { fileId, movieId } = req.body;
     if (!fileId) return res.status(400).json({ error: 'Missing fileId' });
-    
-    const apiKey = process.env.OPENSUBTITLES_API_KEY;
+
     try {
-        console.log(`[Subtitles] Solicitando descarga para fileId: ${fileId} (MovieId: ${movieId})`);
+        console.log(`[Subtitles] Solicitando descarga para fileId: ${fileId} (MovieId: ${movieId || 'N/A'})`);
+        const headers = await getOpenSubtitlesHeaders();
         
-        const headers = { 
-            'Content-Type': 'application/json', 
-            'Accept': 'application/json', 
-            'User-Agent': 'CineVault v1.0', 
-            'Api-Key': apiKey 
-        };
-
-        // Try to get VIP token if credentials exist
-        const osUser = process.env.OS_USERNAME;
-        const osPass = process.env.OS_PASSWORD;
-        if (osUser && osPass) {
-            if (osTokenCache.token && osTokenCache.expiresAt > Date.now()) {
-                headers['Authorization'] = `Bearer ${osTokenCache.token}`;
-                console.log(`[Subtitles] Using cached VIP token for user: ${osUser}`);
-            } else {
-                try {
-                    console.log(`[Subtitles] Attempting VIP login for: ${osUser}...`);
-                    const loginRes = await fetch('https://api.opensubtitles.com/api/v1/login', {
-                        method: 'POST',
-                        headers: { 
-                            'Content-Type': 'application/json', 
-                            'Accept': 'application/json', 
-                            'User-Agent': 'CineVault v1.0', 
-                            'Api-Key': apiKey 
-                        },
-                        body: JSON.stringify({ username: osUser, password: osPass })
-                    });
-                    
-                    const loginData = await loginRes.json();
-                    if (loginRes.ok && loginData.token) {
-                        osTokenCache.token = loginData.token;
-                        osTokenCache.expiresAt = Date.now() + (23 * 60 * 60 * 1000); // 23h (standard OS token life)
-                        headers['Authorization'] = `Bearer ${loginData.token}`;
-                        console.log(`[Subtitles] VIP login SUCCESS for ${osUser}. Token cached.`);
-                    } else {
-                        console.warn(`[Subtitles] VIP login REJECTED for ${osUser}:`, loginData.message || 'Unknown error', loginData);
-                    }
-                } catch (loginErr) {
-                    console.error('[Subtitles] VIP Login ERROR:', loginErr.message);
-                }
-            }
-        } else {
-            console.log('[Subtitles] No VIP credentials found, using Guest mode.');
-        }
-
         const response = await fetch('https://api.opensubtitles.com/api/v1/download', {
             method: 'POST',
             headers,
@@ -878,17 +876,12 @@ app.get('/api/subtitles/cloud', async (req, res) => {
     const { id } = req.query;
     if (!id) return res.status(400).json({ error: 'Missing fileId' });
     
-    const apiKey = process.env.OPENSUBTITLES_API_KEY;
     try {
-        // 1. Get download link
+        // 1. Get download link with VIP headers
+        const headers = await getOpenSubtitlesHeaders();
         const dlRes = await fetch('https://api.opensubtitles.com/api/v1/download', {
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json', 
-                'Accept': 'application/json', 
-                'User-Agent': 'CineVault v1.0', 
-                'Api-Key': apiKey 
-            },
+            headers,
             body: JSON.stringify({ file_id: id })
         });
         
