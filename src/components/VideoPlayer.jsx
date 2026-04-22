@@ -55,15 +55,22 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const [showVersionMenu, setShowVersionMenu] = useState(false);
     
     const versions = movie.versions || [movie];
+    const initialSeekPerformed = useRef(false);
     
     // Use userProgress prop first (now an object), fallback to movie.watched_duration
-    const progressObj = userProgress[movie?.id];
+    const progressObj = userProgress[String(movie?.id)];
     const movieUserProgress = (progressObj && typeof progressObj === 'object') 
         ? progressObj.duration 
         : (progressObj ?? movie?.watched_duration ?? 0);
         
     const initialSeek = movieUserProgress > 0 ? Math.floor(movieUserProgress) : 0;
     const [seekOffset] = useState(initialSeek);
+
+    useEffect(() => {
+        if (initialSeek > 0) {
+            console.log(`[VideoPlayer] Progreso detectado para película ${movie.id}: ${initialSeek}s`);
+        }
+    }, [movie.id, initialSeek]);
 
 
     // Initial mute logic for mobile
@@ -73,6 +80,18 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             if (videoRef.current) videoRef.current.muted = true;
         }
     }, [isMobile]);
+
+    // Robust Initial Seek
+    useEffect(() => {
+        if (!initialSeekPerformed.current && seekOffset > 0 && isPlaying && videoRef.current) {
+            const video = videoRef.current;
+            if (video.readyState >= 1) {
+                console.log(`[VideoPlayer] Seeking to ${seekOffset}s (isPlaying=${isPlaying})`);
+                video.currentTime = seekOffset;
+                initialSeekPerformed.current = true;
+            }
+        }
+    }, [isPlaying, seekOffset]);
 
     // Stuck detection logic
     useEffect(() => {
@@ -249,6 +268,13 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         setIsLoading(false);
         if (videoRef.current) {
             try {
+                // Perform initial seek if needed
+                if (!initialSeekPerformed.current && seekOffset > 0) {
+                    console.log(`[VideoPlayer] Initial seek to: ${seekOffset}s`);
+                    videoRef.current.currentTime = seekOffset;
+                    initialSeekPerformed.current = true;
+                }
+
                 // Pre-set muted state on the element to satisfy mobile policies
                 if (isMobile) {
                     videoRef.current.muted = true;
