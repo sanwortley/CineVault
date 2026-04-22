@@ -64,12 +64,22 @@ export default function AppContent() {
 
     // ─── Navbar Scroll Effect ───────────────────────────────────────────────
     useEffect(() => {
+        if (detailMovie || playingMovie) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'auto';
+        }
+        
         const handleScroll = () => {
             setIsScrolled(window.scrollY > 20);
         };
         window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, []);
+        
+        return () => {
+            document.body.style.overflow = 'auto';
+            window.removeEventListener('scroll', handleScroll);
+        };
+    }, [detailMovie, playingMovie]);
 
     // ─── SW Auto-Update Detection ───────────────────────────────────────────
     useEffect(() => {

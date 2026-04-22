@@ -11,20 +11,20 @@
 }
 
 body {
-  @apply bg-black text-white overflow-x-hidden;
+  @apply bg-black text-white;
   font-family: 'Outfit', sans-serif;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
-  /* Ensure scrolling is possible unless explicitly blocked by a modal class */
-  overscroll-behavior-y: contain;
+  /* Ensure scrolling is natural on PC while allowing momentum on mobile */
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
 }
 
 html {
   overflow-x: hidden;
-  height: -webkit-fill-available;
+  min-height: 100vh;
 }
 
 ::selection {
