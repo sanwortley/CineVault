@@ -752,9 +752,9 @@ app.post('/api/subtitles/download', async (req, res) => {
                         osTokenCache.token = loginData.token;
                         osTokenCache.expiresAt = Date.now() + (23 * 60 * 60 * 1000); // 23h (standard OS token life)
                         headers['Authorization'] = `Bearer ${loginData.token}`;
-                        console.log('[Subtitles] VIP login SUCCESS. Token cached.');
+                        console.log(`[Subtitles] VIP login SUCCESS for ${osUser}. Token cached.`);
                     } else {
-                        console.warn('[Subtitles] VIP login REJECTED:', loginData.message || 'Unknown error');
+                        console.warn(`[Subtitles] VIP login REJECTED for ${osUser}:`, loginData.message || 'Unknown error', loginData);
                     }
                 } catch (loginErr) {
                     console.error('[Subtitles] VIP Login ERROR:', loginErr.message);

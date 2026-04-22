@@ -133,12 +133,17 @@ const driveApi = {
     getFileContent: async (fileId) => {
         if (!driveApi.isAuthenticated()) throw new Error('Not authenticated');
         const drive = driveApi.getClient();
-        const res = await drive.files.get({
-            fileId,
-            alt: 'media',
-            supportsAllDrives: true
-        });
-        return res.data;
+        try {
+            const res = await drive.files.get({
+                fileId,
+                alt: 'media',
+                supportsAllDrives: true
+            }, { responseType: 'text' });
+            return res.data;
+        } catch (err) {
+            console.error('[Drive] Error getting file content:', err.message);
+            throw err;
+        }
     },
 
     streamVideo: async (fileId, rangeHeader, res, transcodeOptions = {}) => {
