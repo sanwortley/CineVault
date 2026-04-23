@@ -45,6 +45,33 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const [isInitializing, setIsInitializing] = useState(true);
     const [lastTap, setLastTap] = useState(0);
     const [error, setError] = useState(null);
+    const [debugInfo, setDebugInfo] = useState([]);
+    
+    // Add to debug log
+    const addDebug = (msg) => {
+        console.log(`[DEBUG] ${msg}`);
+        setDebugInfo(prev => [...prev.slice(-20), { time: new Date().toLocaleTimeString(), msg }]);
+    };
+
+    // GLOBAL ERROR CATCHER
+    useEffect(() => {
+        const handleError = (e) => {
+            const msg = e.error ? e.error.message : e.message;
+            addDebug(`GLOBAL ERROR: ${msg}`);
+            setError({ message: msg, stack: e.error?.stack });
+        };
+        const handleRejection = (e) => {
+            addDebug(`PROMISE REJECTION: ${e.reason}`);
+            setError({ message: `Promise Rejection: ${e.reason}` });
+        };
+        window.addEventListener('error', handleError);
+        window.addEventListener('unhandledrejection', handleRejection);
+        return () => {
+            window.removeEventListener('error', handleError);
+            window.removeEventListener('unhandledrejection', handleRejection);
+        };
+    }, []);
+
     const [useTranscoding, setUseTranscoding] = useState(isMobile);
     const [streamSource, setStreamSource] = useState('checking');
     const [unlockProgress, setUnlockProgress] = useState(0);
@@ -1314,6 +1341,70 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         setShowDriveExplorer(false);
                     }}
                 />
+            )}
+            {/* DEBUG OVERLAY (Only visible if error exists) */}
+            {error && (
+                <div className="absolute inset-0 z-[1000] bg-black/95 backdrop-blur-xl flex items-center justify-center p-6 md:p-12 overflow-y-auto">
+                    <div className="max-w-2xl w-full bg-red-950/20 border border-red-500/30 rounded-[2.5rem] p-8 md:p-12 shadow-2xl relative">
+                        <button 
+                            onClick={onClose}
+                            className="absolute top-6 right-6 p-3 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-white"
+                        >
+                            <X size={24} />
+                        </button>
+
+                        <div className="flex items-center gap-4 mb-8 text-red-500">
+                            <AlertCircle size={40} />
+                            <h2 className="text-3xl font-black uppercase italic tracking-tighter">Error de Reproducción</h2>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div className="p-6 bg-black/50 rounded-2xl border border-red-500/20">
+                                <p className="text-red-400 font-bold mb-2">Mensaje:</p>
+                                <p className="text-white font-mono text-sm break-words">{error.message || 'Error desconocido'}</p>
+                            </div>
+
+                            {error.stack && (
+                                <div className="p-6 bg-black/50 rounded-2xl border border-white/5">
+                                    <p className="text-slate-500 font-bold mb-2 uppercase text-[10px] tracking-widest">Stack Trace:</p>
+                                    <pre className="text-slate-300 font-mono text-[10px] overflow-x-auto max-h-40 whitespace-pre-wrap">
+                                        {error.stack}
+                                    </pre>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+                                    <p className="text-[10px] text-slate-500 uppercase font-black mb-1">Dispositivo</p>
+                                    <p className="text-xs text-white font-bold">{isMobile ? 'Móvil / Tablet' : 'Desktop'}</p>
+                                </div>
+                                <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+                                    <p className="text-[10px] text-slate-500 uppercase font-black mb-1">Transcodificación</p>
+                                    <p className="text-xs text-white font-bold">{useTranscoding ? 'SÍ (Activa)' : 'NO (Directo)'}</p>
+                                </div>
+                            </div>
+
+                            <div className="pt-6 border-t border-white/5 flex flex-col gap-4">
+                                <button 
+                                    onClick={() => window.location.reload()}
+                                    className="w-full py-5 bg-white text-black font-black uppercase tracking-widest rounded-2xl hover:scale-[1.02] active:scale-95 transition-all"
+                                >
+                                    Reiniciar Aplicación
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        const text = `Error: ${error.message}\nDevice: ${isMobile ? 'Mobile' : 'Desktop'}\nStack: ${error.stack}`;
+                                        navigator.clipboard.writeText(text);
+                                        alert('Copiado al portapapeles');
+                                    }}
+                                    className="w-full py-5 bg-white/5 text-white font-bold uppercase tracking-widest rounded-2xl border border-white/10 hover:bg-white/10 transition-all"
+                                >
+                                    Copiar Diagnóstico para Soporte
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
