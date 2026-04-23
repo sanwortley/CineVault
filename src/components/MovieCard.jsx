@@ -140,27 +140,27 @@ function MovieCard({ movie, onPlay, onInfo, compact = false, myList = [], toggle
                         </button>
                     )}
 
-                    <div className="flex items-center gap-1 mb-1 sm:mb-3">
+                    <div className="flex items-center gap-0.5 mb-1 sm:mb-3">
                         <button 
                             onClick={handlePlay}
-                            className="p-1 sm:p-2 bg-white text-black rounded-full hover:bg-white/80 transition-transform active:scale-95 shadow-xl"
+                            className="p-0.5 sm:p-2 bg-white text-black rounded-full hover:bg-white/80 transition-transform active:scale-95 shadow-xl"
                         >
-                            <Play size={isMobile ? 12 : 16} fill="currentColor" />
+                            <Play size={isMobile ? 10 : 16} fill="currentColor" />
                         </button>
                         
                         <button 
                             onClick={(e) => { e.stopPropagation(); toggleMyList(movie); }}
-                            className={`p-1 sm:p-2 rounded-full transition-all active:scale-95 border border-white/20 ${isAdded ? 'bg-netflix-red text-white' : 'bg-netflix-black/80 text-white hover:bg-zinc-800'}`}
+                            className={`p-0.5 sm:p-2 rounded-full transition-all active:scale-95 border border-white/20 ${isAdded ? 'bg-netflix-red text-white' : 'bg-netflix-black/80 text-white hover:bg-zinc-800'}`}
                             title={isAdded ? "Quitar de Mi Lista" : "Añadir a Mi Lista"}
                         >
-                            {isAdded ? <Check size={isMobile ? 12 : 16} strokeWidth={3} /> : <Plus size={isMobile ? 12 : 16} strokeWidth={3} />}
+                            {isAdded ? <Check size={isMobile ? 10 : 16} strokeWidth={3} /> : <Plus size={isMobile ? 10 : 16} strokeWidth={3} />}
                         </button>
 
                         <button 
                             onClick={(e) => { e.stopPropagation(); onInfo(movie); }}
-                            className="p-1 sm:p-2 bg-netflix-black/80 text-white rounded-full hover:bg-zinc-800 transition-transform active:scale-95 border border-white/20 ml-auto"
+                            className="p-0.5 sm:p-2 bg-netflix-black/80 text-white rounded-full hover:bg-zinc-800 transition-transform active:scale-95 border border-white/20 ml-auto"
                         >
-                            <Info size={isMobile ? 12 : 16} />
+                            <Info size={isMobile ? 10 : 16} />
                         </button>
                             
                         {!isMobile && !drive_file_id && isAdmin() && (
@@ -194,8 +194,8 @@ function MovieCard({ movie, onPlay, onInfo, compact = false, myList = [], toggle
 
             {/* Title - Contextual */}
             {!compact && (
-                <div className="mt-2 px-0.5">
-                    <h3 className="text-[11px] sm:text-sm font-bold text-slate-400 group-hover/card:text-white transition-colors line-clamp-2 leading-tight">
+                <div className="mt-1.5 px-0.5">
+                    <h3 className="text-[10px] sm:text-sm font-bold text-slate-400 group-hover/card:text-white transition-colors line-clamp-2 leading-tight">
                         {title}
                     </h3>
                 </div>

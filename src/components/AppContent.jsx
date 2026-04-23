@@ -9,6 +9,7 @@ import {
 
 // Components
 import VideoPlayer from './VideoPlayer';
+import VideoPlayerErrorBoundary from './VideoPlayerErrorBoundary';
 import MovieDetailsModal from './MovieDetailsModal';
 import ActivityCenter from './ActivityCenter';
 import Disclaimer from './Disclaimer';
@@ -247,21 +248,28 @@ export default function AppContent() {
     return (
         <div className="min-h-screen bg-black text-white selection:bg-netflix-red/30">
             {playingMovie && (
-                <VideoPlayer
-                    movie={playingMovie}
-                    userProgress={userProgress}
-                    onClose={(savedTime) => {
+                <VideoPlayerErrorBoundary 
+                    onClose={() => {
                         setPlayingMovie(null);
                         loadData(true);
                     }}
-                    onOpenSettings={() => {
-                        setActiveTab('settings');
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    onVersionChange={(newVersion) => {
-                        setPlayingMovie(newVersion);
-                    }}
-                />
+                >
+                    <VideoPlayer
+                        movie={playingMovie}
+                        userProgress={userProgress}
+                        onClose={(savedTime) => {
+                            setPlayingMovie(null);
+                            loadData(true);
+                        }}
+                        onOpenSettings={() => {
+                            setActiveTab('settings');
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        onVersionChange={(newVersion) => {
+                            setPlayingMovie(newVersion);
+                        }}
+                    />
+                </VideoPlayerErrorBoundary>
             )}
 
             {detailMovie && (

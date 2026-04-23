@@ -286,7 +286,7 @@ function LibraryPage({
                             }
                         )()}
 
-                        <div className="px-3 md:px-16 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 md:gap-8 animate-fade-in pb-32">
+                        <div className="px-3 md:px-16 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 md:gap-8 animate-fade-in pb-32">
                             {sortedMovies.map(movie => movie && (
                                 <MovieCard 
                                     key={movie.id || Math.random()}
