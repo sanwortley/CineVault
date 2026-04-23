@@ -1010,10 +1010,12 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         <div className="flex items-center justify-between text-white text-[10px] md:text-xs font-black uppercase tracking-widest opacity-60 px-1">
                             <span>{formatTime(currentTime)}</span>
                             <span>
-                                {duration > 1 && duration !== Infinity 
-                                    ? `-${formatTime(Math.max(0, duration - currentTime))}`
-                                    : (movie.runtime ? `-${formatTime(Math.max(0, (movie.runtime * 60) - currentTime))}` : '--:--')
-                                }
+                                {(() => {
+                                    const metaRuntime = Number(movie.runtime || 0) * 60;
+                                    const effectiveDuration = (duration > 1 && duration !== Infinity) ? duration : metaRuntime;
+                                    const remaining = Math.max(0, effectiveDuration - currentTime);
+                                    return effectiveDuration > 0 ? `-${formatTime(remaining)}` : '--:--';
+                                })()}
                             </span>
                         </div>
                         
@@ -1021,15 +1023,18 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                             // VALIDATION: Ignore durations near zero (common mobile glitch)
                             const validDuration = (duration > 1 && duration !== Infinity) ? duration : 0;
                             
+                            // Master Runtime from metadata (fallback)
+                            const metaRuntime = Number(movie.runtime || 0) * 60;
+                            
                             // Use actual duration, or movie metadata runtime
-                            let totalDuration = validDuration > 0 ? validDuration : (movie.runtime ? movie.runtime * 60 : 0);
+                            let totalDuration = validDuration > 0 ? validDuration : metaRuntime;
                             
                             // ELASTIC SYNC: If current time is somehow beyond duration, adapt totalDuration to current time
                             if (currentTime > totalDuration && currentTime > 0) {
                                 totalDuration = currentTime + 1;
                             }
 
-                            // Calculate progress based on the best available duration
+                            // Final safety: if we still have 0, use a generic large number or keep it at 0
                             const progressPercent = totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0;
                             const safeMax = totalDuration > 0 ? totalDuration : 100;
                             
