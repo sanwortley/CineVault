@@ -51,7 +51,7 @@ function getTranscodeStream(input, startTime = 0) {
     
     const passThrough = new PassThrough();
     const command = ffmpeg(input)
-        .ss(startTime)
+        .seekInput(startTime)
         .videoCodec('libx264')
         .audioCodec('aac')
         .audioChannels(2)

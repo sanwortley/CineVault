@@ -942,20 +942,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                 <Film size={20} className="text-cyan-500/40" />
                             </div>
                         </div>
-                        <p className="text-white font-black uppercase tracking-[0.3em] text-[10px] animate-pulse mb-10">Conectando Bóveda...</p>
-                        
-                        {isMobile && (
-                            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500">
-                                <p className="text-slate-500 text-[9px] font-bold uppercase tracking-widest">¿Tarda mucho en cargar?</p>
-                                <button 
-                                    onClick={() => window.location.href = videoUrl}
-                                    className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2 mx-auto"
-                                >
-                                    <ExternalLink size={14} className="text-cyan-400" />
-                                    Abrir en iPhone
-                                </button>
-                            </div>
-                        )}
+                        <p className="text-white font-black uppercase tracking-[0.3em] text-[10px] animate-pulse">Conectando Bóveda...</p>
                     </div>
                 </div>
             )}
