@@ -103,11 +103,9 @@ router.post('/download', adminMiddleware, async (req, res) => {
         const { clean_title, year: parsedYear, language, quality } = normalizeFilename(title);
         let finalOfficialTitle = tmdbDetails?.title || tmdbDetails?.original_title || title || '';
         
-        // Append language or quality tag to title to allow separate versions and clear UI distinction
-        const tag = language || quality;
-        if (tag) {
-            finalOfficialTitle = `${finalOfficialTitle} [${tag}]`;
-        }
+        // Append language tag: default to English, only mark Español if explicitly detected
+        const tag = language === 'Español' ? 'Español' : (language === 'Dual Audio' ? 'Dual Audio' : 'English');
+        finalOfficialTitle = `${finalOfficialTitle} [${tag}]`;
         
         // --- Step 1.6: Fetch OMDb Details (Ratings) ---
         let omdbDetails = {};
