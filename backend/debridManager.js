@@ -95,8 +95,12 @@ class DebridManager {
 
         } catch (err) {
             if (err.response && err.response.status === 429) {
-                console.error('[Debrid] ERROR 429: Límite de peticiones excedido. Esperando...');
+                console.error('[Debrid] ERROR 429: Límite de peticiones excedido.');
                 throw new Error('Límite de peticiones de Real-Debrid excedido. Por favor, espera un minuto e intenta de nuevo.');
+            }
+            if (err.response && err.response.status === 451) {
+                console.error('[Debrid] ERROR 451: Torrent bloqueado por razones legales (DMCA).');
+                throw new Error('Este torrent ha sido bloqueado por Real-Debrid debido a restricciones legales (DMCA). Por favor, intenta con otra fuente.');
             }
             console.error('[Debrid] Error en proceso:', err.message);
             throw err;

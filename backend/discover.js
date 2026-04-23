@@ -128,7 +128,7 @@ router.post('/download', adminMiddleware, async (req, res) => {
             poster_url: tmdbDetails?.poster_url || (tmdbDetails?.poster_path ? `https://image.tmdb.org/t/p/w500${tmdbDetails.poster_path}` : ''),
             backdrop_url: tmdbDetails?.backdrop_url || '',
             overview: tmdbDetails?.overview || '',
-            genres: tmdbDetails?.genres || '',
+            genres: Array.isArray(tmdbDetails?.genres) ? tmdbDetails.genres.map(g => g.name).join(', ') : (tmdbDetails?.genres || ''),
             director: tmdbDetails?.director || '',
             cast: tmdbDetails?.cast || '',
             rating: tmdbDetails?.rating || 0,
