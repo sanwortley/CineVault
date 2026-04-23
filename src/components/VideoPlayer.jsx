@@ -26,7 +26,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const [isInitializing, setIsInitializing] = useState(true);
     const [lastTap, setLastTap] = useState(0);
     const [error, setError] = useState(null);
-    const [useTranscoding, setUseTranscoding] = useState(false);
+    const [useTranscoding, setUseTranscoding] = useState(isMobile);
     const [streamSource, setStreamSource] = useState('checking');
     const [unlockProgress, setUnlockProgress] = useState(0);
     const unlockTimerRef = useRef(null);

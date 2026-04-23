@@ -57,12 +57,13 @@ function getTranscodeStream(input, startTime = 0) {
         .audioChannels(2)
         .format('mp4')
         .outputOptions([
-            '-preset faster', // Balanced for speed and stability
+            '-preset ultrafast', // Maximum speed for real-time delivery
             '-tune zerolatency',
-            '-movflags frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset', // Added omit_tfhd_offset for better iPhone compatibility
+            '-movflags frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset',
             '-crf 28', 
-            '-maxrate 1.5M', 
-            '-bufsize 3M',
+            '-maxrate 2M', 
+            '-bufsize 4M',
+            '-vf scale=-2:min(720\\,ih)', // Cap at 720p for performance
             '-profile:v main', 
             '-level 3.1',
             '-pix_fmt yuv420p'
