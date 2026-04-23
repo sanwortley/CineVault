@@ -282,7 +282,8 @@ export default function AppContent() {
                 />
             )}
 
-            {!detailMovie && !playingMovie && (
+            {/* Top Navbar - Always in DOM but layered below player */}
+            {!detailMovie && (
                 <nav className={`fixed top-0 left-0 right-0 w-full px-3 md:px-16 py-4 md:py-5 flex items-center justify-between z-[9999] transform-gpu isolate transition-all duration-500 safe-top ${isScrolled ? 'bg-black/95 backdrop-blur-md shadow-2xl' : 'bg-gradient-to-b from-black/80 via-black/30 to-transparent'}`}>
                     <div className="flex items-center gap-10">
                         <div className="hidden lg:flex items-center gap-10">
@@ -472,7 +473,7 @@ export default function AppContent() {
                 </React.Suspense>
             </main>
 
-            {!playingMovie && !detailMovie && !isChangePasswordOpen && !isAvatarPickerOpen && <Disclaimer />}
+            {!detailMovie && !isChangePasswordOpen && !isAvatarPickerOpen && <Disclaimer />}
 
             {isChangePasswordOpen && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-6 animate-in fade-in duration-300">
@@ -542,7 +543,8 @@ export default function AppContent() {
 
             <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-netflix-red/5 blur-[150px] rounded-full translate-x-1/2 -translate-y-1/2 pointer-events-none -z-10"></div>
 
-            {!detailMovie && !playingMovie && (
+            {/* Bottom Menu - Always in DOM for mobile safety */}
+            {!detailMovie && (
                 <div className="lg:hidden fixed bottom-6 left-6 right-6 z-[150] safe-bottom animate-in slide-in-from-bottom-6 duration-700 pointer-events-none">
                     <div className="glass shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 rounded-[2rem] px-6 py-4 flex items-center justify-around gap-2 backdrop-blur-2xl pointer-events-auto">
                         <button 
