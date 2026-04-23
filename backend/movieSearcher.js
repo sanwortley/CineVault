@@ -14,7 +14,8 @@ async function searchYTS(query) {
         'https://yts.mx/api/v2',
         'https://yts.pm/api/v2',
         'https://yts.lt/api/v2',
-        'https://yts.rs/api/v2'
+        'https://yts.rs/api/v2',
+        'https://yify-backend.onrender.com/api/v2' // Proxy fallback
     ];
 
     for (const mirror of mirrors) {

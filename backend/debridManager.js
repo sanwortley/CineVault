@@ -94,6 +94,10 @@ class DebridManager {
             };
 
         } catch (err) {
+            if (err.response && err.response.status === 429) {
+                console.error('[Debrid] ERROR 429: Límite de peticiones excedido. Esperando...');
+                throw new Error('Límite de peticiones de Real-Debrid excedido. Por favor, espera un minuto e intenta de nuevo.');
+            }
             console.error('[Debrid] Error en proceso:', err.message);
             throw err;
         }
