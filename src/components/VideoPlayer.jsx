@@ -1010,7 +1010,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         <div className="flex items-center justify-between text-white text-[10px] md:text-xs font-black uppercase tracking-widest opacity-60 px-1">
                             <span>{formatTime(currentTime)}</span>
                             <span>
-                                {duration && duration !== Infinity 
+                                {duration > 1 && duration !== Infinity 
                                     ? `-${formatTime(Math.max(0, duration - currentTime))}`
                                     : (movie.runtime ? `-${formatTime(Math.max(0, (movie.runtime * 60) - currentTime))}` : '--:--')
                                 }
@@ -1018,13 +1018,15 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         </div>
                         
                         {(() => {
+                            // VALIDATION: Ignore durations near zero (common mobile glitch)
+                            const validDuration = (duration > 1 && duration !== Infinity) ? duration : 0;
+                            
                             // Use actual duration, or movie metadata runtime
-                            let totalDuration = (duration > 0 && duration !== Infinity) ? duration : (movie.runtime ? movie.runtime * 60 : 0);
+                            let totalDuration = validDuration > 0 ? validDuration : (movie.runtime ? movie.runtime * 60 : 0);
                             
                             // ELASTIC SYNC: If current time is somehow beyond duration, adapt totalDuration to current time
-                            // to avoid a 'broken' 100% bar.
-                            if (currentTime > totalDuration) {
-                                totalDuration = currentTime + 1; // +1 to avoid division by 0
+                            if (currentTime > totalDuration && currentTime > 0) {
+                                totalDuration = currentTime + 1;
                             }
 
                             // Calculate progress based on the best available duration
