@@ -37,7 +37,7 @@ function Hero({ movies, onPlay, onInfo }) {
                         key={movie.id}
                         src={movie.backdrop_url || movie.poster_url} 
                         alt={movie.official_title}
-                        className="w-full h-full object-cover transition-transform duration-[10s] scale-105 animate-ken-burns transform-gpu will-change-transform"
+                        className="w-full h-full object-cover transition-transform duration-[10s] scale-105 animate-ken-burns transform-gpu will-change-transform translate-y-px"
                     />
                     <div className="absolute inset-0 bg-gradient-to-r from-black via-black/40 to-transparent"></div>
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
@@ -86,7 +86,7 @@ function Hero({ movies, onPlay, onInfo }) {
                 </div>
                 
                 {/* Bottom solid black transition */}
-                <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-black to-transparent z-[5]"></div>
+                <div className="absolute bottom-[-1px] left-0 right-0 h-32 bg-gradient-to-t from-black via-black/80 to-transparent z-[5]"></div>
             </div>
 
             {/* Controls - HIDDEN ON MOBILE */}

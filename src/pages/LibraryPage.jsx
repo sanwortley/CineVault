@@ -121,19 +121,19 @@ function LibraryPage({
     return (
         <div className="pb-40 min-h-screen bg-netflix-dark animate-fade-in" onClick={closeDropdowns}>
             {/* Hero Carousel - Only on Home Exploration */}
-            <div className={`transition-all duration-700 ${(!search && !viewOnlyList && !isFiltering && featuredMovies.length > 0) ? 'relative pt-0 -mb-1 z-10' : 'pt-24 md:pt-32'}`}>
+            <div className={`transition-all duration-700 ${(!search && !viewOnlyList && !isFiltering && featuredMovies.length > 0) ? 'relative pt-0 -mb-2 z-20 overflow-hidden' : 'pt-24 md:pt-32'}`}>
                 {!search && !viewOnlyList && !isFiltering && featuredMovies.length > 0 && (
                     <Hero 
                         movies={featuredMovies} 
                         onPlay={onPlayMovie} 
                         onInfo={onInfoMovie} 
-                        className="relative"
+                        className="relative translate-y-px"
                     />
                 )}
             </div>
 
             {/* Header & Filter Bar */}
-            <div className={`px-4 md:px-16 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 md:gap-12 relative z-50 transform-gpu isolate ${(!search && !viewOnlyList && !isFiltering) ? 'pt-24 md:pt-40' : 'pt-32 md:pt-48'}`}>
+            <div className={`px-4 md:px-16 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 md:gap-12 relative z-50 transform-gpu isolate border-none shadow-none ${(!search && !viewOnlyList && !isFiltering) ? 'pt-24 md:pt-40' : 'pt-32 md:pt-48'}`}>
                 <div className="flex-shrink-0">
                     <h2 className="text-3xl md:text-5xl font-black text-white tracking-tighter uppercase italic drop-shadow-2xl">
                         {viewOnlyList ? 'Mi ' : (isFiltering ? 'Resultados ' : 'Explorar ')}
