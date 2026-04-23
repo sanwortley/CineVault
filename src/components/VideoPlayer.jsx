@@ -12,6 +12,25 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const { user, saveUserProgress } = useAuth();
     const videoRef = useRef(null);
     const playerRef = useRef(null);
+    const [fullMovieData, setFullMovieData] = useState(null);
+    
+    // EFFECT: Auto-repair metadata if runtime is missing
+    useEffect(() => {
+        if (!movie?.runtime && movie?.id) {
+            console.log(`[VideoPlayer] Runtime missing for movie ${movie.id}, repairing...`);
+            api.get(`/movies?id=${movie.id}`)
+                .then(res => {
+                    if (res && res.length > 0) {
+                        console.log(`[VideoPlayer] Metadata repaired for ${movie.id}: ${res[0].runtime} min`);
+                        setFullMovieData(res[0]);
+                    }
+                })
+                .catch(err => console.error('[VideoPlayer] Repair failed:', err));
+        }
+    }, [movie?.id, movie?.runtime]);
+
+    // Use repaired data if available
+    const activeMovie = fullMovieData || movie;
     const isMobile = typeof window !== 'undefined' && (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768);
     const [isPlaying, setIsPlaying] = useState(true);
     const [duration, setDuration] = useState(0);
@@ -1011,8 +1030,14 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                             <span>{formatTime(currentTime)}</span>
                             <span>
                                 {(() => {
-                                    const metaRuntime = Number(movie.runtime || 0) * 60;
+                                    const metaRuntime = Number(activeMovie.runtime || 0) * 60;
                                     const effectiveDuration = (duration > 1 && duration !== Infinity) ? duration : metaRuntime;
+                                    
+                                    // DEBUG: If effectiveDuration is still 0, we have a data gap
+                                    if (effectiveDuration === 0 && currentTime > 0) {
+                                        console.warn(`[VideoPlayer] CRITICAL: No duration available for ${activeMovie.official_title || activeMovie.id}`);
+                                    }
+
                                     const remaining = Math.max(0, effectiveDuration - currentTime);
                                     return effectiveDuration > 0 ? `-${formatTime(remaining)}` : '--:--';
                                 })()}
@@ -1024,17 +1049,13 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                             const validDuration = (duration > 1 && duration !== Infinity) ? duration : 0;
                             
                             // Master Runtime from metadata (fallback)
-                            const metaRuntime = Number(movie.runtime || 0) * 60;
+                            const metaRuntime = Number(activeMovie.runtime || 0) * 60;
                             
                             // Use actual duration, or movie metadata runtime
                             let totalDuration = validDuration > 0 ? validDuration : metaRuntime;
                             
-                            // ELASTIC SYNC: If current time is somehow beyond duration, adapt totalDuration to current time
-                            if (currentTime > totalDuration && currentTime > 0) {
-                                totalDuration = currentTime + 1;
-                            }
-
-                            // Final safety: if we still have 0, use a generic large number or keep it at 0
+                            // SAFETY: Only show progress if we have a real duration > 0
+                            // If totalDuration is 0, progressPercent MUST be 0 to avoid jumping to 100%
                             const progressPercent = totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0;
                             const safeMax = totalDuration > 0 ? totalDuration : 100;
                             
