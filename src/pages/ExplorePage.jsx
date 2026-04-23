@@ -236,7 +236,7 @@ export default function ExplorePage({ onInfoMovie, onPlayMovie }) {
                             <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Catálogo Internacional</h2>
                             {isSearching && <Loader className="animate-spin text-netflix-red" size={20} />}
                         </div>
-                        <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 md:gap-8 pb-32">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 md:gap-8 pb-32">
                             {searchResults.map(movie => (
                                 <MovieCard key={movie.id} movie={movie} onClick={() => openMovieModal(movie)} />
                             ))}
@@ -248,7 +248,7 @@ export default function ExplorePage({ onInfoMovie, onPlayMovie }) {
                             <TrendingUp className="text-netflix-red" size={24} />
                             <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Lo más visto esta semana</h2>
                         </div>
-                        <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 md:gap-8 pb-32">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 md:gap-8 pb-32">
                             {trending.map(movie => (
                                 <MovieCard key={movie.id} movie={movie} onClick={() => openMovieModal(movie)} />
                             ))}
