@@ -121,13 +121,13 @@ function LibraryPage({
     return (
         <div className="pb-40 min-h-screen bg-netflix-dark animate-fade-in" onClick={closeDropdowns}>
             {/* Hero Carousel - Only on Home Exploration */}
-            <div className={`transition-all duration-700 ${(!search && !viewOnlyList && !isFiltering && featuredMovies.length > 0) ? 'relative pt-0' : 'pt-24 md:pt-32'}`}>
+            <div className={`transition-all duration-700 ${(!search && !viewOnlyList && !isFiltering && featuredMovies.length > 0) ? 'relative pt-0 -mb-1 z-10' : 'pt-24 md:pt-32'}`}>
                 {!search && !viewOnlyList && !isFiltering && featuredMovies.length > 0 && (
                     <Hero 
                         movies={featuredMovies} 
                         onPlay={onPlayMovie} 
                         onInfo={onInfoMovie} 
-                        className="relative z-0"
+                        className="relative"
                     />
                 )}
             </div>
