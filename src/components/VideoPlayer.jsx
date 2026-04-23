@@ -1031,17 +1031,24 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         </div>
                         
                         {(() => {
-                            const maxDuration = (duration > 0 && duration !== Infinity) ? duration : (movie.runtime ? movie.runtime * 60 : 100);
+                            // Use actual duration, or movie metadata runtime, or 1 as absolute last resort
+                            const totalDuration = (duration > 0 && duration !== Infinity) ? duration : (movie.runtime ? movie.runtime * 60 : 0);
+                            
+                            // If we have no duration data yet, progress should be 0 to avoid jumping
+                            const progressPercent = totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0;
+                            const safeMax = totalDuration > 0 ? totalDuration : 100;
+                            
                             return (
                                 <input
                                     type="range"
                                     min="0"
-                                    max={maxDuration}
+                                    max={safeMax}
                                     value={currentTime}
                                     onChange={handleSeek}
-                                    className="w-full h-1.5 md:h-2 bg-white/30 rounded-full appearance-none cursor-pointer accent-cyan-500"
+                                    disabled={totalDuration === 0}
+                                    className="w-full h-1.5 md:h-2 bg-white/30 rounded-full appearance-none cursor-pointer accent-cyan-500 disabled:cursor-not-allowed"
                                     style={{ 
-                                        background: `linear-gradient(to right, #06b6d4 ${(currentTime / maxDuration) * 100}%, rgba(255,255,255,0.1) 0%)` 
+                                        background: `linear-gradient(to right, #06b6d4 ${Math.min(100, progressPercent)}%, rgba(255,255,255,0.1) 0%)` 
                                     }}
                                 />
                             );
