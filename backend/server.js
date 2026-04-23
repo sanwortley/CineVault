@@ -309,7 +309,9 @@ app.get('/api/stream/local', (req, res) => {
             'Content-Type': 'video/mp4',
             'Accept-Ranges': 'bytes',
             'Access-Control-Allow-Origin': '*',
-            'Transfer-Encoding': 'chunked'
+            'Transfer-Encoding': 'chunked',
+            'Connection': 'keep-alive',
+            'Cache-Control': 'no-cache'
         });
         
         const transcodeStream = getTranscodeStream(filePath, startTime);

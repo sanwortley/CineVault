@@ -51,23 +51,27 @@ function getTranscodeStream(input, startTime = 0) {
     
     const passThrough = new PassThrough();
     const command = ffmpeg(input)
-        .seekInput(startTime)
+        .ss(startTime)
         .videoCodec('libx264')
         .audioCodec('aac')
         .audioChannels(2)
+        .audioBitrate('128k')
         .format('mp4')
         .outputOptions([
-            '-preset ultrafast', // Maximum speed for real-time delivery
+            '-preset ultrafast',
             '-tune zerolatency',
-            '-movflags frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset',
-            '-crf 28', 
-            '-maxrate 2M', 
-            '-bufsize 4M',
-            '-vf scale=-2:min(720\\,ih)', // Cap at 720p for performance
-            '-profile:v main', 
-            '-level 3.1',
-            '-pix_fmt yuv420p'
+            '-profile:v baseline',
+            '-level 3.0',
+            '-pix_fmt yuv420p',
+            '-movflags +frag_keyframe+empty_moov+default_base_moof+faststart',
+            '-metadata:s:v:0 rotate=0',
+            '-crf 23',
+            '-maxrate 2.5M',
+            '-bufsize 5M',
+            '-g 48',
+            '-map_chapters -1'
         ])
+        .videoFilters('scale=min(1280\\,iw):-2')
         .on('start', (cmd) => console.log(`[Optimizer] FFmpeg Stream: ${cmd}`))
         .on('error', (err) => {
             if (err.message.includes('SIGKILL') || err.message.includes('Output stream closed')) {
