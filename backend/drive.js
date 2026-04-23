@@ -90,6 +90,9 @@ const driveApi = {
 
     uploadVideo: async (filePath, mimeType, onProgress, options = {}) => {
         if (!driveApi.isAuthenticated()) throw new Error('Not authenticated');
+        if (!filePath || filePath.toLowerCase() === 'pending') throw new Error('El archivo aún no está listo para subida (status: pending)');
+        if (!fs.existsSync(filePath)) throw new Error(`Archivo no encontrado en el sistema local: ${filePath}`);
+
         const drive = driveApi.getClient();
         const fileName = path.basename(filePath);
         const fileSize = fs.statSync(filePath).size;

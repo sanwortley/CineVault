@@ -150,7 +150,7 @@ class UploadManager extends EventEmitter {
         if (this.isProcessing) return;
 
         // Solo procesar si hay algo 'pending'. Si está 'downloading', esperamos a que discover.js lo pase a 'pending'.
-        const nextJob = this.queue.find(j => j.status === 'pending');
+        const nextJob = this.queue.find(j => j.status === 'pending' && j.filePath && j.filePath.toLowerCase() !== 'pending');
         if (!nextJob) return; // Nada más que procesar
 
         this.isProcessing = true;

@@ -74,10 +74,9 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }
         setIsRequesting(true);
         try {
             await api.submitMovieRequest({
-                tmdb_id: m.tmdb_id || m.id,
+                tmdbId: m.tmdb_id || m.id,
                 title: m.official_title || m.title,
-                year: m.detected_year || m.release_date?.substring(0, 4),
-                poster_url: m.poster_url || (m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : null)
+                posterPath: m.poster_url || (m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : null)
             });
             setRequestSuccess(true);
         } catch (err) {
