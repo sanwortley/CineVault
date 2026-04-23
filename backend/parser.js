@@ -43,16 +43,23 @@ function normalizeFilename(fileName) {
     // Remove extra spaces
     cleanName = cleanName.replace(/\s+/g, " ").trim();
 
-    // Detect language
+    // Detect language with more robust patterns
     let language = "";
-    if (fileName.toLowerCase().match(/latino|spanish|español|castellano|esp/i)) language = "Español";
-    else if (fileName.toLowerCase().match(/english|eng|en/i)) language = "English";
-    if (fileName.toLowerCase().match(/dual/i)) language = "Dual Audio";
+    const lowName = fileName.toLowerCase();
+    if (lowName.match(/\blatino|spanish|español|castellano|esp|spa|cas|lat\b/i)) language = "Español";
+    else if (lowName.match(/\benglish|eng|en\b/i)) language = "English";
+    if (lowName.match(/\bdual|multi\b/i)) language = "Dual Audio";
+
+    // Detect quality as a fallback differentiator
+    let quality = "";
+    const qualityMatch = fileName.match(/\b(2160p|1080p|720p|480p|4k|8k)\b/i);
+    if (qualityMatch) quality = qualityMatch[0].toUpperCase();
 
     return {
         clean_title: cleanName,
         year: year,
-        language: language
+        language: language,
+        quality: quality
     };
 }
 
