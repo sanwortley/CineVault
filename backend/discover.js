@@ -100,7 +100,13 @@ router.post('/download', adminMiddleware, async (req, res) => {
 
         // --- Step 1: Create or Get Movie Entry ---
         // Ensuring no NULL values for mandatory columns
-        const finalOfficialTitle = tmdbDetails?.title || tmdbDetails?.original_title || title || '';
+        const { clean_title, year: parsedYear, language } = normalizeFilename(title);
+        let finalOfficialTitle = tmdbDetails?.title || tmdbDetails?.original_title || title || '';
+        
+        // Append language tag to title to allow separate versions and clear UI distinction
+        if (language) {
+            finalOfficialTitle = `${finalOfficialTitle} [${language}]`;
+        }
         
         // --- Step 1.6: Fetch OMDb Details (Ratings) ---
         let omdbDetails = {};

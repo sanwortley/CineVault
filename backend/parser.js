@@ -1,7 +1,7 @@
 /**
  * Normalizes movie filenames by removing common release noise.
  * @param {string} fileName 
- * @returns {object} { clean_title: string, year: number|null }
+ * @returns {object} { clean_title: string, year: number|null, language: string }
  */
 function normalizeFilename(fileName) {
     // Remove extension
@@ -43,9 +43,16 @@ function normalizeFilename(fileName) {
     // Remove extra spaces
     cleanName = cleanName.replace(/\s+/g, " ").trim();
 
+    // Detect language
+    let language = "";
+    if (fileName.toLowerCase().match(/latino|spanish|español|castellano|esp/i)) language = "Español";
+    else if (fileName.toLowerCase().match(/english|eng|en/i)) language = "English";
+    if (fileName.toLowerCase().match(/dual/i)) language = "Dual Audio";
+
     return {
         clean_title: cleanName,
-        year: year
+        year: year,
+        language: language
     };
 }
 
