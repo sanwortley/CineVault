@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Play, Pause, Volume2, VolumeX, Maximize, X, 
     Loader2, Subtitles, SkipBack, SkipForward, Lock, Unlock, Film,
-    Plus, Cloud, Upload, AlertCircle
+    Plus, Cloud, Upload, AlertCircle, ExternalLink
 } from 'lucide-react';
 import { api, BACKEND_URL } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -934,15 +934,28 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             )}
 
             {isDisplayLoading && !error && movie?.drive_file_id !== 'pending_cloud' && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10 transition-colors">
-                    <div className="text-center">
+                <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-10 transition-colors">
+                    <div className="text-center p-6">
                         <div className="relative">
-                            <Loader2 className="text-cyan-500 animate-spin w-20 h-20 mx-auto mb-4" />
+                            <Loader2 className="text-cyan-500 animate-spin w-16 h-16 mx-auto mb-6" />
                             <div className="absolute inset-0 flex items-center justify-center">
-                                <Film size={24} className="text-cyan-500/40" />
+                                <Film size={20} className="text-cyan-500/40" />
                             </div>
                         </div>
-                        <p className="text-white font-black uppercase tracking-[0.3em] text-[10px] animate-pulse">Iniciando Bóveda...</p>
+                        <p className="text-white font-black uppercase tracking-[0.3em] text-[10px] animate-pulse mb-10">Conectando Bóveda...</p>
+                        
+                        {isMobile && (
+                            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500">
+                                <p className="text-slate-500 text-[9px] font-bold uppercase tracking-widest">¿Tarda mucho en cargar?</p>
+                                <button 
+                                    onClick={() => window.location.href = videoUrl}
+                                    className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2 mx-auto"
+                                >
+                                    <ExternalLink size={14} className="text-cyan-400" />
+                                    Abrir en iPhone
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
