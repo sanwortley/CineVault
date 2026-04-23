@@ -41,6 +41,7 @@ async function getMovieDetails(movieId) {
         const data = response.data;
         return {
             official_title: data.title,
+            original_title: data.original_title, // Guardamos el título original para OMDb
             overview: data.overview,
             poster_url: data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : null,
             backdrop_url: data.backdrop_path ? `https://image.tmdb.org/t/p/original${data.backdrop_path}` : null,

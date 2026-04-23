@@ -110,9 +110,9 @@ function MovieCard({ movie, onPlay, onInfo, compact = false, myList = [], toggle
                         </div>
                     )}
                     {movie.rt_rating && (
-                        <div className="px-1.5 py-0.5 bg-black/80 rounded text-[9px] font-black text-white border border-white/10 flex items-center gap-1">
-                            <img src="https://www.rottentomatoes.com/assets/cas/images/favicon.ico" className="w-3 h-3" alt="RT" />
-                            <span>{movie.rt_rating}</span>
+                        <div className="px-1.5 py-0.5 bg-black/80 rounded text-[9px] font-black text-white border border-white/10 flex items-center gap-1 shadow-lg">
+                            <span className="text-[12px] leading-none mb-0.5" title="Rotten Tomatoes">🍅</span>
+                            <span className="text-orange-500 font-black">{movie.rt_rating}</span>
                         </div>
                     )}
                     {drive_file_id && (

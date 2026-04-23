@@ -1286,7 +1286,7 @@ app.post('/api/movies/:id/re-identify', sessionMiddleware, adminMiddleware, asyn
             return res.status(500).json({ error: 'Error al obtener detalles del match de TMDB' });
         }
         
-        const omdbDetails = await tmdb.getOMDbDetails(tmdbDetails.official_title, year);
+        const omdbDetails = await tmdb.getOMDbDetails(tmdbDetails.official_title, year, tmdbDetails.original_title);
         const details = { ...tmdbDetails, ...omdbDetails };
         
         // 3. Update DB
