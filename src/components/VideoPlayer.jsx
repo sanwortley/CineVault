@@ -1291,13 +1291,6 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                     }}
                 />
             )}
-            {/* Always visible progress bar at the very bottom */}
-            <div className="absolute bottom-0 left-0 right-0 h-1 md:h-1.5 bg-white/10 overflow-hidden z-[900]">
-                <div 
-                    className="h-full bg-netflix-red transition-all duration-200"
-                    style={{ width: `${(currentTime / (duration || movie.runtime * 60 || 1)) * 100}%` }}
-                />
-            </div>
         </div>
     );
 }
