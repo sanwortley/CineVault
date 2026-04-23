@@ -29,26 +29,22 @@ app.get('/stream/:fileId', async (req, res) => {
             if (startTime > 0) command = command.seekInput(startTime);
 
             command
-                .videoCodec('copy')
+                .videoCodec('copy') // Try to copy video first for performance
                 .audioCodec('aac')
                 .audioChannels(2)
                 .audioFrequency(44100)
-                .format('matroska') // More compatible for live copy+transcode
+                .format('mp4') // MANDATORY for iPhone/Safari
                 .inputOptions([
                     '-headers',
                     `Authorization: Bearer ${token}`,
                     '-fflags +fastseek'
                 ])
                 .outputOptions([
-                    '-map 0:v?', '-map 0:a?', '-map 0:s?', // map all streams
-                    '-c:s copy', // copy subtitles
+                    '-movflags frag_keyframe+empty_moov+default_base_moof+faststart', // Essential for streaming MP4
+                    '-map 0:v?', '-map 0:a?', // map video and audio
                     '-preset ultrafast',
                     '-tune zerolatency',
-                    '-max_muxing_queue_size 1024',
-                    '-x264-params keyint=30:min-keyint=30:scenecut=0', // Force keyframes every 30 frames
-                    '-force_key_frames expr:gte(t,n_forced*1)', // Force keyframe every second
-                    '-movflags +faststart',
-                    '-flush_packets 1'
+                    '-max_muxing_queue_size 1024'
                 ])
                 .on('error', (err) => {
                     console.error('[Drive Proxy] Transcode Error:', err.message);
@@ -56,7 +52,7 @@ app.get('/stream/:fileId', async (req, res) => {
                 })
                 .pipe(pt);
 
-            res.setHeader('Content-Type', 'video/x-matroska');
+            res.setHeader('Content-Type', 'video/mp4'); // iPhone doesn't support matroska
             res.setHeader('Cache-Control', 'no-cache');
             res.setHeader('Connection', 'keep-alive');
             pt.pipe(res);
