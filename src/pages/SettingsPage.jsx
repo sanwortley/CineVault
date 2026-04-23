@@ -604,7 +604,65 @@ function SettingsPage({ onClose, onTabChange }) {
                     </div>
                 </div>
 
-                {/* 3. Session Management Dashboard */}
+                {/* 3. Technical Maintenance Dashboard */}
+                {isAdmin() && (
+                    <section className="glass rounded-[3rem] p-8 md:p-16 border border-white/5 shadow-2xl relative overflow-hidden group">
+                        <div className="absolute -bottom-12 -right-12 opacity-[0.02] group-hover:opacity-[0.05] transition-opacity">
+                            <Settings size={300} strokeWidth={1} />
+                        </div>
+                        <div className="relative z-10">
+                            <div className="flex items-center gap-6 mb-12">
+                                <div className="p-6 bg-amber-500/10 rounded-[2rem] border border-amber-500/20 shadow-inner">
+                                    <Database className="text-amber-500" size={32} />
+                                </div>
+                                <div>
+                                    <h3 className="text-3xl font-black text-white tracking-tighter uppercase italic">Mantenimiento Maestro</h3>
+                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Sincronización global de metadata y puntuaciones</p>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-black/30 rounded-[2.5rem] p-8 md:p-12 border border-white/[0.03] shadow-inner text-center md:text-left">
+                                <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+                                    <div className="max-w-xl">
+                                        <h4 className="text-xl font-bold text-white mb-2">Actualización Global de Bóveda</h4>
+                                        <p className="text-sm text-slate-400 leading-relaxed">
+                                            Este proceso re-escaneará todas tus películas para traer las notas de Rotten Tomatoes (usando búsqueda bilingüe) y fijar las duraciones reales. Úsalo si ves barras de progreso rotas o faltan tomates.
+                                        </p>
+                                    </div>
+                                    <button 
+                                        onClick={async (e) => {
+                                            const btn = e.currentTarget;
+                                            const originalText = btn.innerHTML;
+                                            try {
+                                                btn.disabled = true;
+                                                btn.innerHTML = '<span class="animate-pulse">Actualizando...</span>';
+                                                await api.refreshAllMetadata();
+                                                btn.classList.remove('bg-white');
+                                                btn.classList.add('bg-green-600', 'text-white');
+                                                btn.innerHTML = '¡Completado!';
+                                                setTimeout(() => {
+                                                    btn.disabled = false;
+                                                    btn.innerHTML = originalText;
+                                                    btn.classList.remove('bg-green-600', 'text-white');
+                                                    btn.classList.add('bg-white', 'text-black');
+                                                }, 3000);
+                                            } catch (err) {
+                                                alert('Error al iniciar actualización: ' + err.message);
+                                                btn.disabled = false;
+                                                btn.innerHTML = originalText;
+                                            }
+                                        }}
+                                        className="px-10 py-6 bg-white text-black font-black uppercase tracking-widest rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-xl whitespace-nowrap"
+                                    >
+                                        Actualizar Todo
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
+                {/* 4. Session Management Dashboard */}
                 {isAdmin() && (
                     <section className="glass rounded-[3rem] p-8 md:p-16 border border-white/5 shadow-2xl relative overflow-hidden group">
                         <div className="absolute -bottom-12 -left-12 opacity-[0.02] group-hover:opacity-[0.05] transition-opacity">
@@ -627,7 +685,7 @@ function SettingsPage({ onClose, onTabChange }) {
                     </section>
                 )}
 
-                {/* 4. Google Drive Integration Card */}
+                {/* 5. Google Drive Integration Card */}
                 <section className="glass rounded-[3rem] p-8 md:p-16 border border-white/5 shadow-2xl relative overflow-hidden">
                     <div className="flex flex-col lg:flex-row items-center justify-between gap-12">
                         <div className="flex flex-col md:flex-row items-center gap-10">
