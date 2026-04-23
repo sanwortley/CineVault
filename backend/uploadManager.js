@@ -161,9 +161,10 @@ class UploadManager extends EventEmitter {
 
         try {
             let workingFilePath = nextJob.filePath;
+            const isActuallyUrl = nextJob.isUrl || (typeof workingFilePath === 'string' && workingFilePath.startsWith('http'));
 
             // 1. If it's a URL, download it first
-            if (nextJob.isUrl) {
+            if (isActuallyUrl) {
                 console.log(`[UploadManager] Descargando desde nube: ${nextJob.title}`);
                 const tempDir = path.join(process.cwd(), 'temp_downloads');
                 if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
