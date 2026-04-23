@@ -46,7 +46,14 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const [lastTap, setLastTap] = useState(0);
     const [error, setError] = useState(null);
     const [debugInfo, setDebugInfo] = useState([]);
+    const [delayedMount, setDelayedMount] = useState(false);
     
+    // Delayed mount for mobile safety
+    useEffect(() => {
+        const timer = setTimeout(() => setDelayedMount(true), 500);
+        return () => clearTimeout(timer);
+    }, []);
+
     // Add to debug log
     const addDebug = (msg) => {
         console.log(`[DEBUG] ${msg}`);
@@ -723,42 +730,6 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         setUnlockProgress(0);
     };
 
-    if (error) {
-        return (
-            <div className="fixed inset-0 bg-black z-300 flex items-center justify-center p-8">
-                <div className="text-center max-w-sm">
-                    <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <X size={32} className="text-red-500" />
-                    </div>
-                    <p className="text-white text-lg mb-6">{error}</p>
-                    <div className="flex flex-col gap-3">
-                        {error.includes('Ajustes') ? (
-                            <button 
-                                onClick={() => { window.location.hash = '#settings'; onClose(0); }}
-                                className="px-6 py-3 bg-netflix-red text-white font-bold rounded-full"
-                            >
-                                Ir a Ajustes
-                            </button>
-                        ) : (
-                            <button 
-                                onClick={() => { setError(null); setIsLoading(true); setStreamSource('checking'); }}
-                                className="px-6 py-3 bg-cyan-500 text-black font-bold rounded-full"
-                            >
-                                Reintentar
-                            </button>
-                        )}
-                        <button 
-                            onClick={() => onClose(0)} 
-                            className="px-6 py-3 bg-white/10 text-white font-bold rounded-full"
-                        >
-                            Cerrar
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div 
             ref={playerRef}
@@ -768,54 +739,65 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             onTouchStart={resetTimer}
         >
             <div className="flex-1 flex items-center justify-center bg-black relative">
-                <video
-                    ref={videoRef}
-                    src={videoUrl}
-                    className="w-full h-full object-contain md:object-contain"
-                    style={{ backgroundColor: '#000', height: '100%', width: '100%' }}
-                    onTimeUpdate={(e) => {
-                        setCurrentTime(e.target.currentTime);
-                    }}
-                    onLoadedMetadata={(e) => {
-                        setDuration(e.target.duration);
-                        if (videoRef.current) {
-                            videoRef.current.preload = 'auto';
-                        }
-                    }}
-                    onLoadedData={handleLoadedData}
-                    onCanPlay={handleCanPlay}
-                    onPlay={() => setIsPlaying(true)}
-                    onPause={(e) => {
-                        setIsPlaying(false);
-                        if (user && movie?.id && e.target.currentTime > 0) {
-                            saveUserProgress(movie.id, Math.floor(e.target.currentTime));
-                        }
-                    }}
-                    onWaiting={() => setIsLoading(true)}
-                    onPlaying={() => setIsLoading(false)}
-                    onError={handleVideoError}
-                    autoPlay
-                    playsInline
-                    webkit-playsinline="true"
-                    crossOrigin="anonymous"
-                    preload="metadata"
-                    onClick={handleVideoClick}
-                >
-                    {selectedSubtitle && (
-                        <track
-                            key={selectedSubtitle.id}
-                            kind="subtitles"
-                            src={
-                                selectedSubtitle.type === 'cloud'
-                                    ? BACKEND_URL + '/api/subtitles/cloud?id=' + selectedSubtitle.id
-                                    : selectedSubtitle.url || ''
+                {delayedMount ? (
+                    <video
+                        ref={videoRef}
+                        src={videoUrl}
+                        className="w-full h-full object-contain md:object-contain"
+                        style={{ backgroundColor: '#000', height: '100%', width: '100%' }}
+                        playsInline
+                        autoPlay
+                        muted={isMuted}
+                        onTimeUpdate={(e) => {
+                            setCurrentTime(e.target.currentTime);
+                        }}
+                        onLoadedMetadata={(e) => {
+                            setDuration(e.target.duration);
+                            if (videoRef.current) {
+                                videoRef.current.preload = 'auto';
                             }
-                            srcLang="es"
-                            label={selectedSubtitle.label || 'Español'}
-                            default
-                        />
-                    )}
-                </video>
+                        }}
+                        onLoadedData={handleLoadedData}
+                        onCanPlay={handleCanPlay}
+                        onPlay={() => setIsPlaying(true)}
+                        onPause={(e) => {
+                            setIsPlaying(false);
+                            if (user && movie?.id && e.target.currentTime > 0) {
+                                saveUserProgress(movie.id, Math.floor(e.target.currentTime));
+                            }
+                        }}
+                        onError={(e) => {
+                            const mediaErr = e.target.error;
+                            let msg = "Error de video desconocido";
+                            if (mediaErr) {
+                                switch(mediaErr.code) {
+                                    case 1: msg = "Aborted by user"; break;
+                                    case 2: msg = "Network error"; break;
+                                    case 3: msg = "Decode error (Format incompatible?)"; break;
+                                    case 4: msg = "Source not supported (Safari/H.264 issue?)"; break;
+                                }
+                            }
+                            addDebug(`VIDEO ERROR: ${msg} (Code ${mediaErr?.code})`);
+                            setError({ message: msg });
+                        }}
+                    >
+                        {selectedSubtitle && (
+                            <track 
+                                key={selectedSubtitle.id}
+                                label={selectedSubtitle.label}
+                                kind="subtitles"
+                                srcLang={selectedSubtitle.lang}
+                                src={selectedSubtitle.url}
+                                default
+                            />
+                        )}
+                    </video>
+                ) : (
+                    <div className="flex flex-col items-center gap-4">
+                        <Loader2 className="text-cyan-500 animate-spin" size={40} />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Iniciando Bóveda...</span>
+                    </div>
+                )}
             </div>
 
             {isLocked && (
@@ -1342,10 +1324,10 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                     }}
                 />
             )}
-            {/* DEBUG OVERLAY (Only visible if error exists) */}
+            {/* DEBUG OVERLAY (Simplified for mobile performance) */}
             {error && (
-                <div className="absolute inset-0 z-[1000] bg-black/95 backdrop-blur-xl flex items-center justify-center p-6 md:p-12 overflow-y-auto">
-                    <div className="max-w-2xl w-full bg-red-950/20 border border-red-500/30 rounded-[2.5rem] p-8 md:p-12 shadow-2xl relative">
+                <div className="absolute inset-0 z-[1000] bg-black flex items-center justify-center p-6 md:p-12 overflow-y-auto">
+                    <div className="max-w-2xl w-full bg-zinc-900 border border-red-500/30 rounded-3xl p-8 md:p-12 shadow-2xl relative">
                         <button 
                             onClick={onClose}
                             className="absolute top-6 right-6 p-3 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-white"

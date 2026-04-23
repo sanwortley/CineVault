@@ -17,6 +17,9 @@ class VideoPlayerErrorBoundary extends React.Component {
 
     componentDidCatch(error, info) {
         console.error('[VideoPlayer] Fatal crash caught by ErrorBoundary:', error, info);
+        if (this.props.onError) {
+            this.props.onError(error);
+        }
     }
 
     handleClose = () => {

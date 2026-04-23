@@ -245,14 +245,34 @@ export default function AppContent() {
         }
     };
 
+    const [playerCrashError, setPlayerCrashError] = useState(null);
+
     return (
         <div className="min-h-screen bg-black text-white selection:bg-netflix-red/30">
+            {/* High-level crash alert for mobile debugging */}
+            {playerCrashError && (
+                <div className="fixed inset-0 z-[2000] bg-black/95 flex items-center justify-center p-6 text-center">
+                    <div className="max-w-xs flex flex-col items-center gap-4">
+                        <AlertCircle className="text-red-500" size={48} />
+                        <h2 className="text-xl font-black uppercase tracking-tighter">Colapso del Iniciador</h2>
+                        <p className="text-xs text-slate-400 font-mono break-all">{playerCrashError}</p>
+                        <button 
+                            onClick={() => { setPlayerCrashError(null); setPlayingMovie(null); }}
+                            className="mt-4 px-6 py-3 bg-white text-black font-black uppercase text-[10px] rounded-xl"
+                        >
+                            Entendido
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {playingMovie && (
                 <VideoPlayerErrorBoundary 
                     onClose={() => {
                         setPlayingMovie(null);
                         loadData(true);
                     }}
+                    onError={(err) => setPlayerCrashError(err.message || String(err))}
                 >
                     <VideoPlayer
                         movie={playingMovie}
