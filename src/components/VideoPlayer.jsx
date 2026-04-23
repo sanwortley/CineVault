@@ -1031,13 +1031,13 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                             <span>
                                 {(() => {
                                     const metaRuntime = Number(activeMovie.runtime || 0) * 60;
-                                    const effectiveDuration = (duration > 1 && duration !== Infinity) ? duration : metaRuntime;
                                     
-                                    // DEBUG: If effectiveDuration is still 0, we have a data gap
-                                    if (effectiveDuration === 0 && currentTime > 0) {
-                                        console.warn(`[VideoPlayer] CRITICAL: No duration available for ${activeMovie.official_title || activeMovie.id}`);
-                                    }
-
+                                    // COMMON SENSE VALIDATION: 
+                                    // If mobile reports a tiny duration (like 1s) but metadata says it's a long movie, 
+                                    // ignore the mobile duration until it becomes realistic.
+                                    const isDurationSuspicious = duration > 0 && duration < 600 && metaRuntime > 600;
+                                    const effectiveDuration = (duration > 1 && duration !== Infinity && !isDurationSuspicious) ? duration : metaRuntime;
+                                    
                                     const remaining = Math.max(0, effectiveDuration - currentTime);
                                     return effectiveDuration > 0 ? `-${formatTime(remaining)}` : '--:--';
                                 })()}
@@ -1045,17 +1045,14 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         </div>
                         
                         {(() => {
-                            // VALIDATION: Ignore durations near zero (common mobile glitch)
-                            const validDuration = (duration > 1 && duration !== Infinity) ? duration : 0;
-                            
-                            // Master Runtime from metadata (fallback)
                             const metaRuntime = Number(activeMovie.runtime || 0) * 60;
+                            const isDurationSuspicious = duration > 0 && duration < 600 && metaRuntime > 600;
+                            const validDuration = (duration > 1 && duration !== Infinity && !isDurationSuspicious) ? duration : 0;
                             
                             // Use actual duration, or movie metadata runtime
                             let totalDuration = validDuration > 0 ? validDuration : metaRuntime;
                             
                             // SAFETY: Only show progress if we have a real duration > 0
-                            // If totalDuration is 0, progressPercent MUST be 0 to avoid jumping to 100%
                             const progressPercent = totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0;
                             const safeMax = totalDuration > 0 ? totalDuration : 100;
                             
