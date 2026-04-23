@@ -44,26 +44,26 @@ function Hero({ movies, onPlay, onInfo }) {
                 </div>
 
                 {/* Content */}
-                <div className="relative h-full flex flex-col justify-end px-8 md:px-16 pt-32 pb-20 md:pb-32 z-10 max-w-3xl">
-                    <h1 className="text-4xl md:text-7xl font-black tracking-tighter mb-4 md:mb-6 drop-shadow-2xl animate-fade-in-up">
+                <div className="relative h-full flex flex-col justify-end px-6 md:px-16 pt-32 pb-24 md:pb-32 z-10 max-w-3xl">
+                    <h1 className="text-3xl md:text-7xl font-black tracking-tighter mb-4 md:mb-6 drop-shadow-2xl animate-fade-in-up">
                         {movie.official_title || movie.detected_title}
                     </h1>
                     
-                    <div className="flex items-center gap-4 mb-6 text-sm font-bold opacity-0 animate-fade-in-up [animation-delay:200ms] [animation-fill-mode:forwards]">
+                    <div className="flex items-center gap-3 mb-6 text-xs md:text-sm font-bold opacity-0 animate-fade-in-up [animation-delay:200ms] [animation-fill-mode:forwards]">
                         {movie.rt_rating ? (
                              <div className="flex items-center gap-2">
-                                <span className="text-[20px] leading-none mb-1">🍅</span>
-                                <span className="text-white text-lg font-black">{movie.rt_rating}</span>
+                                <span className="text-[18px] leading-none mb-1">🍅</span>
+                                <span className="text-white text-base font-black">{movie.rt_rating}</span>
                             </div>
                         ) : (
                             <span className="text-green-500">{movie.rating ? (movie.rating * 10).toFixed(0) : '98'}% Coincidencia</span>
                         )}
                         <span className="text-white">{movie.detected_year}</span>
-                        <span className="border border-white/40 px-1 text-[10px] rounded">16+</span>
+                        <span className="border border-white/40 px-1 text-[9px] rounded">16+</span>
                         <span className="text-white">{movie.runtime ? `${movie.runtime}m` : '2h 14m'}</span>
                     </div>
 
-                    <p className="text-sm md:text-lg font-medium text-slate-300 mb-8 md:mb-10 line-clamp-3 md:line-clamp-none drop-shadow-lg leading-relaxed opacity-0 animate-fade-in-up [animation-delay:400ms] [animation-fill-mode:forwards]">
+                    <p className="text-xs md:text-lg font-medium text-slate-300 mb-8 md:mb-10 line-clamp-3 md:line-clamp-none drop-shadow-lg leading-relaxed opacity-0 animate-fade-in-up [animation-delay:400ms] [animation-fill-mode:forwards]">
                         {movie.summary || "Explora esta obra maestra cinematográfica en tu bóveda personal."}
                     </p>
 
@@ -72,22 +72,25 @@ function Hero({ movies, onPlay, onInfo }) {
                             onClick={() => onPlay(movie)}
                             className="flex items-center gap-2 px-6 md:px-8 py-3 bg-white text-black rounded font-bold hover:bg-white/80 transition-all active:scale-95"
                         >
-                            <Play size={isMobile ? 20 : 24} fill="black" />
-                            <span className="text-sm md:text-lg">Reproducir</span>
+                            <Play size={isMobile ? 18 : 24} fill="black" />
+                            <span className="text-xs md:text-lg">Reproducir</span>
                         </button>
                         <button 
                             onClick={() => onInfo(movie)}
                             className="flex items-center gap-2 px-6 md:px-8 py-3 bg-slate-500/50 text-white rounded font-bold hover:bg-slate-500/70 transition-all active:scale-95 backdrop-blur-md"
                         >
-                            <Info size={isMobile ? 20 : 24} />
-                            <span className="text-sm md:text-lg">Más info</span>
+                            <Info size={isMobile ? 18 : 24} />
+                            <span className="text-xs md:text-lg">Más info</span>
                         </button>
                     </div>
                 </div>
+                
+                {/* Bottom solid black transition */}
+                <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-black to-transparent z-[5]"></div>
             </div>
 
-            {/* Controls */}
-            {movies.length > 1 && (
+            {/* Controls - HIDDEN ON MOBILE */}
+            {!isMobile && movies.length > 1 && (
                 <>
                     <button 
                         onClick={prevSlide}
