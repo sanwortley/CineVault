@@ -3,6 +3,13 @@ import { Play, Info, ChevronLeft, ChevronRight } from 'lucide-react';
 
 function Hero({ movies, onPlay, onInfo }) {
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     useEffect(() => {
         if (!movies || movies.length <= 1) return;
@@ -37,16 +44,16 @@ function Hero({ movies, onPlay, onInfo }) {
                 </div>
 
                 {/* Content */}
-                <div className="relative h-full flex flex-col justify-end px-8 md:px-16 pb-32 z-10 max-w-3xl">
-                    <h1 className="text-6xl md:text-7xl font-black tracking-tighter mb-6 drop-shadow-2xl animate-fade-in-up">
+                <div className="relative h-full flex flex-col justify-end px-8 md:px-16 pt-32 pb-20 md:pb-32 z-10 max-w-3xl">
+                    <h1 className="text-4xl md:text-7xl font-black tracking-tighter mb-4 md:mb-6 drop-shadow-2xl animate-fade-in-up">
                         {movie.official_title || movie.detected_title}
                     </h1>
                     
                     <div className="flex items-center gap-4 mb-6 text-sm font-bold opacity-0 animate-fade-in-up [animation-delay:200ms] [animation-fill-mode:forwards]">
                         {movie.rt_rating ? (
                              <div className="flex items-center gap-2">
-                                <img src="https://www.rottentomatoes.com/assets/cas/images/favicon.ico" className="w-5 h-5" alt="RT" />
-                                <span className="text-white text-lg">{movie.rt_rating}</span>
+                                <span className="text-[20px] leading-none mb-1">🍅</span>
+                                <span className="text-white text-lg font-black">{movie.rt_rating}</span>
                             </div>
                         ) : (
                             <span className="text-green-500">{movie.rating ? (movie.rating * 10).toFixed(0) : '98'}% Coincidencia</span>
@@ -56,24 +63,24 @@ function Hero({ movies, onPlay, onInfo }) {
                         <span className="text-white">{movie.runtime ? `${movie.runtime}m` : '2h 14m'}</span>
                     </div>
 
-                    <p className="text-lg font-medium text-slate-300 mb-10 line-clamp-3 drop-shadow-lg leading-relaxed opacity-0 animate-fade-in-up [animation-delay:400ms] [animation-fill-mode:forwards]">
+                    <p className="text-sm md:text-lg font-medium text-slate-300 mb-8 md:mb-10 line-clamp-3 md:line-clamp-none drop-shadow-lg leading-relaxed opacity-0 animate-fade-in-up [animation-delay:400ms] [animation-fill-mode:forwards]">
                         {movie.summary || "Explora esta obra maestra cinematográfica en tu bóveda personal."}
                     </p>
 
-                    <div className="flex items-center gap-4 opacity-0 animate-fade-in-up [animation-delay:600ms] [animation-fill-mode:forwards]">
+                    <div className="flex items-center gap-3 md:gap-4 opacity-0 animate-fade-in-up [animation-delay:600ms] [animation-fill-mode:forwards]">
                         <button 
                             onClick={() => onPlay(movie)}
-                            className="flex items-center gap-2 px-8 py-3 bg-white text-black rounded font-bold hover:bg-white/80 transition-all active:scale-95"
+                            className="flex items-center gap-2 px-6 md:px-8 py-3 bg-white text-black rounded font-bold hover:bg-white/80 transition-all active:scale-95"
                         >
-                            <Play size={24} fill="black" />
-                            <span className="text-lg">Reproducir</span>
+                            <Play size={isMobile ? 20 : 24} fill="black" />
+                            <span className="text-sm md:text-lg">Reproducir</span>
                         </button>
                         <button 
                             onClick={() => onInfo(movie)}
-                            className="flex items-center gap-2 px-8 py-3 bg-slate-500/50 text-white rounded font-bold hover:bg-slate-500/70 transition-all active:scale-95 backdrop-blur-md"
+                            className="flex items-center gap-2 px-6 md:px-8 py-3 bg-slate-500/50 text-white rounded font-bold hover:bg-slate-500/70 transition-all active:scale-95 backdrop-blur-md"
                         >
-                            <Info size={24} />
-                            <span className="text-lg">Más información</span>
+                            <Info size={isMobile ? 20 : 24} />
+                            <span className="text-sm md:text-lg">Más info</span>
                         </button>
                     </div>
                 </div>
