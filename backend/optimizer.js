@@ -72,6 +72,12 @@ function getTranscodeStream(input, startTime = 0) {
             '-map_chapters -1'
         ])
         .on('start', (cmd) => console.log(`[Optimizer] FFmpeg Stream: ${cmd}`))
+        .on('stderr', (line) => {
+            const fs = require('fs');
+            const path = require('path');
+            const logFile = path.join(__dirname, '../scratch/ffmpeg.log');
+            fs.appendFileSync(logFile, line + '\n');
+        })
         .on('error', (err) => {
             if (err.message.includes('SIGKILL') || err.message.includes('Output stream closed')) {
                 // User stopped playback, normal behavior
