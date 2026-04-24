@@ -61,14 +61,14 @@ function getTranscodeStream(input, startTime = 0) {
         .outputOptions([
             '-preset ultrafast',
             '-tune zerolatency',
-            '-profile:v baseline', // Maximum compatibility for mobile
+            '-profile:v baseline', 
             '-level 3.0',
             '-pix_fmt yuv420p',
-            '-movflags +frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset', // Refined fMP4 flags
+            '-movflags frag_keyframe+empty_moov+default_base_moof+faststart', 
             '-metadata:s:v:0 rotate=0',
             '-crf 23',
-            '-maxrate 2.5M',
-            '-bufsize 5M',
+            '-maxrate 5M',
+            '-bufsize 10M',
             '-g 48',
             '-map_chapters -1'
         ])

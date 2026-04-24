@@ -305,15 +305,13 @@ app.get('/api/stream/local', (req, res) => {
     if (transcode) {
         const { getTranscodeStream } = require('./optimizer');
         
-        // Clean 200 OK response for transcoded streams. 
-        // We avoid faking ranges to prevent "Format Not Supported" errors.
-        res.writeHead(200, {
-            'Content-Type': 'video/mp4',
-            'Access-Control-Allow-Origin': '*',
-            'Connection': 'keep-alive',
-            'Cache-Control': 'no-cache',
-            'X-Content-Type-Options': 'nosniff'
-        });
+        // Standard streaming headers that Safari usually accepts
+        res.setHeader('Content-Type', 'video/mp4');
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Connection', 'keep-alive');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.status(200);
         
         const transcodeStream = getTranscodeStream(filePath, startTime);
         transcodeStream.pipe(res);
