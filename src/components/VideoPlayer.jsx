@@ -255,10 +255,12 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const handleVideoError = (e) => {
         const videoElement = e.target;
         const errorCode = videoElement.error ? videoElement.error.code : 'Unknown';
+        const errorMsg = videoElement.error?.message || '';
+        addDebug(`VIDEO ERROR: Code ${errorCode} - ${errorMsg}`);
 
         console.error('[VideoPlayer] Video Error:', {
             errorCode,
-            errorMessage: videoElement.error?.message,
+            errorMessage: errorMsg,
             src: videoElement.currentSrc?.substring(0, 100),
             networkState: videoElement.networkState,
             readyState: videoElement.readyState
@@ -766,20 +768,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                 saveUserProgress(movie.id, Math.floor(e.target.currentTime));
                             }
                         }}
-                        onError={(e) => {
-                            const mediaErr = e.target.error;
-                            let msg = "Error de video desconocido";
-                            if (mediaErr) {
-                                switch(mediaErr.code) {
-                                    case 1: msg = "Aborted by user"; break;
-                                    case 2: msg = "Network error"; break;
-                                    case 3: msg = "Decode error (Format incompatible?)"; break;
-                                    case 4: msg = "Source not supported (Safari/H.264 issue?)"; break;
-                                }
-                            }
-                            addDebug(`VIDEO ERROR: ${msg} (Code ${mediaErr?.code})`);
-                            setError({ message: msg });
-                        }}
+                        onError={handleVideoError}
                     >
                         {selectedSubtitle && (
                             <track 

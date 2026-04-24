@@ -305,13 +305,26 @@ app.get('/api/stream/local', (req, res) => {
     if (transcode) {
         const { getTranscodeStream } = require('./optimizer');
         
+        const range = req.headers.range;
+        
+        // Safari Probe handling (0-1 bytes)
+        if (range === 'bytes=0-1') {
+            res.writeHead(206, {
+                'Content-Type': 'video/mp4',
+                'Content-Range': 'bytes 0-1/100', // Fake total length to satisfy probe
+                'Content-Length': '2',
+                'Accept-Ranges': 'bytes',
+                'Access-Control-Allow-Origin': '*'
+            });
+            return res.end('\0\0');
+        }
+
         res.writeHead(200, {
             'Content-Type': 'video/mp4',
-            'Accept-Ranges': 'bytes',
             'Access-Control-Allow-Origin': '*',
-            'Transfer-Encoding': 'chunked',
             'Connection': 'keep-alive',
-            'Cache-Control': 'no-cache'
+            'Cache-Control': 'no-cache',
+            'X-Content-Type-Options': 'nosniff'
         });
         
         const transcodeStream = getTranscodeStream(filePath, startTime);

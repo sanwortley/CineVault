@@ -174,7 +174,27 @@ const driveApi = {
             if (transcodeOptions.transcode) {
                 const { getTranscodeStream } = require('./optimizer');
                 const startTime = parseFloat(transcodeOptions.t || 0);
-                res.writeHead(200, { 'Content-Type': 'video/mp4', 'Accept-Ranges': 'bytes', 'Access-Control-Allow-Origin': '*', 'Transfer-Encoding': 'chunked' });
+                const range = rangeHeader || req?.headers?.range;
+                
+                // Safari Probe handling (0-1 bytes)
+                if (range === 'bytes=0-1') {
+                    res.writeHead(206, {
+                        'Content-Type': 'video/mp4',
+                        'Content-Range': 'bytes 0-1/100',
+                        'Content-Length': '2',
+                        'Accept-Ranges': 'bytes',
+                        'Access-Control-Allow-Origin': '*'
+                    });
+                    return res.end('\0\0');
+                }
+
+                res.writeHead(200, { 
+                    'Content-Type': 'video/mp4', 
+                    'Access-Control-Allow-Origin': '*',
+                    'Connection': 'keep-alive',
+                    'Cache-Control': 'no-cache',
+                    'X-Content-Type-Options': 'nosniff'
+                });
 
                 let bodyStream;
                 if (hasToken) {
