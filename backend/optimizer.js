@@ -55,6 +55,7 @@ function getTranscodeStream(input, startTime = 0) {
         .videoCodec('libx264')
         .audioCodec('aac')
         .audioChannels(2)
+        .audioFrequency(44100)
         .audioBitrate('128k')
         .format('mp4')
         .outputOptions([

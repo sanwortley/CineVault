@@ -1332,7 +1332,9 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         <div className="space-y-6">
                             <div className="p-6 bg-black/50 rounded-2xl border border-red-500/20">
                                 <p className="text-red-400 font-bold mb-2">Mensaje:</p>
-                                <p className="text-white font-mono text-sm break-words">{error.message || 'Error desconocido'}</p>
+                                <p className="text-white font-mono text-sm break-words">
+                                    {typeof error === 'string' ? error : (error.message || 'Error desconocido')}
+                                </p>
                             </div>
 
                             {error.stack && (

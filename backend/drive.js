@@ -176,25 +176,27 @@ const driveApi = {
                 const startTime = parseFloat(transcodeOptions.t || 0);
                 const range = rangeHeader || req?.headers?.range;
                 
-                // Safari Probe handling (0-1 bytes)
-                if (range === 'bytes=0-1') {
+                // Safari / iOS Compatibility Hack:
+                if (range) {
                     res.writeHead(206, {
                         'Content-Type': 'video/mp4',
-                        'Content-Range': 'bytes 0-1/100',
-                        'Content-Length': '2',
                         'Accept-Ranges': 'bytes',
-                        'Access-Control-Allow-Origin': '*'
+                        'Content-Range': `bytes 0-1000000000/1000000001`,
+                        'Content-Length': '1000000001',
+                        'Access-Control-Allow-Origin': '*',
+                        'Connection': 'keep-alive',
+                        'X-Content-Type-Options': 'nosniff'
                     });
-                    return res.end('\0\0');
+                } else {
+                    res.writeHead(200, { 
+                        'Content-Type': 'video/mp4', 
+                        'Accept-Ranges': 'bytes',
+                        'Access-Control-Allow-Origin': '*',
+                        'Connection': 'keep-alive',
+                        'Cache-Control': 'no-cache',
+                        'X-Content-Type-Options': 'nosniff'
+                    });
                 }
-
-                res.writeHead(200, { 
-                    'Content-Type': 'video/mp4', 
-                    'Access-Control-Allow-Origin': '*',
-                    'Connection': 'keep-alive',
-                    'Cache-Control': 'no-cache',
-                    'X-Content-Type-Options': 'nosniff'
-                });
 
                 let bodyStream;
                 if (hasToken) {
