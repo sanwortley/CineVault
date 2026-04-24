@@ -285,6 +285,18 @@ app.get('/api/drive/stream/:fileId', sessionMiddleware, async (req, res) => {
 });
 
 // ─── Local Streaming ──────────────────────────────────────────────────────────
+app.get('/api/debug/ffmpeg-logs', (req, res) => {
+    const fs = require('fs');
+    const path = require('path');
+    const logFile = path.join(__dirname, '../scratch/ffmpeg.log');
+    if (fs.existsSync(logFile)) {
+        res.setHeader('Content-Type', 'text/plain');
+        res.sendFile(logFile);
+    } else {
+        res.status(404).send('No logs found');
+    }
+});
+
 app.get('/api/stream/local', (req, res) => {
     const filePath = req.query.path;
     const transcode = req.query.transcode === 'true';
