@@ -261,55 +261,27 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         console.error('[VideoPlayer] Video Error:', {
             errorCode,
             errorMessage: errorMsg,
-            src: videoElement.currentSrc?.substring(0, 100),
-            networkState: videoElement.networkState,
-            readyState: videoElement.readyState
+            src: videoElement.currentSrc?.substring(0, 100)
         });
-        
-        if (!videoUrl || videoUrl === '' || streamSource === 'checking' || streamSource === 'error') {
-            return;
-        }
-        // Never retry if this is a cloud-pending movie
-        if (videoElement.currentSrc?.includes('pending_cloud')) {
-            return;
-        }
         
         setIsLoading(false);
         
-        // If we get a source error and were NOT transcoding, try transcoding as a fallback
-        if (!useTranscoding && (errorCode === 3 || errorCode === 4 || errorCode === 'MEDIA_ERR_SRC_NOT_SUPPORTED' || errorCode === 'MEDIA_ERR_DECODE' || videoElement.readyState === 0)) {
-            console.log('[VideoPlayer] Fallback to transcoding due to error:', errorCode);
+        // Auto-transcode fallback
+        if (!useTranscoding && (errorCode === 3 || errorCode === 4)) {
+            console.log('[VideoPlayer] Fallback to transcoding...');
             setUseTranscoding(true);
             setError(null);
             setIsLoading(true);
             return;
         }
 
-        // Try to fetch the actual error message from the server
-        fetch(videoUrl, { method: 'GET' }).then(async (res) => {
-            if (res.status === 401 || res.status === 500) {
-                try {
-                    const data = await res.json();
-                    const msg = data.message || data.error || '';
-                    
-                    if (res.status === 401 || msg.includes('invalid_grant') || msg.includes('Sesión de Google Drive expirada')) {
-                        setError('Tu sesión de Google Drive ha expirado o es inválida. Por favor, reconéctate en Ajustes.');
-                    } else if (msg.includes('403') || msg.includes('limit')) {
-                        setError('Google Drive ha limitado el acceso a este archivo (posible exceso de cuota). Intenta más tarde.');
-                    } else {
-                        setError(data.error || data.message || 'Error de servidor al cargar el video.');
-                    }
-                } catch (jsonErr) {
-                    setError('Error de servidor (500). El archivo podría estar corrupto o no disponible.');
-                }
-            } else if (!res.ok) {
-                setError(`Error de red (${res.status}). Verifica tu conexión.`);
-            } else {
-                setError('Formato de video no compatible con este navegador.');
-            }
-        }).catch(() => {
-            setError('No se pudo conectar con el servidor de video.');
-        });
+        let msg = 'Error de reproducción.';
+        if (errorCode === 1) msg = 'Reproducción abortada.';
+        if (errorCode === 2) msg = 'Error de red al cargar el video.';
+        if (errorCode === 3) msg = 'Error al decodificar el video (Formato incompatible).';
+        if (errorCode === 4) msg = 'Formato de video no soportado por este dispositivo.';
+
+        setError(msg);
     };
 
     const handleLoadedData = () => {
@@ -750,6 +722,8 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         playsInline
                         autoPlay
                         muted={isMuted}
+                        webkit-playsinline="true"
+                        crossOrigin="anonymous"
                         onTimeUpdate={(e) => {
                             setCurrentTime(e.target.currentTime);
                         }}
