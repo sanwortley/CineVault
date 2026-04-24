@@ -173,29 +173,14 @@ const driveApi = {
             // 2. Transcode path
             if (transcodeOptions.transcode) {
                 const startTime = parseFloat(transcodeOptions.t || 0);
-                const range = rangeHeader;
-                
-                // Safari / iOS Compatibility Hack:
-                if (range) {
-                    res.writeHead(206, {
-                        'Content-Type': 'video/mp4',
-                        'Accept-Ranges': 'bytes',
-                        'Content-Range': `bytes 0-1000000000/1000000001`,
-                        'Content-Length': '1000000001',
-                        'Access-Control-Allow-Origin': '*',
-                        'Connection': 'keep-alive',
-                        'X-Content-Type-Options': 'nosniff'
-                    });
-                } else {
-                    res.writeHead(200, { 
-                        'Content-Type': 'video/mp4', 
-                        'Accept-Ranges': 'bytes',
-                        'Access-Control-Allow-Origin': '*',
-                        'Connection': 'keep-alive',
-                        'Cache-Control': 'no-cache',
-                        'X-Content-Type-Options': 'nosniff'
-                    });
-                }
+                // Clean 200 OK response for transcoded streams.
+                res.writeHead(200, { 
+                    'Content-Type': 'video/mp4', 
+                    'Access-Control-Allow-Origin': '*',
+                    'Connection': 'keep-alive',
+                    'Cache-Control': 'no-cache',
+                    'X-Content-Type-Options': 'nosniff'
+                });
 
                 let bodyStream;
                 if (hasToken) {

@@ -64,13 +64,12 @@ function getTranscodeStream(input, startTime = 0) {
             '-profile:v baseline', // Maximum compatibility for mobile
             '-level 3.0',
             '-pix_fmt yuv420p',
-            '-movflags frag_keyframe+empty_moov+default_base_moof', // Essential for streaming fragmented MP4
+            '-movflags +frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset', // Refined fMP4 flags
             '-metadata:s:v:0 rotate=0',
             '-crf 23',
             '-maxrate 2.5M',
             '-bufsize 5M',
             '-g 48',
-            '-frag_duration 1000000', // 1s fragments for smoother mobile buffering
             '-map_chapters -1'
         ])
         .videoFilters('scale=min(1280\\,iw):-2')

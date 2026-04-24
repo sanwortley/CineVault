@@ -305,32 +305,15 @@ app.get('/api/stream/local', (req, res) => {
     if (transcode) {
         const { getTranscodeStream } = require('./optimizer');
         
-        const range = req.headers.range;
-        
-        // Safari / iOS Compatibility Hack:
-        // Safari REQUIRES 206 Partial Content for video tags, even if it's a stream.
-        // We fake a 206 response for ANY range request, but we always pipe the 
-        // transcode stream from the requested startTime 't'.
-        if (range) {
-            res.writeHead(206, {
-                'Content-Type': 'video/mp4',
-                'Accept-Ranges': 'bytes',
-                'Content-Range': `bytes 0-1000000000/1000000001`,
-                'Content-Length': '1000000001',
-                'Access-Control-Allow-Origin': '*',
-                'Connection': 'keep-alive',
-                'X-Content-Type-Options': 'nosniff'
-            });
-        } else {
-            res.writeHead(200, {
-                'Content-Type': 'video/mp4',
-                'Accept-Ranges': 'bytes',
-                'Access-Control-Allow-Origin': '*',
-                'Connection': 'keep-alive',
-                'Cache-Control': 'no-cache',
-                'X-Content-Type-Options': 'nosniff'
-            });
-        }
+        // Clean 200 OK response for transcoded streams. 
+        // We avoid faking ranges to prevent "Format Not Supported" errors.
+        res.writeHead(200, {
+            'Content-Type': 'video/mp4',
+            'Access-Control-Allow-Origin': '*',
+            'Connection': 'keep-alive',
+            'Cache-Control': 'no-cache',
+            'X-Content-Type-Options': 'nosniff'
+        });
         
         const transcodeStream = getTranscodeStream(filePath, startTime);
         transcodeStream.pipe(res);
