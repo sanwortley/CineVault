@@ -61,15 +61,15 @@ function getTranscodeStream(input, startTime = 0) {
         .outputOptions([
             '-preset ultrafast',
             '-tune zerolatency',
-            '-profile:v baseline', 
-            '-level 3.0',
+            '-profile:v high', // Modern iPhones prefer High profile
+            '-level 4.0',
             '-pix_fmt yuv420p',
-            '-movflags +frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset+negative_cts_offsets', 
+            '-movflags +frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset+frag_discont+delay_moov', 
             '-metadata:s:v:0 rotate=0',
             '-crf 23',
-            '-maxrate 5M',
-            '-bufsize 10M',
-            '-g 48',
+            '-maxrate 4M',
+            '-bufsize 8M',
+            '-g 50',
             '-map_chapters -1'
         ])
         .videoFilters('scale=min(1280\\,iw):-2')

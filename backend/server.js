@@ -320,7 +320,7 @@ app.get('/api/stream/local', (req, res) => {
         }
 
         res.writeHead(200, {
-            'Content-Type': 'video/mp4',
+            'Content-Type': 'video/mp4; codecs="avc1.640028, mp4a.40.2"', // Explicit High profile codec string
             'Accept-Ranges': 'bytes',
             'Access-Control-Allow-Origin': '*',
             'Connection': 'keep-alive',
