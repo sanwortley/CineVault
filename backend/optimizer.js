@@ -64,7 +64,7 @@ function getTranscodeStream(input, startTime = 0) {
             '-profile:v baseline', 
             '-level 3.0',
             '-pix_fmt yuv420p',
-            '-movflags frag_keyframe+empty_moov+default_base_moof+faststart', 
+            '-movflags +frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset+negative_cts_offsets', 
             '-metadata:s:v:0 rotate=0',
             '-crf 23',
             '-maxrate 5M',

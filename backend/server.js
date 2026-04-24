@@ -305,13 +305,28 @@ app.get('/api/stream/local', (req, res) => {
     if (transcode) {
         const { getTranscodeStream } = require('./optimizer');
         
-        // Standard streaming headers that Safari usually accepts
-        res.setHeader('Content-Type', 'video/mp4');
-        res.setHeader('Accept-Ranges', 'bytes');
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Connection', 'keep-alive');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.status(200);
+        const range = req.headers.range;
+        
+        // Safari Probe handling (0-1 bytes) - MANDATORY for iOS Safari
+        if (range === 'bytes=0-1') {
+            res.writeHead(206, {
+                'Content-Type': 'video/mp4',
+                'Content-Range': 'bytes 0-1/100', 
+                'Content-Length': '2',
+                'Accept-Ranges': 'bytes',
+                'Access-Control-Allow-Origin': '*'
+            });
+            return res.end(Buffer.from([0, 0]));
+        }
+
+        res.writeHead(200, {
+            'Content-Type': 'video/mp4',
+            'Accept-Ranges': 'bytes',
+            'Access-Control-Allow-Origin': '*',
+            'Connection': 'keep-alive',
+            'Cache-Control': 'no-cache',
+            'X-Content-Type-Options': 'nosniff'
+        });
         
         const transcodeStream = getTranscodeStream(filePath, startTime);
         transcodeStream.pipe(res);
