@@ -175,25 +175,13 @@ const driveApi = {
                 const startTime = parseFloat(transcodeOptions.t || 0);
                 const range = rangeHeader;
                 
-                // Safari Probe handling (0-1 bytes) - MANDATORY for iOS Safari
-                if (range === 'bytes=0-1') {
-                    res.writeHead(206, {
-                        'Content-Type': 'video/mp4',
-                        'Content-Range': 'bytes 0-1/100', 
-                        'Content-Length': '2',
-                        'Accept-Ranges': 'bytes',
-                        'Access-Control-Allow-Origin': '*'
-                    });
-                    return res.end(Buffer.from([0, 0]));
-                }
-
-                res.writeHead(200, {
-                    'Content-Type': 'video/mp4; codecs="avc1.640028, mp4a.40.2"', // Explicit High profile codec string
+                res.writeHead(200, { 
+                    'Content-Type': 'video/mp4', 
                     'Accept-Ranges': 'bytes',
                     'Access-Control-Allow-Origin': '*',
+                    'Transfer-Encoding': 'chunked',
                     'Connection': 'keep-alive',
-                    'Cache-Control': 'no-cache',
-                    'X-Content-Type-Options': 'nosniff'
+                    'Cache-Control': 'no-cache'
                 });
 
                 let bodyStream;

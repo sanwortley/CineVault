@@ -55,24 +55,19 @@ function getTranscodeStream(input, startTime = 0) {
         .videoCodec('libx264')
         .audioCodec('aac')
         .audioChannels(2)
-        .audioFrequency(44100)
-        .audioBitrate('128k')
         .format('mp4')
         .outputOptions([
-            '-preset ultrafast',
+            '-preset ultrafast', // Maximum speed for real-time delivery
             '-tune zerolatency',
-            '-profile:v high', // Modern iPhones prefer High profile
-            '-level 4.0',
-            '-pix_fmt yuv420p',
-            '-movflags +frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset+frag_discont+delay_moov', 
-            '-metadata:s:v:0 rotate=0',
-            '-crf 23',
-            '-maxrate 4M',
-            '-bufsize 8M',
-            '-g 50',
-            '-map_chapters -1'
+            '-movflags frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset',
+            '-crf 28', 
+            '-maxrate 2M', 
+            '-bufsize 4M',
+            '-vf scale=-2:min(720\\,ih)', // Cap at 720p for performance
+            '-profile:v main', 
+            '-level 3.1',
+            '-pix_fmt yuv420p'
         ])
-        .videoFilters('scale=min(1280\\,iw):-2')
         .on('start', (cmd) => console.log(`[Optimizer] FFmpeg Stream: ${cmd}`))
         .on('error', (err) => {
             if (err.message.includes('SIGKILL') || err.message.includes('Output stream closed')) {
