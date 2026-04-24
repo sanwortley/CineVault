@@ -172,9 +172,8 @@ const driveApi = {
 
             // 2. Transcode path
             if (transcodeOptions.transcode) {
-                const { getTranscodeStream } = require('./optimizer');
                 const startTime = parseFloat(transcodeOptions.t || 0);
-                const range = rangeHeader || req?.headers?.range;
+                const range = rangeHeader;
                 
                 // Safari / iOS Compatibility Hack:
                 if (range) {
@@ -210,6 +209,7 @@ const driveApi = {
                     });
                     bodyStream = driveRes.data;
                 }
+                const { getTranscodeStream } = require('./optimizer');
                 getTranscodeStream(bodyStream, startTime).pipe(res);
                 return;
             }
@@ -252,7 +252,13 @@ const driveApi = {
             }
         } catch (err) {
             console.error('[Drive Stream] Error:', err.message);
-            if (!res.headersSent) res.status(500).json({ error: 'Streaming Error', message: err.message });
+            if (!res.headersSent) {
+                res.status(500).json({ 
+                    error: 'Streaming Error', 
+                    message: err.message,
+                    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+                });
+            }
         }
     },
 
