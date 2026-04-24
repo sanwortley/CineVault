@@ -57,18 +57,18 @@ function getTranscodeStream(input, startTime = 0) {
         .audioChannels(2)
         .format('mp4')
         .outputOptions([
-            '-preset ultrafast', // Maximum speed for real-time delivery
+            '-preset ultrafast', 
             '-tune zerolatency',
-            '-profile:v baseline', // Changed from main to baseline for max compatibility
+            '-profile:v baseline', 
             '-level 3.0',
             '-pix_fmt yuv420p',
-            '-movflags +frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset+frag_discont+delay_moov', 
+            '-movflags +frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset', 
             '-crf 28', 
-            '-maxrate 2M', 
-            '-bufsize 4M',
-            '-vf scale=-2:min(720\\,ih)', 
+            '-maxrate 1M', // Low bitrate for stability
+            '-bufsize 2M',
+            '-vf scale=854:-2', // 480p for mobile
             '-ar 44100',
-            '-b:a 128k',
+            '-b:a 96k',
             '-map_chapters -1'
         ])
         .on('start', (cmd) => console.log(`[Optimizer] FFmpeg Stream: ${cmd}`))

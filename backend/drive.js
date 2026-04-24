@@ -188,7 +188,7 @@ const driveApi = {
                 }
 
                 res.writeHead(200, { 
-                    'Content-Type': 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"', // Explicit baseline profile codec string
+                    'Content-Type': 'video/mp4', 
                     'Accept-Ranges': 'bytes',
                     'Access-Control-Allow-Origin': '*',
                     'Connection': 'keep-alive',
