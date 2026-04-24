@@ -59,14 +59,16 @@ function getTranscodeStream(input, startTime = 0) {
         .outputOptions([
             '-preset ultrafast', // Maximum speed for real-time delivery
             '-tune zerolatency',
-            '-movflags frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset',
+            '-movflags frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset+frag_discont+delay_moov',
             '-crf 28', 
             '-maxrate 2M', 
             '-bufsize 4M',
             '-vf scale=-2:min(720\\,ih)', // Cap at 720p for performance
             '-profile:v main', 
             '-level 3.1',
-            '-pix_fmt yuv420p'
+            '-pix_fmt yuv420p',
+            '-ar 44100',
+            '-b:a 128k'
         ])
         .on('start', (cmd) => console.log(`[Optimizer] FFmpeg Stream: ${cmd}`))
         .on('error', (err) => {
