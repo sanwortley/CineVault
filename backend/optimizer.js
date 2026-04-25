@@ -75,7 +75,9 @@ function getTranscodeStream(input, startTime = 0) {
         .on('stderr', (line) => {
             const fs = require('fs');
             const path = require('path');
-            const logFile = path.join(__dirname, '../scratch/ffmpeg.log');
+            const logDir = path.join(__dirname, '../scratch');
+            if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+            const logFile = path.join(logDir, 'ffmpeg.log');
             fs.appendFileSync(logFile, line + '\n');
         })
         .on('error', (err) => {

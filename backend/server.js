@@ -302,6 +302,8 @@ app.get('/api/stream/local', (req, res) => {
     const transcode = req.query.transcode === 'true';
     const startTime = parseFloat(req.query.t || 0);
 
+    console.log(`[Stream] Request: ${filePath}, Transcode: ${transcode}, Start: ${startTime}`);
+
     if (!filePath) {
         console.error('[Stream] No path provided');
         return res.status(400).send('Path is required');

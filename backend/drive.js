@@ -167,6 +167,7 @@ const driveApi = {
                     params: { fields: 'size,mimeType', key: apiKey, supportsAllDrives: true }
                 });
                 fileSize = parseInt(metaRes.data.size, 10);
+                console.log(`[DriveStream] Request: ${fileId}, Transcode: ${transcodeOptions.transcode}, Start: ${transcodeOptions.t}`);
                 contentType = metaRes.data.mimeType;
             }
 
