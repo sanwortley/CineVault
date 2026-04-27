@@ -119,8 +119,8 @@ function getHLSSegmentStream(input, startTime = 0, duration = 10, headers = null
 
     const inputOptions = [
         '-threads', '1',
-        '-probesize', '10M',
-        '-analyzeduration', '10M'
+        '-probesize', '5M',
+        '-analyzeduration', '5M'
     ];
 
     if (headers) {
@@ -149,7 +149,7 @@ function getHLSSegmentStream(input, startTime = 0, duration = 10, headers = null
             '-level', '3.0',
             '-pix_fmt', 'yuv420p',
             '-g', '30', // Force keyframe every 30 frames for faster segmenting
-            '-crf', '28', 
+            '-crf', profile.crf.toString(), 
             '-maxrate', profile.bitrate, 
             '-bufsize', profile.bufsize,
             '-threads', '1',
@@ -171,9 +171,9 @@ function getHLSSegmentStream(input, startTime = 0, duration = 10, headers = null
 }
 
 const QUALITY_PROFILES = {
-    '480': { width: 854, height: 480, bitrate: '600k', bufsize: '1.2M' },
-    '720': { width: 1280, height: 720, bitrate: '1500k', bufsize: '3M' },
-    '1080': { width: 1920, height: 1080, bitrate: '3000k', bufsize: '6M' }
+    '480': { width: 854, height: 480, bitrate: '600k', bufsize: '1.2M', crf: 28 },
+    '720': { width: 1280, height: 720, bitrate: '1500k', bufsize: '3M', crf: 28 },
+    '1080': { width: 1920, height: 1080, bitrate: '2200k', bufsize: '4.4M', crf: 30 }
 };
 
 module.exports = { getOptimizedUploadStream, getTranscodeStream, getHLSSegmentStream, QUALITY_PROFILES };
