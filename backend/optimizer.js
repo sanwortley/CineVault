@@ -65,17 +65,15 @@ function getTranscodeStream(input, startTime = 0, headers = null) {
     const passThrough = new PassThrough();
     const command = ffmpeg(input);
 
-    // CRITICAL: Input options MUST come before the input is processed
     const inputOptions = [
         '-threads', '1',
-        '-probesize', '30M',
-        '-analyzeduration', '30M'
+        '-probesize', '10M', // Reduced to save RAM
+        '-analyzeduration', '10M'
     ];
 
     if (headers) {
-        // Add User-Agent to avoid Google Drive blocks
-        const fullHeaders = headers.trim() + '\r\nUser-Agent: CineVault/1.0\r\n';
-        inputOptions.push('-headers', fullHeaders);
+        // Use simpler header format to avoid potential SIGSEGV
+        inputOptions.push('-headers', headers.trim());
     }
 
     if (typeof input === 'string' && input.startsWith('http')) {
@@ -90,7 +88,6 @@ function getTranscodeStream(input, startTime = 0, headers = null) {
         .audioChannels(2)
         .format('mp4')
         .outputOptions([
-            // Only seek here if it's NOT a URL (stream fallback)
             ...(typeof input !== 'string' || !input.startsWith('http') ? ['-ss', startTime.toString()] : []),
             '-preset', 'ultrafast', 
             '-tune', 'zerolatency',
@@ -106,17 +103,6 @@ function getTranscodeStream(input, startTime = 0, headers = null) {
         ])
         .videoFilter('scale=720:-2')
         .on('start', (cmd) => console.log(`[Optimizer] FFmpeg Stream: ${cmd}`))
-        .on('stderr', (line) => {
-            // Log FFmpeg stderr to a file for debugging
-            try {
-                const fs = require('fs');
-                const path = require('path');
-                const logDir = path.join(__dirname, '../scratch');
-                if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
-                const logFile = path.join(logDir, 'ffmpeg.log');
-                fs.appendFileSync(logFile, line + '\n');
-            } catch (e) {}
-        })
         .on('error', (err) => {
             if (err.message.includes('SIGKILL') || err.message.includes('Output stream closed')) return;
             console.error('[Optimizer] FFmpeg Stream Error:', err.message);
