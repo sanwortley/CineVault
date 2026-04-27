@@ -248,11 +248,9 @@ const driveApi = {
 
                     const { getTranscodeStream } = require('./optimizer');
                     
-                    // Use direct Drive URL for faster seeking in FFmpeg
-                    const driveUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media${!hasToken ? `&key=${apiKey}` : ''}`;
-                    const authHeader = hasToken ? `Authorization: Bearer ${oauth2Client.credentials.access_token}` : '';
-                    
-                    const transcodeStream = getTranscodeStream(driveUrl, startTime, authHeader);
+                    // We go back to pipe approach because ffmpeg-static SIGSEGVs on direct HTTPS URLs in Railway
+                    // But we use the optimized optimizer to handle it
+                    const transcodeStream = getTranscodeStream(bodyStream, startTime);
                     
                     transcodeStream.pipe(res);
 

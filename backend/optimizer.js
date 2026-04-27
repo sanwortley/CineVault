@@ -59,28 +59,17 @@ function getOptimizedUploadStream(inputPath) {
  * Returns a stream that transcodes a video into a browser-friendly format (H.264/AAC).
  * Optimized for low-latency streaming.
  */
-function getTranscodeStream(input, startTime = 0, headers = null) {
+function getTranscodeStream(input, startTime = 0) {
     console.log(`[Optimizer] Starting real-time transcode. Start: ${startTime}s`);
     
     const passThrough = new PassThrough();
     const command = ffmpeg(input);
 
-    const inputOptions = [
+    command.inputOptions([
         '-threads', '1',
-        '-probesize', '10M', // Reduced to save RAM
+        '-probesize', '10M',
         '-analyzeduration', '10M'
-    ];
-
-    if (headers) {
-        // Use simpler header format to avoid potential SIGSEGV
-        inputOptions.push('-headers', headers.trim());
-    }
-
-    if (typeof input === 'string' && input.startsWith('http')) {
-        inputOptions.push('-ss', startTime.toString());
-    }
-
-    command.inputOptions(inputOptions);
+    ]);
 
     command
         .videoCodec('libx264')
@@ -88,7 +77,7 @@ function getTranscodeStream(input, startTime = 0, headers = null) {
         .audioChannels(2)
         .format('mp4')
         .outputOptions([
-            ...(typeof input !== 'string' || !input.startsWith('http') ? ['-ss', startTime.toString()] : []),
+            '-ss', startTime.toString(), // Seek after input for pipe stability
             '-preset', 'ultrafast', 
             '-tune', 'zerolatency',
             '-profile:v', 'baseline', 
