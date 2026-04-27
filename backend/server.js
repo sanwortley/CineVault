@@ -30,14 +30,19 @@ const optimizer = require('./optimizer');
 const discoverRouter = require('./discover');
 const newsService = require('./newsService');
 
-const ffmpeg = require('fluent-ffmpeg');
-const ffmpegPath = require('ffmpeg-static');
-ffmpeg.setFfmpegPath(ffmpegPath);
+// FFmpeg path is managed in optimizer.js
 
 const { normalizeFilename } = require('./parser');
 const { searchMovie, getMovieDetails, getOMDbDetails } = require('./tmdb');
 const { scanDirectory } = require('./scanner');
 const { addMovie } = require('./db');
+
+// Ensure cache directory exists
+const cacheDir = path.join(__dirname, 'cache');
+if (!fs.existsSync(cacheDir)) {
+    fs.mkdirSync(cacheDir, { recursive: true });
+    console.log('[Server] Created HLS cache directory');
+}
 
 // Load persistent config from DB on startup
 (async () => {
