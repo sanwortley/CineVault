@@ -55,7 +55,7 @@ function getOptimizedUploadStream(filePath) {
  * Returns a stream that transcodes a video into a browser-friendly format (H.264/AAC).
  * Optimized for low-latency streaming.
  */
-function getTranscodeStream(input, startTime = 0, headers = null) {
+function getTranscodeStream(input, startTime = 0) {
     console.log(`[Optimizer] Starting real-time transcode. Start: ${startTime}s`);
     
     const passThrough = new PassThrough();
@@ -66,11 +66,6 @@ function getTranscodeStream(input, startTime = 0, headers = null) {
         '-probesize', '10M',
         '-analyzeduration', '10M'
     ]);
-
-    if (headers) {
-        const cleanHeaders = headers.trim() + '\r\n';
-        command.inputOptions(['-headers', cleanHeaders]);
-    }
 
     command
         .seekInput(startTime)
