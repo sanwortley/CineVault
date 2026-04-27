@@ -17,7 +17,8 @@ const getTokenPath = () => {
 };
 
 const PORT = process.env.PORT || 3001;
-const REDIRECT_URI = `http://localhost:${PORT}/oauth2callback`;
+const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
+const REDIRECT_URI = `${BACKEND_URL}/api/auth/callback`;
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
@@ -48,18 +49,37 @@ oauth2Client.on('tokens', (tokens) => {
 const driveApi = {
     isAuthenticated: () => !!oauth2Client.credentials && !!oauth2Client.credentials.access_token,
 
+    getAuthUrl: () => {
+        return oauth2Client.generateAuthUrl({
+            access_type: 'offline',
+            prompt: 'consent',
+            scope: [
+                'https://www.googleapis.com/auth/drive',
+                'https://www.googleapis.com/auth/drive.file',
+                'https://www.googleapis.com/auth/drive.readonly'
+            ]
+        });
+    },
+
+    getTokens: async (code) => {
+        const { tokens } = await oauth2Client.getToken(code);
+        return tokens;
+    },
+
+    getOAuthClient: () => oauth2Client,
+
     authenticate: async () => {
         return new Promise((resolve, reject) => {
             if (driveApi.isAuthenticated()) return resolve(true);
-            const url = oauth2Client.generateAuthUrl({ access_type: 'offline', scope: ['https://www.googleapis.com/auth/drive.file'] });
+            const url = driveApi.getAuthUrl();
             const server = http.createServer(async (req, res) => {
-                if (req.url.startsWith('/oauth2callback')) {
-                    const parsedUrl = new URL(req.url, `http://localhost:${PORT}`);
+                if (req.url.startsWith('/api/auth/callback')) {
+                    const parsedUrl = new URL(req.url, BACKEND_URL);
                     const code = parsedUrl.searchParams.get('code');
                     if (code) {
                         res.end('<h1>Authenticacion Exitosa!</h1><script>window.close()</script>');
                         server.close();
-                        const { tokens } = await oauth2Client.getToken(code);
+                        const tokens = await driveApi.getTokens(code);
                         oauth2Client.setCredentials(tokens);
                         fs.writeFileSync(getTokenPath(), JSON.stringify(tokens));
                         resolve(true);
