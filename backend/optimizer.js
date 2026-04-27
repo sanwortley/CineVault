@@ -5,10 +5,21 @@ const ffprobePath = require('ffprobe-static').path;
 
 // Configure paths - prefer system ffmpeg (from nixpacks) over static binary
 try {
-    // If running on Railway/Linux, 'ffmpeg' should be in the path
     const { execSync } = require('child_process');
-    execSync('ffmpeg -version');
-    console.log('[Optimizer] Using system FFmpeg');
+    let systemFfmpeg = 'ffmpeg';
+    
+    // Check if it's in common Linux paths or PATH
+    try {
+        execSync('which ffmpeg');
+    } catch (e) {
+        if (require('fs').existsSync('/usr/bin/ffmpeg')) systemFfmpeg = '/usr/bin/ffmpeg';
+        else if (require('fs').existsSync('/usr/local/bin/ffmpeg')) systemFfmpeg = '/usr/local/bin/ffmpeg';
+        else throw new Error('Not found in common paths');
+    }
+
+    execSync(`${systemFfmpeg} -version`);
+    ffmpeg.setFfmpegPath(systemFfmpeg);
+    console.log(`[Optimizer] Using system FFmpeg: ${systemFfmpeg}`);
 } catch (e) {
     console.log('[Optimizer] System FFmpeg not found, falling back to ffmpeg-static');
     const ffmpegPath = require('ffmpeg-static');
