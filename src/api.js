@@ -344,13 +344,9 @@ export const api = {
         if (fileId) {
             if (isElectron()) return `http://localhost:19998/stream/${fileId}${options.transcode ? `?transcode=true&t=${options.seekOffset || 0}` : ''}`;
             
-            const sessionId = localStorage.getItem('cinevault_session_id') || localStorage.getItem('session_id') || '';
-            let url = `${BACKEND_URL}/api/drive/stream/${fileId}?sessionId=${sessionId}`;
-            
-            if (options.transcode) {
-                url += `&transcode=true&t=${options.seekOffset || 0}`;
-            }
-            
+            const sessionId = localStorage.getItem('cinevault_session_id');
+            let url = `${BACKEND_URL}/api/drive/stream/${fileId}?sessionId=${sessionId || ''}`;
+            if (options.transcode) url += `&transcode=true&t=${options.seekOffset || 0}`;
             return url;
         }
         return null;

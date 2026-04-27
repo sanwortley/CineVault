@@ -249,11 +249,9 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         if (streamSource === 'cloud') {
             return api.getCloudStreamUrl(movie.id);
         } else if (streamSource === 'drive') {
-            const url = api.getStreamUrl(movie.drive_file_id, movie.file_path, { transcode: useTranscoding, seekOffset });
-            return url ? url + (url.includes('?') ? '&' : '?') + `v=2.1` : '';
+            return api.getStreamUrl(movie.drive_file_id, movie.file_path, { transcode: useTranscoding, seekOffset });
         } else if (streamSource === 'local') {
-            const url = api.getStreamUrl(null, movie.file_path, { transcode: useTranscoding, seekOffset });
-            return url ? url + (url.includes('?') ? '&' : '?') + `v=2.1` : '';
+            return api.getStreamUrl(null, movie.file_path, { transcode: useTranscoding, seekOffset });
         }
         return '';
     }, [movie.id, movie.drive_file_id, movie.file_path, streamSource, useTranscoding, seekOffset]);
