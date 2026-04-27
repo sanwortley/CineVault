@@ -63,9 +63,8 @@ function getTranscodeStream(input, startTime = 0) {
 
     command.inputOptions([
         '-threads', '1',
-        '-probesize', '20M',
-        '-analyzeduration', '20M',
-        '-reorder_queue_size', '1024'
+        '-probesize', '30M',
+        '-analyzeduration', '30M'
     ]);
 
     command
