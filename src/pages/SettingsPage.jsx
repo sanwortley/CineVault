@@ -133,13 +133,13 @@ function SettingsPage({ onClose, onTabChange }) {
         }
     };
 
-    const handleRefreshAllMetadata = async () => {
-        if (!window.confirm('¿Quieres refrescar las puntuaciones de Rotten Tomatoes de todas las películas de tu biblioteca? Esto se ejecutará en segundo plano.')) return;
+    const handleRefreshLatino = async () => {
+        if (!window.confirm('¿Quieres actualizar toda tu biblioteca al Español Latino? Esto cambiará títulos y sinopsis de las películas que ya tienes agregadas.')) return;
         try {
-            await api.refreshAllMetadata();
-            alert('Refresco de metadatos iniciado. Las puntuaciones aparecerán en unos minutos.');
+            const result = await api.refreshMetadata();
+            alert(result.message || 'Biblioteca actualizada correctamente.');
         } catch (error) {
-            alert('Error al iniciar el refresco: ' + error.message);
+            alert('Error al actualizar: ' + error.message);
         }
     };
 
@@ -329,15 +329,24 @@ function SettingsPage({ onClose, onTabChange }) {
                                     </div>
                                     <div className="flex flex-col md:flex-row items-center justify-between gap-4 px-4">
                                         <p className="text-[11px] text-slate-600 font-bold uppercase tracking-[0.2em]">Necesario para mostrar puntuaciones críticas de Rotten Tomatoes</p>
-                                        {isOMDBSaved && (
+                                        <div className="flex flex-wrap gap-3">
                                             <button 
-                                                onClick={handleRefreshAllMetadata}
-                                                className="flex items-center gap-3 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all group"
+                                                onClick={handleRefreshLatino}
+                                                className="flex items-center gap-3 px-6 py-3 bg-netflix-red/10 hover:bg-netflix-red border border-netflix-red/20 rounded-full text-[10px] font-black uppercase tracking-widest text-netflix-red hover:text-white transition-all group"
                                             >
                                                 <RefreshCw size={14} className="group-hover:rotate-180 transition-transform duration-500" />
-                                                Refrescar Metadatos de la Biblioteca
+                                                Pasar Biblioteca a Latino
                                             </button>
-                                        )}
+                                            {isOMDBSaved && (
+                                                <button 
+                                                    onClick={handleRefreshAllMetadata}
+                                                    className="flex items-center gap-3 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all group"
+                                                >
+                                                    <RefreshCw size={14} className="group-hover:rotate-180 transition-transform duration-500" />
+                                                    Refrescar Puntuaciones
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>

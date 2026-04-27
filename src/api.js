@@ -625,12 +625,15 @@ export const api = {
         return backendFetch('/api/admin/requests');
     },
 
-    updateRequestStatus: (id, status) => {
-        return backendFetch(`/api/admin/requests/${id}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ status })
-        });
-    },
+    updateRequestStatus: (id, status) => fetch(`${BACKEND_URL}/api/admin/requests/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+    }).then(r => r.json()),
+    
+    refreshMetadata: () => fetch(`${BACKEND_URL}/api/admin/refresh-metadata`, {
+        method: 'POST'
+    }).then(r => r.json()),
 
     // ── Flags ─────────────────────────────────────────────────────────────────
     fetchMovieNews: () => {

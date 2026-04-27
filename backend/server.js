@@ -1861,6 +1861,40 @@ app.get('/api/news', async (req, res) => {
     }
 });
 
+// Bulk Refresh Metadata
+app.post('/api/admin/refresh-metadata', async (req, res) => {
+    try {
+        const movies = await db.getMovies();
+        console.log(`[Server] Starting bulk metadata refresh for ${movies.length} movies...`);
+        
+        let updatedCount = 0;
+        for (const movie of movies) {
+            try {
+                // Search TMDb for the same movie and year
+                const details = await tmdb.getMovieDetails(movie.official_title, movie.detected_year);
+                if (details) {
+                    await db.updateMovie(movie.id, {
+                        official_title: details.official_title,
+                        overview: details.overview,
+                        poster_path: details.poster_path,
+                        backdrop_path: details.backdrop_path,
+                        runtime: details.runtime,
+                        rating: details.rating
+                    });
+                    updatedCount++;
+                }
+            } catch (err) {
+                console.warn(`[Server] Failed to refresh metadata for: ${movie.official_title}`);
+            }
+        }
+        
+        res.json({ success: true, message: `Se han actualizado ${updatedCount} películas a Español Latino.` });
+    } catch (err) {
+        console.error('[Server] Bulk refresh error:', err.message);
+        res.status(500).json({ error: 'Error al actualizar la biblioteca.' });
+    }
+});
+
 app.use('/api/discover', discoverRouter);
 
 // Support SPA routing (must be AFTER static and API routes)
