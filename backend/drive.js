@@ -197,26 +197,36 @@ const driveApi = {
                 });
 
                 let bodyStream;
-                if (hasToken) {
-                    const driveRes = await drive.files.get({ fileId, alt: 'media', supportsAllDrives: true }, { responseType: 'stream' });
-                    bodyStream = driveRes.data;
-                } else {
-                    const axios = require('axios');
-                    const driveRes = await axios.get(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
-                        params: { alt: 'media', key: apiKey, supportsAllDrives: true },
-                        responseType: 'stream'
+                try {
+                    if (hasToken) {
+                        const driveRes = await drive.files.get({ fileId, alt: 'media', supportsAllDrives: true }, { responseType: 'stream' });
+                        bodyStream = driveRes.data;
+                    } else {
+                        const axios = require('axios');
+                        const driveRes = await axios.get(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+                            params: { alt: 'media', key: apiKey, supportsAllDrives: true },
+                            responseType: 'stream'
+                        });
+                        bodyStream = driveRes.data;
+                    }
+
+                    const { getTranscodeStream } = require('./optimizer');
+                    const transcodeStream = getTranscodeStream(bodyStream, startTime);
+                    
+                    transcodeStream.pipe(res);
+
+                    res.on('close', () => {
+                       if (transcodeStream.ffmpegCommand) transcodeStream.ffmpegCommand.kill();
                     });
-                    bodyStream = driveRes.data;
+                } catch (streamErr) {
+                    console.error('[DriveStream] Critical error during stream initialization:', streamErr.message);
+                    if (streamErr.message.includes('invalid_grant')) {
+                        console.error('[DriveStream] Authentication expired. User needs to re-link Google Drive.');
+                    }
+                    if (!res.headersSent) {
+                        res.status(500).json({ error: 'Error al obtener flujo de Drive', details: streamErr.message });
+                    }
                 }
-
-                const { getTranscodeStream } = require('./optimizer');
-                const transcodeStream = getTranscodeStream(bodyStream, startTime);
-                
-                transcodeStream.pipe(res);
-
-                res.on('close', () => {
-                   if (transcodeStream.ffmpegCommand) transcodeStream.ffmpegCommand.kill();
-                });
                 return;
             }
 
