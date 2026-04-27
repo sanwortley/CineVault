@@ -3,8 +3,17 @@ const { PassThrough } = require('stream');
 const ffmpegPath = require('ffmpeg-static');
 const ffprobePath = require('ffprobe-static').path;
 
-// Configure paths for standalone execution
-ffmpeg.setFfmpegPath(ffmpegPath);
+// Configure paths - prefer system ffmpeg (from nixpacks) over static binary
+try {
+    // If running on Railway/Linux, 'ffmpeg' should be in the path
+    const { execSync } = require('child_process');
+    execSync('ffmpeg -version');
+    console.log('[Optimizer] Using system FFmpeg');
+} catch (e) {
+    console.log('[Optimizer] System FFmpeg not found, falling back to ffmpeg-static');
+    const ffmpegPath = require('ffmpeg-static');
+    ffmpeg.setFfmpegPath(ffmpegPath);
+}
 ffmpeg.setFfprobePath(ffprobePath);
 
 /**
