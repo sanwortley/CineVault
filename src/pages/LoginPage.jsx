@@ -13,6 +13,9 @@ function LoginPage() {
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
+    const [showDisclaimer, setShowDisclaimer] = useState(false);
+    const [loginData, setLoginData] = useState(null);
+
     useEffect(() => {
         if (searchParams.get('expired') === 'true') {
             setError('Tu sesión expiró. Por favor, iniciá sesión nuevamente.');
@@ -25,10 +28,25 @@ function LoginPage() {
         setIsLoading(true);
 
         try {
-            await login(email, password);
+            // Tentatively login but wait for disclaimer
+            setLoginData({ email, password });
+            setShowDisclaimer(true);
+        } catch (err) {
+            setError(err.message || 'Error al iniciar sesión');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleAcceptDisclaimer = async () => {
+        if (!loginData) return;
+        setIsLoading(true);
+        try {
+            await login(loginData.email, loginData.password);
             navigate('/');
         } catch (err) {
             setError(err.message || 'Error al iniciar sesión');
+            setShowDisclaimer(false);
         } finally {
             setIsLoading(false);
         }
@@ -39,6 +57,49 @@ function LoginPage() {
             {/* Ambient Background Effects */}
             <div className="fixed top-0 right-0 w-[600px] h-[600px] bg-netflix-red/10 blur-[180px] rounded-full translate-x-1/3 -translate-y-1/3 pointer-events-none"></div>
             <div className="fixed bottom-0 left-0 w-[500px] h-[500px] bg-cyan-500/5 blur-[150px] rounded-full -translate-x-1/3 translate-y-1/3 pointer-events-none"></div>
+
+            {/* Disclaimer Modal */}
+            {showDisclaimer && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 animate-fade-in">
+                    <div className="absolute inset-0 bg-black/90 backdrop-blur-md"></div>
+                    <div className="glass max-w-2xl w-full p-8 md:p-12 rounded-[2rem] md:rounded-[3rem] border border-white/10 relative z-10 shadow-[0_0_100px_rgba(229,9,20,0.2)] animate-scale-in">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="p-4 bg-netflix-red/10 rounded-2xl mb-6">
+                                <Film className="text-netflix-red" size={32} />
+                            </div>
+                            <h3 className="text-2xl md:text-3xl font-black text-white tracking-tighter mb-6 uppercase italic">Aviso de Uso y Responsabilidad</h3>
+                            <div className="space-y-4 text-slate-300 text-sm md:text-base font-medium leading-relaxed mb-8 text-left">
+                                <p>
+                                    CineVault es un proyecto de código abierto desarrollado exclusivamente para fines de <span className="text-white font-bold">investigación tecnológica, aprendizaje y uso personal privado</span>.
+                                </p>
+                                <p>
+                                    El software ha sido diseñado para estudiar protocolos de streaming (HLS), transcodificación en tiempo real (JIT) y optimización de recursos en la nube. 
+                                </p>
+                                <p className="p-4 bg-white/5 rounded-xl border border-white/5 italic">
+                                    "No se permite el uso comercial de esta plataforma. CineVault no aloja, distribuye ni facilita contenido protegido por derechos de autor de forma pública."
+                                </p>
+                                <p>
+                                    Al continuar, usted declara que es el único responsable del uso que le dé a esta herramienta y que posee los derechos o copias legales de cualquier archivo al que acceda de forma privada.
+                                </p>
+                            </div>
+                            <div className="flex flex-col md:flex-row gap-4 w-full">
+                                <button 
+                                    onClick={() => setShowDisclaimer(false)}
+                                    className="flex-1 py-4 px-6 border border-white/10 hover:bg-white/5 rounded-xl text-xs font-black uppercase tracking-widest text-slate-500 hover:text-white transition-all"
+                                >
+                                    Cancelar
+                                </button>
+                                <button 
+                                    onClick={handleAcceptDisclaimer}
+                                    className="flex-[2] py-4 px-12 bg-netflix-red text-white font-black rounded-xl hover:bg-red-600 transition-all shadow-[0_10px_30px_rgba(229,9,20,0.3)] text-xs uppercase tracking-[0.3em]"
+                                >
+                                    Aceptar y Continuar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Main Card */}
             <div className="w-full max-w-md relative z-10">
