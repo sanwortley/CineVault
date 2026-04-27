@@ -759,7 +759,13 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         crossOrigin="anonymous"
                         onEnded={handleVideoEnded}
                         onTimeUpdate={(e) => {
-                            setCurrentTime(e.target.currentTime);
+                            const time = e.target.currentTime;
+                            setCurrentTime(time);
+                            
+                            // Rating trigger: 95% of the movie
+                            if (duration > 60 && time > duration * 0.95 && !showRatingOverlay && userRating === 0) {
+                                setShowRatingOverlay(true);
+                            }
                         }}
                         onLoadedMetadata={(e) => {
                             setDuration(e.target.duration);
