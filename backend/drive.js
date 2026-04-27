@@ -169,21 +169,25 @@ const driveApi = {
         }
     },
 
-    getStream: async (fileId) => {
+    getStream: async (fileId, options = {}) => {
         const hasToken = driveApi.isAuthenticated();
         const apiKey = process.env.GOOGLE_API_KEY;
 
         if (hasToken) {
             try {
                 const drive = driveApi.getClient();
-                const driveRes = await drive.files.get({ fileId, alt: 'media', supportsAllDrives: true }, { responseType: 'stream' });
+                const driveRes = await drive.files.get(
+                    { fileId, alt: 'media', supportsAllDrives: true }, 
+                    { responseType: 'stream', ...options }
+                );
                 return driveRes.data;
             } catch (err) {
                 if (apiKey) {
                     const axios = require('axios');
                     const driveRes = await axios.get(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
                         params: { alt: 'media', key: apiKey, supportsAllDrives: true },
-                        responseType: 'stream'
+                        responseType: 'stream',
+                        ...options
                     });
                     return driveRes.data;
                 }
@@ -193,7 +197,8 @@ const driveApi = {
             const axios = require('axios');
             const driveRes = await axios.get(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
                 params: { alt: 'media', key: apiKey, supportsAllDrives: true },
-                responseType: 'stream'
+                responseType: 'stream',
+                ...options
             });
             return driveRes.data;
         }

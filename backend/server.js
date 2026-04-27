@@ -345,11 +345,26 @@ app.get('/api/drive/hls/:fileId/segment/:index.ts', async (req, res) => {
             const authHeader = hasToken ? `Authorization: Bearer ${driveApi.getOAuthClient().credentials.access_token}` : null;
             segmentStream = getHLSSegmentStream(driveUrl, startTime, duration, authHeader, quality);
         } else {
-            // Local Proxy (SAFE & FAST, avoids SIGSEGV on static ffmpeg by using http://localhost)
-            // We use our own /api/drive/stream endpoint as a proxy
-            const localProxyUrl = `http://localhost:8080/api/drive/stream/${fileId}`;
-            console.log(`[HLS] Using local proxy for segment: ${localProxyUrl}`);
-            segmentStream = getHLSSegmentStream(localProxyUrl, startTime, duration, null, quality);
+            // Smart-Pipe (ROBUST, avoids SIGSEGV by piping data directly)
+            // 1. Get movie info for byte calculation
+            const movie = await db.getMovieByFileId(fileId);
+            const fileSize = parseInt(movie.file_size || 0);
+            const movieDuration = (movie.runtime || 120) * 60; // default 2h if missing
+            
+            // 2. Calculate approximate byte offset (with 2MB safety margin/padding)
+            const padding = 2 * 1024 * 1024; // 2MB padding
+            let byteOffset = Math.floor((startTime / movieDuration) * fileSize) - padding;
+            if (byteOffset < 0) byteOffset = 0;
+            
+            console.log(`[HLS] Smart-Pipe seek: ${startTime}s -> byte ${byteOffset} (Size: ${fileSize})`);
+            
+            // 3. Fetch specific range from Drive
+            const bodyStream = await driveApi.getStream(fileId, {
+                headers: { 'Range': `bytes=${byteOffset}-` }
+            });
+            
+            // 4. Pipe to FFmpeg (FFmpeg will fine-tune seek from there)
+            segmentStream = getHLSSegmentStream(bodyStream, startTime, duration, null, quality);
         }
         
         res.set({
