@@ -189,7 +189,7 @@ const driveApi = {
                 }
 
                 res.writeHead(200, { 
-                    'Content-Type': 'video/mp4', 
+                    'Content-Type': 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"', 
                     'Access-Control-Allow-Origin': '*',
                     'Connection': 'keep-alive',
                     'Cache-Control': 'no-cache'
