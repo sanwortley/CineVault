@@ -316,10 +316,13 @@ app.get('/api/drive/hls/:fileId/segment/:index.ts', async (req, res) => {
     const { startTime, duration } = hlsManager.getSegmentRange(segmentIndex);
     
     try {
-        const bodyStream = await driveApi.getStream(fileId);
+        const hasToken = driveApi.isAuthenticated();
+        const apiKey = process.env.GOOGLE_API_KEY;
+        const driveUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media${!hasToken ? `&key=${apiKey}` : ''}`;
+        const authHeader = hasToken ? `Authorization: Bearer ${driveApi.getOAuthClient().credentials.access_token}` : null;
+
         const { getHLSSegmentStream } = require('./optimizer');
-        
-        const segmentStream = getHLSSegmentStream(bodyStream, startTime, duration, null, quality);
+        const segmentStream = getHLSSegmentStream(driveUrl, startTime, duration, authHeader, quality);
         
         res.set({
             'Content-Type': 'video/mp2t',

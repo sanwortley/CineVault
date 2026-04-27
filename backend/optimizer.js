@@ -124,13 +124,12 @@ function getHLSSegmentStream(input, startTime = 0, duration = 10, headers = null
     ];
 
     if (headers) {
-        inputOptions.push('-headers', headers.trim() + '\r\nUser-Agent: CineVault/1.0\r\n');
+        // Headers must be a single string with \r\n separators
+        inputOptions.push('-headers', headers.trim() + '\r\n');
     }
 
-    // Fast seek before input for segments
-    if (typeof input === 'string' && input.startsWith('http')) {
-        inputOptions.push('-ss', startTime.toString());
-    }
+    // Fast seek before input for segments (VITAL for speed)
+    inputOptions.push('-ss', startTime.toString());
 
     command.inputOptions(inputOptions);
 
