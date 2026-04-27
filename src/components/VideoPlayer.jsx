@@ -336,11 +336,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                     initialSeekPerformed.current = true;
                 }
 
-                React.useEffect(() => {
-        console.log('🚀 [CineVault] Player Version 2.1 - Active');
-    }, []);
-
-    // Progress persistence state on the element to satisfy mobile policies
+                // Progress persistence state on the element to satisfy mobile policies
                 if (isMobile) {
                     videoRef.current.muted = true;
                     setIsMuted(true);
