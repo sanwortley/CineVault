@@ -36,7 +36,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const [duration, setDuration] = useState(0);
     const [currentTime, setCurrentTime] = useState(0);
     const [volume, setVolume] = useState(1);
-    const [isMuted, setIsMuted] = useState(isMobile);
+    const [isMuted, setIsMuted] = useState(false);
     const [showControls, setShowControls] = useState(true);
     const [isLocked, setIsLocked] = useState(false);
     const [isUnlocking, setIsUnlocking] = useState(false);
@@ -383,19 +383,26 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                     initialSeekPerformed.current = true;
                 }
 
-                // Progress persistence state on the element to satisfy mobile policies
-                if (isMobile) {
-                    videoRef.current.muted = true;
-                    setIsMuted(true);
-                }
+                // Try to play WITH sound first
+                videoRef.current.muted = false;
+                setIsMuted(false);
+                
                 const playPromise = videoRef.current.play();
                 if (playPromise !== undefined) {
                     await playPromise;
                     setIsPlaying(true);
                 }
             } catch (err) {
-                console.warn('[VideoPlayer] Autoplay blocked, waiting for interaction:', err.message);
-                setIsPlaying(false);
+                console.warn('[VideoPlayer] Autoplay with sound blocked, trying muted...', err.message);
+                try {
+                    videoRef.current.muted = true;
+                    setIsMuted(true);
+                    await videoRef.current.play();
+                    setIsPlaying(true);
+                } catch (mutedErr) {
+                    console.error('[VideoPlayer] Even muted playback failed:', mutedErr.message);
+                    setIsPlaying(false);
+                }
             }
         }
     };
