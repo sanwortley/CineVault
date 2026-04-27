@@ -3,7 +3,7 @@
  * Handles generation of .m3u8 playlists and manages segment metadata.
  */
 
-const SEGMENT_DURATION = 10; // seconds
+const SEGMENT_DURATION = 6; // seconds
 
 const hlsManager = {
     /**

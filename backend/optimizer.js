@@ -147,13 +147,14 @@ function getHLSSegmentStream(input, startTime = 0, duration = 10, headers = null
             '-profile:v', 'baseline', 
             '-level', '3.0',
             '-pix_fmt', 'yuv420p',
+            '-g', '30', // Force keyframe every 30 frames for faster segmenting
             '-crf', '28', 
-            '-maxrate', '800k', 
-            '-bufsize', '1.6M',
+            '-maxrate', '600k', 
+            '-bufsize', '1.2M',
             '-threads', '1',
             '-map_chapters', '-1'
         ])
-        .videoFilter('scale=720:-2')
+        .videoFilter('scale=854:480')
         .on('error', (err) => {
             if (err.message.includes('SIGKILL')) return;
             console.error('[Optimizer] HLS Segment Error:', err.message);
