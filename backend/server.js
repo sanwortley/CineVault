@@ -345,9 +345,11 @@ app.get('/api/drive/hls/:fileId/segment/:index.ts', async (req, res) => {
             const authHeader = hasToken ? `Authorization: Bearer ${driveApi.getOAuthClient().credentials.access_token}` : null;
             segmentStream = getHLSSegmentStream(driveUrl, startTime, duration, authHeader, quality);
         } else {
-            // Node.js Pipe (SAFE, avoids SIGSEGV on static ffmpeg)
-            const bodyStream = await driveApi.getStream(fileId);
-            segmentStream = getHLSSegmentStream(bodyStream, startTime, duration, null, quality);
+            // Local Proxy (SAFE & FAST, avoids SIGSEGV on static ffmpeg by using http://localhost)
+            // We use our own /api/drive/stream endpoint as a proxy
+            const localProxyUrl = `http://localhost:8080/api/drive/stream/${fileId}`;
+            console.log(`[HLS] Using local proxy for segment: ${localProxyUrl}`);
+            segmentStream = getHLSSegmentStream(localProxyUrl, startTime, duration, null, quality);
         }
         
         res.set({
