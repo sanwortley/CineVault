@@ -348,8 +348,17 @@ app.get('/api/drive/hls/:fileId/segment/:index.ts', async (req, res) => {
             // Smart-Pipe (ROBUST, avoids SIGSEGV by piping data directly)
             // 1. Get movie info for byte calculation
             const movie = await db.getMovieByFileId(fileId);
-            const fileSize = parseInt(movie.file_size || 0);
-            const movieDuration = (movie.runtime || 120) * 60; // default 2h if missing
+            let fileSize = parseInt(movie?.file_size || 0);
+            
+            // FALLBACK: If DB has 0, fetch real size from Drive
+            if (fileSize === 0) {
+                console.log(`[HLS] File size is 0 in DB, fetching from Drive for ${fileId}...`);
+                const drive = driveApi.getClient();
+                const meta = await drive.files.get({ fileId, fields: 'size', supportsAllDrives: true });
+                fileSize = parseInt(meta.data.size || 0);
+            }
+
+            const movieDuration = (movie?.runtime || 120) * 60; // default 2h if missing
             
             // 2. Calculate approximate byte offset (with 2MB safety margin/padding)
             const padding = 2 * 1024 * 1024; // 2MB padding
