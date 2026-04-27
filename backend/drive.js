@@ -199,15 +199,31 @@ const driveApi = {
                 let bodyStream;
                 try {
                     if (hasToken) {
-                        const driveRes = await drive.files.get({ fileId, alt: 'media', supportsAllDrives: true }, { responseType: 'stream' });
-                        bodyStream = driveRes.data;
-                    } else {
+                        try {
+                            const driveRes = await drive.files.get({ fileId, alt: 'media', supportsAllDrives: true }, { responseType: 'stream' });
+                            bodyStream = driveRes.data;
+                        } catch (tokenErr) {
+                            console.warn('[DriveStream] Token access failed, trying API Key fallback:', tokenErr.message);
+                            if (apiKey) {
+                                const axios = require('axios');
+                                const driveRes = await axios.get(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+                                    params: { alt: 'media', key: apiKey, supportsAllDrives: true },
+                                    responseType: 'stream'
+                                });
+                                bodyStream = driveRes.data;
+                            } else {
+                                throw tokenErr;
+                            }
+                        }
+                    } else if (apiKey) {
                         const axios = require('axios');
                         const driveRes = await axios.get(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
                             params: { alt: 'media', key: apiKey, supportsAllDrives: true },
                             responseType: 'stream'
                         });
                         bodyStream = driveRes.data;
+                    } else {
+                        throw new Error('No authentication method available (Token or API Key)');
                     }
 
                     const { getTranscodeStream } = require('./optimizer');
