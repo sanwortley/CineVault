@@ -141,6 +141,7 @@ function getHLSSegmentStream(input, startTime = 0, duration = 10, headers = null
         .outputOptions([
             ...(typeof input !== 'string' || !input.startsWith('http') ? ['-ss', startTime.toString()] : []),
             '-t', duration.toString(), // Only transcode the segment duration
+            '-output_ts_offset', startTime.toString(), // Align timestamps with playlist
             '-preset', 'ultrafast', 
             '-tune', 'zerolatency',
             '-profile:v', 'baseline', 

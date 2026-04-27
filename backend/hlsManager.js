@@ -24,7 +24,8 @@ const hlsManager = {
         for (let i = 0; i < segmentCount; i++) {
             const currentDuration = Math.min(SEGMENT_DURATION, duration - (i * SEGMENT_DURATION));
             playlist += `#EXTINF:${currentDuration.toFixed(3)},\n`;
-            playlist += `${baseUrl}/segment/${i}.ts\n`;
+            // Use relative paths to avoid Mixed Content (HTTP vs HTTPS)
+            playlist += `segment/${i}.ts\n`;
         }
 
         playlist += '#EXT-X-ENDLIST\n';
