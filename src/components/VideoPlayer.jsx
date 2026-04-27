@@ -259,17 +259,17 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
 
     // Fetch existing rating
     useEffect(() => {
-        if (movie?.id) {
-            api.get(`/user/rating/${movie.id}`).then(res => {
+        if (movie?.id && user?.id) {
+            api.getUserRating(user.id, movie.id).then(res => {
                 if (res?.rating) setUserRating(res.rating);
             }).catch(() => {});
         }
-    }, [movie?.id]);
+    }, [movie?.id, user?.id]);
 
     const handleRating = async (rating) => {
         setIsSavingRating(true);
         try {
-            await api.post('/user/rating', { movie_id: movie.id, rating });
+            await api.saveUserRating(user?.id, movie.id, rating);
             setUserRating(rating);
             // Hide overlay after a short delay
             setTimeout(() => setShowRatingOverlay(false), 1000);

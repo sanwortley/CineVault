@@ -596,6 +596,18 @@ export const api = {
         return backendFetch(`/api/user/mylist/${movieId}`, { method: 'DELETE' }, { 'x-user-id': userId });
     },
 
+    getUserRating: (userId, movieId) => {
+        if (isElectron()) return Promise.resolve({ rating: 0 });
+        return backendFetch(`/api/user/rating/${movieId}`, {}, { 'x-user-id': userId });
+    },
+    saveUserRating: (userId, movieId, rating) => {
+        if (isElectron()) return Promise.resolve();
+        return backendFetch('/api/user/rating', { 
+            method: 'POST', 
+            body: JSON.stringify({ movie_id: movieId, rating }) 
+        }, { 'x-user-id': userId });
+    },
+
     // ── Movie Requests ────────────────────────────────────────────────────────
     submitMovieRequest: (data) => {
         return backendFetch('/api/requests', {

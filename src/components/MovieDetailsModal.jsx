@@ -24,7 +24,7 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }
         drive_file_id
     } = movie;
 
-    const { isAdmin } = useAuth();
+    const { user, isAdmin } = useAuth();
     const [isDeleting, setIsDeleting] = React.useState(false);
     const [isEditing, setIsEditing] = React.useState(false);
     
@@ -54,17 +54,17 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }
     const [hoverRating, setHoverRating] = React.useState(0);
 
     React.useEffect(() => {
-        if (movie?.id) {
-            api.get(`/user/rating/${movie.id}`).then(res => {
+        if (movie?.id && user?.id) {
+            api.getUserRating(user.id, movie.id).then(res => {
                 if (res?.rating) setUserRating(res.rating);
             }).catch(() => {});
         }
-    }, [movie?.id]);
+    }, [movie?.id, user?.id]);
 
     const handleSaveRating = async (val) => {
         setIsSavingRating(true);
         try {
-            await api.post('/user/rating', { movie_id: movie.id, rating: val });
+            await api.saveUserRating(user?.id, movie.id, val);
             setUserRating(val);
         } catch (err) {
             console.error('Error saving rating:', err);
