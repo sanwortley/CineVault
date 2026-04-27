@@ -13,7 +13,7 @@ async function searchMovie(title, year = null) {
                 api_key: TMDB_API_KEY,
                 query: title,
                 year: year,
-                language: 'es-ES'
+                language: 'es-MX'
             }
         });
 
@@ -34,7 +34,7 @@ async function getMovieDetails(movieId) {
             params: {
                 api_key: TMDB_API_KEY,
                 append_to_response: 'credits',
-                language: 'es-ES'
+                language: 'es-MX'
             }
         });
 

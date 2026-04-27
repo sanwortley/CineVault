@@ -18,7 +18,7 @@ const fetchTMDB = async (endpoint, params = {}) => {
     if (!key) throw new Error('TMDB_API_KEY no configurada');
     
     const response = await axios.get(`${TMDB_BASE_URL}${endpoint}`, {
-        params: { api_key: key, language: 'es-ES', ...params }
+        params: { api_key: key, language: 'es-MX', ...params }
     });
     return response.data;
 };
