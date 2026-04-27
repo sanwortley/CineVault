@@ -1532,6 +1532,35 @@ app.delete('/api/user/mylist/:movieId', sessionMiddleware, async (req, res) => {
     }
 });
 
+app.get('/api/user/rating/:movieId', sessionMiddleware, async (req, res) => {
+    const userId = req.headers['x-user-id'];
+    if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+    
+    try {
+        const rating = await db.getUserRating(userId, req.params.movieId);
+        res.json({ rating });
+    } catch (err) {
+        console.error('[UserRating] Get error:', err);
+        res.status(500).json({ error: 'Failed to get rating' });
+    }
+});
+
+app.post('/api/user/rating', sessionMiddleware, async (req, res) => {
+    const userId = req.headers['x-user-id'];
+    if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+    
+    const { movie_id, rating } = req.body;
+    if (!movie_id || !rating) return res.status(400).json({ error: 'movie_id and rating required' });
+    
+    try {
+        await db.saveUserRating(userId, movie_id, parseInt(rating));
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[UserRating] Save error:', err);
+        res.status(500).json({ error: 'Failed to save rating' });
+    }
+});
+
 // ─── Movie Uploads ─────────────────────────────────────────────────────────────
 app.post('/api/movies/upload', sessionMiddleware, adminMiddleware, movieUpload.array('files'), async (req, res) => {
     try {

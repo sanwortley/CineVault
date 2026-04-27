@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Play, Pause, Volume2, VolumeX, Maximize, X, 
     Loader2, Subtitles, SkipBack, SkipForward, Lock, Unlock, Film,
-    Plus, Cloud, Upload, AlertCircle, ExternalLink
+    Plus, Cloud, Upload, AlertCircle, ExternalLink, Star
 } from 'lucide-react';
 import { api, BACKEND_URL } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -93,6 +93,11 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const [subtitleOffset, setSubtitleOffset] = useState(0); // in seconds
     const [subQuotaReached, setSubQuotaReached] = useState(false);
     
+    const [showRatingOverlay, setShowRatingOverlay] = useState(false);
+    const [userRating, setUserRating] = useState(0);
+    const [isSavingRating, setIsSavingRating] = useState(false);
+    const [hoverRating, setHoverRating] = useState(0);
+
     const [subtitleSettings, setSubtitleSettings] = useState(() => {
         const stored = localStorage.getItem('cinevault_subtitle_settings');
         return stored ? JSON.parse(stored) : { size: 'medium', color: 'white' };
@@ -251,6 +256,34 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     }, [movie.id, movie.drive_file_id, movie.file_path, streamSource, useTranscoding, seekOffset]);
 
     const isDisplayLoading = isInitializing || isLoading;
+
+    // Fetch existing rating
+    useEffect(() => {
+        if (movie?.id) {
+            api.get(`/user/rating/${movie.id}`).then(res => {
+                if (res?.rating) setUserRating(res.rating);
+            }).catch(() => {});
+        }
+    }, [movie?.id]);
+
+    const handleRating = async (rating) => {
+        setIsSavingRating(true);
+        try {
+            await api.post('/user/rating', { movie_id: movie.id, rating });
+            setUserRating(rating);
+            // Hide overlay after a short delay
+            setTimeout(() => setShowRatingOverlay(false), 1000);
+        } catch (err) {
+            console.error('[Rating] Save error:', err);
+        } finally {
+            setIsSavingRating(false);
+        }
+    };
+
+    const handleVideoEnded = () => {
+        setIsPlaying(false);
+        setShowRatingOverlay(true);
+    };
 
     const handleVideoError = (e) => {
         const videoElement = e.target;
@@ -724,6 +757,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         muted={isMuted}
                         webkit-playsinline="true"
                         crossOrigin="anonymous"
+                        onEnded={handleVideoEnded}
                         onTimeUpdate={(e) => {
                             setCurrentTime(e.target.currentTime);
                         }}
@@ -1350,6 +1384,66 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                     Copiar Diagnóstico para Soporte
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {showRatingOverlay && (
+                <div className="absolute inset-0 z-[2000] bg-zinc-950/95 backdrop-blur-2xl flex items-center justify-center p-6">
+                    <div className="max-w-md w-full text-center space-y-10 animate-in fade-in zoom-in duration-500">
+                        <div className="relative inline-block">
+                             <div className="absolute -inset-4 bg-cyan-500/20 blur-3xl rounded-full" />
+                             <Film className="relative text-cyan-500 mx-auto mb-4" size={48} />
+                             <h2 className="relative text-4xl md:text-5xl font-black text-white uppercase italic tracking-tighter leading-none">¿Qué te pareció?</h2>
+                        </div>
+                        
+                        <p className="text-white/40 uppercase text-[11px] font-black tracking-[0.3em] max-w-[280px] mx-auto leading-relaxed">
+                            Tu valoración ayuda a mejorar la biblioteca
+                        </p>
+
+                        <div className="flex justify-center gap-3">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                                <button
+                                    key={star}
+                                    onMouseEnter={() => setHoverRating(star)}
+                                    onMouseLeave={() => setHoverRating(0)}
+                                    onClick={() => handleRating(star)}
+                                    className="group relative p-2 transition-all hover:scale-125 active:scale-90 disabled:opacity-50"
+                                    disabled={isSavingRating}
+                                >
+                                    {/* Star Glow */}
+                                    {(hoverRating || userRating) >= star && (
+                                        <div className="absolute inset-0 bg-cyan-500/40 blur-xl rounded-full scale-75 group-hover:scale-100 transition-transform" />
+                                    )}
+                                    
+                                    <Star 
+                                        size={48} 
+                                        fill={(hoverRating || userRating) >= star ? "#06b6d4" : "none"} 
+                                        strokeWidth={1.5}
+                                        className={`relative transition-all duration-300 ${
+                                            (hoverRating || userRating) >= star 
+                                            ? "text-cyan-500 drop-shadow-[0_0_15px_rgba(6,182,212,0.5)]" 
+                                            : "text-white/20"
+                                        }`}
+                                    />
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="flex flex-col items-center gap-6 pt-4">
+                            {userRating > 0 && !isSavingRating && (
+                                <div className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/20 rounded-full animate-in slide-in-from-bottom-2">
+                                    <p className="text-cyan-400 text-[10px] font-black uppercase tracking-widest">¡Gracias por tu voto!</p>
+                                </div>
+                            )}
+                            
+                            <button 
+                                onClick={onClose}
+                                className="group flex items-center gap-2 text-white/30 hover:text-white uppercase text-[11px] font-black tracking-[0.2em] transition-all"
+                            >
+                                <span>Cerrar</span>
+                                <X size={14} className="group-hover:rotate-90 transition-transform" />
+                            </button>
                         </div>
                     </div>
                 </div>

@@ -200,6 +200,25 @@ const database = {
         return result.length > 0;
     },
     
+    // User Ratings
+    getUserRating: async (userId, movieId) => {
+        const results = await supabaseFetch(`user_movie_ratings?user_id=eq.${userId}&movie_id=eq.${movieId}&select=rating`) || [];
+        return results.length > 0 ? results[0].rating : null;
+    },
+    saveUserRating: async (userId, movieId, rating) => {
+        // Use upsert-like behavior with Prefer: resolution=merge-duplicates
+        return await supabaseFetch('user_movie_ratings', {
+            method: 'POST',
+            body: JSON.stringify({
+                user_id: userId,
+                movie_id: movieId,
+                rating: rating,
+                updated_at: new Date().toISOString()
+            }),
+            headers: { 'Prefer': 'resolution=merge-duplicates' }
+        });
+    },
+    
     // Session Management
     registerSession: async (userId, email, userAgent, ip) => {
         // First, delete old sessions for this email (Unique session per email)

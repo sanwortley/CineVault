@@ -49,6 +49,30 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }
     const [requestSuccess, setRequestSuccess] = React.useState(false);
     const [downloadingMovieId, setDownloadingMovieId] = React.useState(null);
 
+    const [userRating, setUserRating] = React.useState(0);
+    const [isSavingRating, setIsSavingRating] = React.useState(false);
+    const [hoverRating, setHoverRating] = React.useState(0);
+
+    React.useEffect(() => {
+        if (movie?.id) {
+            api.get(`/user/rating/${movie.id}`).then(res => {
+                if (res?.rating) setUserRating(res.rating);
+            }).catch(() => {});
+        }
+    }, [movie?.id]);
+
+    const handleSaveRating = async (val) => {
+        setIsSavingRating(true);
+        try {
+            await api.post('/user/rating', { movie_id: movie.id, rating: val });
+            setUserRating(val);
+        } catch (err) {
+            console.error('Error saving rating:', err);
+        } finally {
+            setIsSavingRating(false);
+        }
+    };
+
     const isLibraryMovie = !!movie.file_path;
 
     // Fetch torrents for admins if it's a catalog movie
@@ -159,6 +183,31 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [], toggleMyList }
                                 <Star size={16} fill="currentColor" />
                                 <span className="text-sm font-bold">{rating ? rating.toFixed(1) : 'N/A'}</span>
                             </div>
+
+                            {isLibraryMovie && (
+                                <div className="flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-white/10 rounded-full group transition-all hover:border-cyan-500/50">
+                                    <span className="text-[9px] font-black uppercase text-white/30 mr-1 group-hover:text-cyan-400">Tu Voto</span>
+                                    <div className="flex gap-0.5">
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                            <button
+                                                key={star}
+                                                onMouseEnter={() => setHoverRating(star)}
+                                                onMouseLeave={() => setHoverRating(0)}
+                                                onClick={() => handleSaveRating(star)}
+                                                disabled={isSavingRating}
+                                                className="transition-transform hover:scale-125 active:scale-90"
+                                            >
+                                                <Star 
+                                                    size={14} 
+                                                    fill={(hoverRating || userRating) >= star ? "#06b6d4" : "none"} 
+                                                    className={(hoverRating || userRating) >= star ? "text-cyan-500" : "text-white/20"}
+                                                    strokeWidth={2.5}
+                                                />
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                             {/* 
                             {movie.rt_rating && (
                                 <div className="flex items-center gap-2">
