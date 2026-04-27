@@ -315,6 +315,19 @@ app.get('/api/drive/hls/:fileId/segment/:index.ts', async (req, res) => {
     const quality = req.query.q || '480';
     const { startTime, duration } = hlsManager.getSegmentRange(segmentIndex);
     
+    const cachePath = path.join(__dirname, 'cache', `${fileId}_${quality}_${index}.ts`);
+    const fs = require('fs');
+
+    // 1. Serve from cache if exists
+    if (fs.existsSync(cachePath)) {
+        res.set({
+            'Content-Type': 'video/mp2t',
+            'Access-Control-Allow-Origin': '*',
+            'X-Cache': 'HIT'
+        });
+        return res.sendFile(cachePath);
+    }
+
     try {
         const hasToken = driveApi.isAuthenticated();
         const apiKey = process.env.GOOGLE_API_KEY;
@@ -327,16 +340,27 @@ app.get('/api/drive/hls/:fileId/segment/:index.ts', async (req, res) => {
         res.set({
             'Content-Type': 'video/mp2t',
             'Access-Control-Allow-Origin': '*',
-            'Cache-Control': 'public, max-age=3600'
+            'Cache-Control': 'public, max-age=3600',
+            'X-Cache': 'MISS'
         });
         
+        // 2. Stream to client AND save to cache simultaneously
+        const cacheWriter = fs.createWriteStream(cachePath);
+        segmentStream.pipe(cacheWriter);
         segmentStream.pipe(res);
         
         res.on('close', () => {
             if (segmentStream.ffmpegCommand) segmentStream.ffmpegCommand.kill();
+            cacheWriter.end();
         });
+
+        segmentStream.on('error', (err) => {
+            console.error(`[HLS] Segment ${index} error:`, err.message);
+            if (fs.existsSync(cachePath)) fs.unlinkSync(cachePath);
+        });
+
     } catch (err) {
-        console.error(`[HLS] Segment ${index} error:`, err.message);
+        console.error(`[HLS] Segment ${index} fatal error:`, err.message);
         if (!res.headersSent) res.status(500).send(err.message);
     }
 });
