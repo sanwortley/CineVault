@@ -63,17 +63,18 @@ function getTranscodeStream(input, startTime = 0) {
 
     command.inputOptions([
         '-threads', '1',
-        '-probesize', '10M',
-        '-analyzeduration', '10M'
+        '-probesize', '20M',
+        '-analyzeduration', '20M',
+        '-reorder_queue_size', '1024'
     ]);
 
     command
-        .seekInput(startTime)
         .videoCodec('libx264')
         .audioCodec('aac')
         .audioChannels(2)
         .format('mp4')
         .outputOptions([
+            '-ss', startTime.toString(), // Seek after input for pipe stability
             '-preset', 'ultrafast', 
             '-tune', 'zerolatency',
             '-profile:v', 'baseline', 

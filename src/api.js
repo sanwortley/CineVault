@@ -345,17 +345,13 @@ export const api = {
             if (isElectron()) return `http://localhost:19998/stream/${fileId}${options.transcode ? `?transcode=true&t=${options.seekOffset || 0}` : ''}`;
             
             const sessionId = localStorage.getItem('cinevault_session_id') || localStorage.getItem('session_id') || '';
-            const baseUrl = `${BACKEND_URL}/api/drive/stream/${fileId}`;
-            const params = new URLSearchParams();
+            let url = `${BACKEND_URL}/api/drive/stream/${fileId}?sessionId=${sessionId}`;
             
-            if (sessionId) params.append('sessionId', sessionId);
             if (options.transcode) {
-                params.append('transcode', 'true');
-                params.append('t', options.seekOffset || 0);
+                url += `&transcode=true&t=${options.seekOffset || 0}`;
             }
             
-            const queryString = params.toString();
-            return queryString ? `${baseUrl}?${queryString}` : baseUrl;
+            return url;
         }
         return null;
     },
