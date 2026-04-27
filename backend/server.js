@@ -334,13 +334,21 @@ app.get('/api/drive/hls/:fileId/segment/:index.ts', async (req, res) => {
     }
 
     try {
-        const hasToken = driveApi.isAuthenticated();
-        const apiKey = process.env.GOOGLE_API_KEY;
-        const driveUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media${!hasToken ? `&key=${apiKey}` : ''}`;
-        const authHeader = hasToken ? `Authorization: Bearer ${driveApi.getOAuthClient().credentials.access_token}` : null;
-
-        const { getHLSSegmentStream } = require('./optimizer');
-        const segmentStream = getHLSSegmentStream(driveUrl, startTime, duration, authHeader, quality);
+        const { getHLSSegmentStream, IS_SYSTEM_FFMPEG } = require('./optimizer');
+        
+        let segmentStream;
+        if (IS_SYSTEM_FFMPEG) {
+            // Direct URL (FAST, needs system ffmpeg)
+            const hasToken = driveApi.isAuthenticated();
+            const apiKey = process.env.GOOGLE_API_KEY;
+            const driveUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media${!hasToken ? `&key=${apiKey}` : ''}`;
+            const authHeader = hasToken ? `Authorization: Bearer ${driveApi.getOAuthClient().credentials.access_token}` : null;
+            segmentStream = getHLSSegmentStream(driveUrl, startTime, duration, authHeader, quality);
+        } else {
+            // Node.js Pipe (SAFE, avoids SIGSEGV on static ffmpeg)
+            const bodyStream = await driveApi.getStream(fileId);
+            segmentStream = getHLSSegmentStream(bodyStream, startTime, duration, null, quality);
+        }
         
         res.set({
             'Content-Type': 'video/mp2t',

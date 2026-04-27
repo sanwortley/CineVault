@@ -3,6 +3,7 @@ const { PassThrough } = require('stream');
 const ffprobePath = require('ffprobe-static').path;
 
 // Configure paths - prefer system ffmpeg (from nixpacks) over static binary
+let CURRENT_FFMPEG_PATH = '';
 try {
     const { execSync } = require('child_process');
     let systemFfmpeg = 'ffmpeg';
@@ -10,6 +11,7 @@ try {
     // Check if it's in common Linux paths or PATH
     try {
         execSync('which ffmpeg');
+        systemFfmpeg = 'ffmpeg';
     } catch (e) {
         if (require('fs').existsSync('/usr/bin/ffmpeg')) systemFfmpeg = '/usr/bin/ffmpeg';
         else if (require('fs').existsSync('/usr/local/bin/ffmpeg')) systemFfmpeg = '/usr/local/bin/ffmpeg';
@@ -18,12 +20,14 @@ try {
 
     execSync(`${systemFfmpeg} -version`);
     ffmpeg.setFfmpegPath(systemFfmpeg);
+    CURRENT_FFMPEG_PATH = systemFfmpeg;
     console.log(`[Optimizer] Using system FFmpeg: ${systemFfmpeg}`);
 } catch (e) {
     console.log('[Optimizer] System FFmpeg not found, falling back to ffmpeg-static');
-    const ffmpegPath = require('ffmpeg-static');
-    ffmpeg.setFfmpegPath(ffmpegPath);
+    CURRENT_FFMPEG_PATH = require('ffmpeg-static');
+    ffmpeg.setFfmpegPath(CURRENT_FFMPEG_PATH);
 }
+const IS_SYSTEM_FFMPEG = !CURRENT_FFMPEG_PATH.includes('ffmpeg-static');
 ffmpeg.setFfprobePath(ffprobePath);
 
 /**
@@ -110,63 +114,60 @@ function getTranscodeStream(input, startTime = 0) {
 /**
  * Returns a stream for a specific HLS segment (MPEG-TS format).
  */
-function getHLSSegmentStream(input, startTime = 0, duration = 10, headers = null, quality = '480') {
+function getHLSSegmentStream(input, startTime, duration, headers, quality) {
     const profile = QUALITY_PROFILES[quality] || QUALITY_PROFILES['480'];
-    console.log(`[Optimizer] Generating HLS Segment (${quality}p): ${startTime}s to ${startTime + duration}s`);
-    
-    const passThrough = new PassThrough();
-    const command = ffmpeg(input);
+    const command = ffmpeg();
 
+    // Use system-level seeking or pipe consumption
     const inputOptions = [
         '-threads', '1',
         '-probesize', '5M',
         '-analyzeduration', '5M'
     ];
 
-    if (headers) {
-        // Headers must be a single string with \r\n separators
-        inputOptions.push('-headers', headers.trim() + '\r\n');
+    if (typeof input === 'string' && input.startsWith('http')) {
+        if (headers) inputOptions.push('-headers', headers.trim() + '\r\n');
+        inputOptions.push('-ss', startTime.toString());
+        command.input(input);
+    } else {
+        // It's a stream pipe
+        command.input(input);
+        // We have to seek after input for pipes
+        command.inputOptions(inputOptions);
     }
 
-    // Fast seek before input for segments (VITAL for speed)
-    inputOptions.push('-ss', startTime.toString());
-
-    command.inputOptions(inputOptions);
+    const stream = new PassThrough();
 
     command
-        .videoCodec('libx264')
-        .audioCodec('aac')
-        .audioChannels(2)
-        .format('mpegts') // HLS segments are typically MPEG-TS
+        .inputOptions(typeof input === 'string' ? inputOptions : [])
         .outputOptions([
-            ...(typeof input !== 'string' || !input.startsWith('http') ? ['-ss', startTime.toString()] : []),
-            '-t', duration.toString(), // Only transcode the segment duration
-            '-output_ts_offset', startTime.toString(), // Align timestamps with playlist
+            '-ss', typeof input === 'string' ? '0' : startTime.toString(), // If we seeked before, offset is 0
+            '-t', duration.toString(),
+            '-output_ts_offset', startTime.toString(),
             '-preset', 'ultrafast', 
             '-profile:v', 'main', 
             '-level', '4.1',
             '-pix_fmt', 'yuv420p',
-            '-g', '30', // Force keyframe every 30 frames for faster segmenting
+            '-g', '30',
             '-crf', profile.crf.toString(), 
             '-maxrate', profile.bitrate, 
             '-bufsize', profile.bufsize,
-            '-b:a', '128k', // Standard audio bitrate
+            '-b:a', '128k',
             '-threads', '1',
-            '-map_chapters', '-1'
+            '-map_chapters', '-1',
+            '-f', 'mpegts'
         ])
-        .videoFilter(`scale=${profile.width}:${profile.height}`)
-        .on('error', (err) => {
-            if (err.message.includes('SIGKILL')) return;
-            console.error('[Optimizer] HLS Segment Error:', err.message);
-            passThrough.destroy(err);
+        .on('start', (cmd) => {
+            console.log(`[Optimizer] HLS Segment (${quality}p): ${startTime}s to ${startTime + duration}s`);
         })
-        .on('end', () => {
-            passThrough.end();
-        });
+        .on('error', (err) => {
+            console.error('[Optimizer] HLS Segment Error:', err.message);
+            stream.emit('error', err);
+        })
+        .pipe(stream, { end: true });
 
-    command.pipe(passThrough);
-    passThrough.ffmpegCommand = command;
-    return passThrough;
+    stream.ffmpegCommand = command;
+    return stream;
 }
 
 const QUALITY_PROFILES = {
@@ -175,4 +176,4 @@ const QUALITY_PROFILES = {
     '1080': { width: 1920, height: 1080, bitrate: '2200k', bufsize: '4.4M', crf: 30 }
 };
 
-module.exports = { getOptimizedUploadStream, getTranscodeStream, getHLSSegmentStream, QUALITY_PROFILES };
+module.exports = { getOptimizedUploadStream, getTranscodeStream, getHLSSegmentStream, QUALITY_PROFILES, IS_SYSTEM_FFMPEG };
