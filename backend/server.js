@@ -325,7 +325,7 @@ app.get('/api/stream/local', (req, res) => {
         if (range === 'bytes=0-1') {
             res.writeHead(206, {
                 'Content-Type': 'video/mp4',
-                'Content-Range': 'bytes 0-1/100', 
+                'Content-Range': 'bytes 0-1/2000000000', // Report large size to avoid demuxer errors
                 'Content-Length': '2',
                 'Accept-Ranges': 'bytes',
                 'Access-Control-Allow-Origin': '*'
@@ -335,7 +335,6 @@ app.get('/api/stream/local', (req, res) => {
 
         res.writeHead(200, {
             'Content-Type': 'video/mp4',
-            'Accept-Ranges': 'bytes',
             'Access-Control-Allow-Origin': '*',
             'Connection': 'keep-alive',
             'Cache-Control': 'no-cache'

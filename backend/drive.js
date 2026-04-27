@@ -180,7 +180,7 @@ const driveApi = {
                 if (range === 'bytes=0-1') {
                     res.writeHead(206, {
                         'Content-Type': 'video/mp4',
-                        'Content-Range': 'bytes 0-1/100', 
+                        'Content-Range': 'bytes 0-1/2000000000', 
                         'Content-Length': '2',
                         'Accept-Ranges': 'bytes',
                         'Access-Control-Allow-Origin': '*'
@@ -190,7 +190,6 @@ const driveApi = {
 
                 res.writeHead(200, { 
                     'Content-Type': 'video/mp4', 
-                    'Accept-Ranges': 'bytes',
                     'Access-Control-Allow-Origin': '*',
                     'Connection': 'keep-alive',
                     'Cache-Control': 'no-cache'

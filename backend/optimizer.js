@@ -62,11 +62,11 @@ function getTranscodeStream(input, startTime = 0) {
             '-profile:v baseline', 
             '-level 3.0',
             '-pix_fmt yuv420p',
-            '-movflags +frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset', 
+            '-movflags +frag_keyframe+empty_moov', 
             '-crf 28', 
-            '-maxrate 1M', // Low bitrate for stability
+            '-maxrate 1M', 
             '-bufsize 2M',
-            '-vf scale=854:-2', // 480p for mobile
+            '-vf scale=854:-2', 
             '-ar 44100',
             '-b:a 96k',
             '-map_chapters -1'
