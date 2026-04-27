@@ -344,19 +344,32 @@ app.get('/api/drive/hls/:fileId/segment/:index.ts', async (req, res) => {
             'X-Cache': 'MISS'
         });
         
-        // 2. Stream to client AND save to cache simultaneously
-        const cacheWriter = fs.createWriteStream(cachePath);
+        // 2. Stream to client AND save to cache simultaneously (Safe-Write)
+        const tempPath = cachePath + '.tmp';
+        const cacheWriter = fs.createWriteStream(tempPath);
         segmentStream.pipe(cacheWriter);
         segmentStream.pipe(res);
         
         res.on('close', () => {
             if (segmentStream.ffmpegCommand) segmentStream.ffmpegCommand.kill();
+        });
+
+        segmentStream.on('end', () => {
             cacheWriter.end();
+            // Only rename to final .ts if finished successfully
+            try {
+                if (fs.existsSync(tempPath)) {
+                    fs.renameSync(tempPath, cachePath);
+                }
+            } catch (e) {
+                console.error('[Server] Cache rename error:', e.message);
+            }
         });
 
         segmentStream.on('error', (err) => {
             console.error(`[HLS] Segment ${index} error:`, err.message);
-            if (fs.existsSync(cachePath)) fs.unlinkSync(cachePath);
+            cacheWriter.end();
+            if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
         });
 
     } catch (err) {

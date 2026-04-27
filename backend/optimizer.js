@@ -143,14 +143,14 @@ function getHLSSegmentStream(input, startTime = 0, duration = 10, headers = null
             '-t', duration.toString(), // Only transcode the segment duration
             '-output_ts_offset', startTime.toString(), // Align timestamps with playlist
             '-preset', 'ultrafast', 
-            '-tune', 'zerolatency',
-            '-profile:v', 'baseline', 
-            '-level', '3.0',
+            '-profile:v', 'main', 
+            '-level', '4.1',
             '-pix_fmt', 'yuv420p',
             '-g', '30', // Force keyframe every 30 frames for faster segmenting
             '-crf', profile.crf.toString(), 
             '-maxrate', profile.bitrate, 
             '-bufsize', profile.bufsize,
+            '-b:a', '128k', // Standard audio bitrate
             '-threads', '1',
             '-map_chapters', '-1'
         ])
