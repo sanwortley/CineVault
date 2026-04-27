@@ -80,6 +80,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     }, []);
 
     const [useTranscoding, setUseTranscoding] = useState(isMobile);
+    const [streamingMode, setStreamingMode] = useState(isMobile ? 'hls' : 'classic');
     const [streamSource, setStreamSource] = useState('checking');
     const [unlockProgress, setUnlockProgress] = useState(0);
     const unlockTimerRef = useRef(null);
@@ -246,6 +247,11 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const videoUrl = useMemo(() => {
         if (streamSource === 'checking' || streamSource === 'error') return '';
         
+        // HLS Path
+        if (streamingMode === 'hls' && movie.drive_file_id) {
+            return api.getHLSUrl(movie.drive_file_id);
+        }
+
         if (streamSource === 'cloud') {
             return api.getCloudStreamUrl(movie.id);
         } else if (streamSource === 'drive') {
@@ -254,7 +260,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             return api.getStreamUrl(null, movie.file_path, { transcode: useTranscoding, seekOffset });
         }
         return '';
-    }, [movie.id, movie.drive_file_id, movie.file_path, streamSource, useTranscoding, seekOffset]);
+    }, [movie.id, movie.drive_file_id, movie.file_path, streamSource, useTranscoding, streamingMode, seekOffset]);
 
     const isDisplayLoading = isInitializing || isLoading;
 
@@ -285,6 +291,47 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         setIsPlaying(false);
         setShowRatingOverlay(true);
     };
+    // HLS Initialization
+    useEffect(() => {
+        if (!videoUrl || streamingMode !== 'hls') return;
+        
+        let hls = null;
+        const video = videoRef.current;
+        
+        if (video) {
+            const Hls = window.Hls;
+            if (Hls && Hls.isSupported()) {
+                console.log('[VideoPlayer] Initializing Hls.js...');
+                hls = new Hls({
+                    enableWorker: true,
+                    lowLatencyMode: true,
+                    backBufferLength: 60
+                });
+                hls.loadSource(videoUrl);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    console.log('[VideoPlayer] HLS Manifest parsed');
+                });
+                hls.on(Hls.Events.ERROR, (event, data) => {
+                    if (data.fatal) {
+                        console.error('[VideoPlayer] HLS Fatal Error:', data.type);
+                        setStreamingMode('classic'); // Fallback on fatal error
+                    }
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                // Native HLS support (Safari/iOS)
+                console.log('[VideoPlayer] Using native HLS support');
+                video.src = videoUrl;
+            }
+        }
+        
+        return () => {
+            if (hls) {
+                hls.destroy();
+                console.log('[VideoPlayer] HLS instance destroyed');
+            }
+        };
+    }, [videoUrl, streamingMode]);
 
     const handleVideoError = (e) => {
         const videoElement = e.target;

@@ -107,4 +107,64 @@ function getTranscodeStream(input, startTime = 0) {
     return passThrough;
 }
 
-module.exports = { getOptimizedUploadStream, getTranscodeStream };
+/**
+ * Returns a stream for a specific HLS segment (MPEG-TS format).
+ */
+function getHLSSegmentStream(input, startTime = 0, duration = 10, headers = null) {
+    console.log(`[Optimizer] Generating HLS Segment: ${startTime}s to ${startTime + duration}s`);
+    
+    const passThrough = new PassThrough();
+    const command = ffmpeg(input);
+
+    const inputOptions = [
+        '-threads', '1',
+        '-probesize', '10M',
+        '-analyzeduration', '10M'
+    ];
+
+    if (headers) {
+        inputOptions.push('-headers', headers.trim() + '\r\nUser-Agent: CineVault/1.0\r\n');
+    }
+
+    // Fast seek before input for segments
+    if (typeof input === 'string' && input.startsWith('http')) {
+        inputOptions.push('-ss', startTime.toString());
+    }
+
+    command.inputOptions(inputOptions);
+
+    command
+        .videoCodec('libx264')
+        .audioCodec('aac')
+        .audioChannels(2)
+        .format('mpegts') // HLS segments are typically MPEG-TS
+        .outputOptions([
+            ...(typeof input !== 'string' || !input.startsWith('http') ? ['-ss', startTime.toString()] : []),
+            '-t', duration.toString(), // Only transcode the segment duration
+            '-preset', 'ultrafast', 
+            '-tune', 'zerolatency',
+            '-profile:v', 'baseline', 
+            '-level', '3.0',
+            '-pix_fmt', 'yuv420p',
+            '-crf', '28', 
+            '-maxrate', '800k', 
+            '-bufsize', '1.6M',
+            '-threads', '1',
+            '-map_chapters', '-1'
+        ])
+        .videoFilter('scale=720:-2')
+        .on('error', (err) => {
+            if (err.message.includes('SIGKILL')) return;
+            console.error('[Optimizer] HLS Segment Error:', err.message);
+            passThrough.destroy(err);
+        })
+        .on('end', () => {
+            passThrough.end();
+        });
+
+    command.pipe(passThrough);
+    passThrough.ffmpegCommand = command;
+    return passThrough;
+}
+
+module.exports = { getOptimizedUploadStream, getTranscodeStream, getHLSSegmentStream };

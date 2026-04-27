@@ -145,6 +145,16 @@ const database = {
     deleteMovie: async (id) => {
         return await supabaseFetch(`movies?id=eq.${id}`, { method: 'DELETE' });
     },
+    getMovieByFileId: async (fileId) => {
+        const results = await supabaseFetch(`movies?drive_file_id=eq.${fileId}&select=*`) || [];
+        if (results.length === 0) return null;
+        const movie = results[0];
+        // Convert runtime (minutes) to duration (seconds) if needed
+        if (movie.runtime && !movie.duration) {
+            movie.duration = movie.runtime * 60;
+        }
+        return movie;
+    },
     removeMoviesLike: async (matchPath, onlyLocal = false) => {
         let endpoint = `movies?file_path=ilike.${encodeURIComponent(matchPath)}`;
         if (onlyLocal) {

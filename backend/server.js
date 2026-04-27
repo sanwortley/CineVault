@@ -21,6 +21,7 @@ const chardet = require('chardet');
 const axios = require('axios');
 
 const driveApi = require('./drive');
+const hlsManager = require('./hlsManager');
 const driveProxy = require('./driveProxy');
 const db = require('./db');
 const tmdb = require('./tmdb');
@@ -281,6 +282,57 @@ app.get('/api/drive/stream/:fileId', sessionMiddleware, async (req, res) => {
         if (!res.headersSent) {
             res.status(500).json({ error: 'Error interno de servidor', message: err.message });
         }
+    }
+});
+
+app.get('/api/drive/hls/:fileId/playlist.m3u8', sessionMiddleware, async (req, res) => {
+    const { fileId } = req.params;
+    try {
+        // Find movie to get duration
+        const movie = await db.getMovieByFileId(fileId);
+        if (!movie) return res.status(404).send('Movie not found');
+        
+        const duration = movie.duration || 7200; // Fallback to 2 hours if not found
+        const baseUrl = `${req.protocol}://${req.get('host')}/api/drive/hls/${fileId}`;
+        
+        const playlist = hlsManager.generatePlaylist(fileId, duration, baseUrl);
+        
+        res.set({
+            'Content-Type': 'application/vnd.apple.mpegurl',
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'no-cache'
+        });
+        res.send(playlist);
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+});
+
+app.get('/api/drive/hls/:fileId/segment/:index.ts', async (req, res) => {
+    const { fileId, index } = req.params;
+    const segmentIndex = parseInt(index);
+    const { startTime, duration } = hlsManager.getSegmentRange(segmentIndex);
+    
+    try {
+        const bodyStream = await driveApi.getStream(fileId);
+        const { getHLSSegmentStream } = require('./optimizer');
+        
+        const segmentStream = getHLSSegmentStream(bodyStream, startTime, duration);
+        
+        res.set({
+            'Content-Type': 'video/mp2t',
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'public, max-age=3600'
+        });
+        
+        segmentStream.pipe(res);
+        
+        res.on('close', () => {
+            if (segmentStream.ffmpegCommand) segmentStream.ffmpegCommand.kill();
+        });
+    } catch (err) {
+        console.error(`[HLS] Segment ${index} error:`, err.message);
+        if (!res.headersSent) res.status(500).send(err.message);
     }
 });
 

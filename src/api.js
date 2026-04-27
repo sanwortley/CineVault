@@ -352,6 +352,11 @@ export const api = {
         return null;
     },
 
+    getHLSUrl: (fileId) => {
+        const sessionId = localStorage.getItem('cinevault_session_id');
+        return `${BACKEND_URL}/api/drive/hls/${fileId}/playlist.m3u8?sessionId=${sessionId || ''}`;
+    },
+
     // ── Upload ────────────────────────────────────────────────────────────────
     uploadMovieToDrive: (movieId, filePath, mimeType, options) => {
         if (isElectron()) return window.electronAPI.uploadMovieToDrive(movieId, filePath, mimeType, options);

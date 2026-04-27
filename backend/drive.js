@@ -169,6 +169,37 @@ const driveApi = {
         }
     },
 
+    getStream: async (fileId) => {
+        const hasToken = driveApi.isAuthenticated();
+        const apiKey = process.env.GOOGLE_API_KEY;
+
+        if (hasToken) {
+            try {
+                const drive = driveApi.getClient();
+                const driveRes = await drive.files.get({ fileId, alt: 'media', supportsAllDrives: true }, { responseType: 'stream' });
+                return driveRes.data;
+            } catch (err) {
+                if (apiKey) {
+                    const axios = require('axios');
+                    const driveRes = await axios.get(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+                        params: { alt: 'media', key: apiKey, supportsAllDrives: true },
+                        responseType: 'stream'
+                    });
+                    return driveRes.data;
+                }
+                throw err;
+            }
+        } else if (apiKey) {
+            const axios = require('axios');
+            const driveRes = await axios.get(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+                params: { alt: 'media', key: apiKey, supportsAllDrives: true },
+                responseType: 'stream'
+            });
+            return driveRes.data;
+        }
+        throw new Error('No authentication method available');
+    },
+
     streamVideo: async (fileId, rangeHeader, res, transcodeOptions = {}) => {
         const drive = driveApi.getClient();
         const hasToken = driveApi.isAuthenticated();
