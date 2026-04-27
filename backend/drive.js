@@ -195,20 +195,17 @@ const driveApi = {
                     'Cache-Control': 'no-cache'
                 });
 
-                let bodyStream;
-                if (hasToken) {
-                    const driveRes = await drive.files.get({ fileId, alt: 'media', supportsAllDrives: true }, { responseType: 'stream' });
-                    bodyStream = driveRes.data;
-                } else {
-                    const axios = require('axios');
-                    const driveRes = await axios.get(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
-                        params: { alt: 'media', key: apiKey, supportsAllDrives: true },
-                        responseType: 'stream'
-                    });
-                    bodyStream = driveRes.data;
-                }
+                const driveUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media${hasToken ? '' : `&key=${apiKey}`}`;
+                const authHeader = hasToken ? `Authorization: Bearer ${oauth2Client.credentials.access_token}\r\n` : '';
+
                 const { getTranscodeStream } = require('./optimizer');
-                getTranscodeStream(bodyStream, startTime).pipe(res);
+                const transcodeStream = getTranscodeStream(driveUrl, startTime, authHeader);
+                
+                transcodeStream.pipe(res);
+
+                res.on('close', () => {
+                   if (transcodeStream.ffmpegCommand) transcodeStream.ffmpegCommand.kill();
+                });
                 return;
             }
 

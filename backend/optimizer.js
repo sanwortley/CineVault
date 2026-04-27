@@ -46,11 +46,17 @@ function getOptimizedUploadStream(filePath) {
  * Returns a stream that transcodes a video into a browser-friendly format (H.264/AAC).
  * Optimized for low-latency streaming.
  */
-function getTranscodeStream(input, startTime = 0) {
+function getTranscodeStream(input, startTime = 0, headers = null) {
     console.log(`[Optimizer] Starting real-time transcode. Start: ${startTime}s`);
     
     const passThrough = new PassThrough();
-    const command = ffmpeg(input)
+    const command = ffmpeg(input);
+
+    if (headers) {
+        command.inputOptions(['-headers', headers]);
+    }
+
+    command
         .seekInput(startTime)
         .videoCodec('libx264')
         .audioCodec('aac')
