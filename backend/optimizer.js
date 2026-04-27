@@ -52,8 +52,15 @@ function getTranscodeStream(input, startTime = 0, headers = null) {
     const passThrough = new PassThrough();
     const command = ffmpeg(input);
 
+    command.inputOptions([
+        '-threads', '1',
+        '-probesize', '10M',
+        '-analyzeduration', '10M'
+    ]);
+
     if (headers) {
-        command.inputOptions(['-headers', headers]);
+        const cleanHeaders = headers.trim() + '\r\n';
+        command.inputOptions(['-headers', cleanHeaders]);
     }
 
     command
@@ -63,20 +70,19 @@ function getTranscodeStream(input, startTime = 0, headers = null) {
         .audioChannels(2)
         .format('mp4')
         .outputOptions([
-            '-preset ultrafast', 
-            '-tune zerolatency',
-            '-profile:v baseline', 
-            '-level 3.0',
-            '-pix_fmt yuv420p',
-            '-movflags +frag_keyframe+empty_moov', 
-            '-crf 28', 
-            '-maxrate 1M', 
-            '-bufsize 2M',
-            '-vf scale=854:-2', 
-            '-ar 44100',
-            '-b:a 96k',
-            '-map_chapters -1'
+            '-preset', 'ultrafast', 
+            '-tune', 'zerolatency',
+            '-profile:v', 'baseline', 
+            '-level', '3.0',
+            '-pix_fmt', 'yuv420p',
+            '-movflags', '+frag_keyframe+empty_moov+default_base_moof', 
+            '-crf', '28', 
+            '-maxrate', '800k', 
+            '-bufsize', '1.6M',
+            '-threads', '1',
+            '-map_chapters', '-1'
         ])
+        .videoFilter('scale=720:-2')
         .on('start', (cmd) => console.log(`[Optimizer] FFmpeg Stream: ${cmd}`))
         .on('stderr', (line) => {
             const fs = require('fs');
