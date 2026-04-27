@@ -1,6 +1,5 @@
 const ffmpeg = require('fluent-ffmpeg');
 const { PassThrough } = require('stream');
-const ffmpegPath = require('ffmpeg-static');
 const ffprobePath = require('ffprobe-static').path;
 
 // Configure paths - prefer system ffmpeg (from nixpacks) over static binary
@@ -28,24 +27,18 @@ try {
 ffmpeg.setFfprobePath(ffprobePath);
 
 /**
- * Returns a stream that compresses a video file on-the-fly using H.265.
- * This significantly reduces file size (often by 50-70%) at the cost of CPU usage.
+ * Returns a stream that compresses a video file for uploading.
  */
-function getOptimizedUploadStream(filePath) {
-    console.log(`[Optimizer] Starting smart compression for: ${filePath}`);
-    
+function getOptimizedUploadStream(inputPath) {
     const passThrough = new PassThrough();
-    
-    ffmpeg(filePath)
-        .videoCodec('libx265') // HEVC for maximum compression
+    ffmpeg(inputPath)
+        .videoCodec('libx264')
         .audioCodec('aac')
-        .audioChannels(2)
-        .format('matroska') // Streamable container
+        .format('mp4')
         .outputOptions([
-            '-crf 26', // High efficiency quality setting
-            '-preset ultrafast', // Fast encoding to keep up with upload speed
-            '-tune zerolatency',
-            '-movflags +faststart'
+            '-preset', 'ultrafast',
+            '-crf', '28',
+            '-movflags', 'frag_keyframe+empty_moov'
         ])
         .on('start', (cmd) => console.log(`[Optimizer] FFmpeg started: ${cmd}`))
         .on('error', (err) => {
@@ -66,11 +59,15 @@ function getOptimizedUploadStream(filePath) {
  * Returns a stream that transcodes a video into a browser-friendly format (H.264/AAC).
  * Optimized for low-latency streaming.
  */
-function getTranscodeStream(input, startTime = 0) {
+function getTranscodeStream(input, startTime = 0, headers = null) {
     console.log(`[Optimizer] Starting real-time transcode. Start: ${startTime}s`);
     
     const passThrough = new PassThrough();
     const command = ffmpeg(input);
+
+    if (typeof input === 'string' && input.startsWith('http')) {
+        command.inputOptions(['-ss', startTime.toString()]);
+    }
 
     command.inputOptions([
         '-threads', '1',
@@ -78,13 +75,17 @@ function getTranscodeStream(input, startTime = 0) {
         '-analyzeduration', '30M'
     ]);
 
+    if (headers) {
+        command.inputOptions(['-headers', headers.trim() + '\r\n']);
+    }
+
     command
         .videoCodec('libx264')
         .audioCodec('aac')
         .audioChannels(2)
         .format('mp4')
         .outputOptions([
-            '-ss', startTime.toString(), // Seek after input for pipe stability
+            ...(typeof input !== 'string' || !input.startsWith('http') ? ['-ss', startTime.toString()] : []),
             '-preset', 'ultrafast', 
             '-tune', 'zerolatency',
             '-profile:v', 'baseline', 
@@ -109,7 +110,6 @@ function getTranscodeStream(input, startTime = 0) {
         })
         .on('error', (err) => {
             if (err.message.includes('SIGKILL') || err.message.includes('Output stream closed')) {
-                // User stopped playback, normal behavior
                 return;
             }
             console.error('[Optimizer] FFmpeg Stream Error:', err.message);
@@ -121,10 +121,7 @@ function getTranscodeStream(input, startTime = 0) {
         });
 
     command.pipe(passThrough);
-    
-    // Allow the caller to kill the process if the client disconnects
     passThrough.ffmpegCommand = command;
-    
     return passThrough;
 }
 

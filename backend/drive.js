@@ -247,7 +247,12 @@ const driveApi = {
                     }
 
                     const { getTranscodeStream } = require('./optimizer');
-                    const transcodeStream = getTranscodeStream(bodyStream, startTime);
+                    
+                    // Use direct Drive URL for faster seeking in FFmpeg
+                    const driveUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media${!hasToken ? `&key=${apiKey}` : ''}`;
+                    const authHeader = hasToken ? `Authorization: Bearer ${drive.credentials.access_token}` : '';
+                    
+                    const transcodeStream = getTranscodeStream(driveUrl, startTime, authHeader);
                     
                     transcodeStream.pipe(res);
 
