@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Film, Mail, Lock, Loader, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Film, Mail, Lock, Loader, Eye, EyeOff, ArrowRight, X } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 function LoginPage() {
@@ -63,6 +63,14 @@ function LoginPage() {
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 animate-fade-in">
                     <div className="absolute inset-0 bg-black/90 backdrop-blur-md"></div>
                     <div className="glass max-w-2xl w-full p-8 md:p-12 rounded-[2rem] md:rounded-[3rem] border border-white/10 relative z-10 shadow-[0_0_100px_rgba(229,9,20,0.2)] animate-scale-in">
+                        {/* Close Button */}
+                        <button 
+                            onClick={() => setShowDisclaimer(false)}
+                            className="absolute top-6 right-6 md:top-10 md:right-10 p-3 text-slate-500 hover:text-white hover:bg-white/5 rounded-full transition-all"
+                        >
+                            <X size={24} />
+                        </button>
+
                         <div className="flex flex-col items-center text-center">
                             <div className="p-4 bg-netflix-red/10 rounded-2xl mb-6">
                                 <Film className="text-netflix-red" size={32} />
