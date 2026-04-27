@@ -336,6 +336,7 @@ app.get('/api/stream/local', (req, res) => {
         res.writeHead(200, { 
             'Content-Type': 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"', 
             'Access-Control-Allow-Origin': '*',
+            'X-Accel-Buffering': 'no',
             'Connection': 'keep-alive',
             'Cache-Control': 'no-cache'
         });    
