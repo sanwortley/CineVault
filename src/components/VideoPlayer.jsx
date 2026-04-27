@@ -125,6 +125,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const [seekOffset] = useState(initialSeek);
 
     useEffect(() => {
+        console.log('🚀 [CineVault] Player Version 2.1 - Active');
         if (initialSeek > 0) {
             console.log(`[VideoPlayer] Progreso detectado para película ${movie.id}: ${initialSeek}s`);
         }
@@ -248,9 +249,11 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         if (streamSource === 'cloud') {
             return api.getCloudStreamUrl(movie.id);
         } else if (streamSource === 'drive') {
-            return api.getStreamUrl(movie.drive_file_id, movie.file_path, { transcode: useTranscoding, seekOffset });
+            const url = api.getStreamUrl(movie.drive_file_id, movie.file_path, { transcode: useTranscoding, seekOffset });
+            return url ? url + (url.includes('?') ? '&' : '?') + `v=2.1` : '';
         } else if (streamSource === 'local') {
-            return api.getStreamUrl(null, movie.file_path, { transcode: useTranscoding, seekOffset });
+            const url = api.getStreamUrl(null, movie.file_path, { transcode: useTranscoding, seekOffset });
+            return url ? url + (url.includes('?') ? '&' : '?') + `v=2.1` : '';
         }
         return '';
     }, [movie.id, movie.drive_file_id, movie.file_path, streamSource, useTranscoding, seekOffset]);
@@ -335,7 +338,11 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                     initialSeekPerformed.current = true;
                 }
 
-                // Pre-set muted state on the element to satisfy mobile policies
+                React.useEffect(() => {
+        console.log('🚀 [CineVault] Player Version 2.1 - Active');
+    }, []);
+
+    // Progress persistence state on the element to satisfy mobile policies
                 if (isMobile) {
                     videoRef.current.muted = true;
                     setIsMuted(true);
