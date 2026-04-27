@@ -352,9 +352,9 @@ export const api = {
         return null;
     },
 
-    getHLSUrl: (fileId) => {
+    getHLSUrl: (fileId, quality = '480') => {
         const sessionId = localStorage.getItem('cinevault_session_id');
-        return `${BACKEND_URL}/api/drive/hls/${fileId}/playlist.m3u8?sessionId=${sessionId || ''}`;
+        return `${BACKEND_URL}/api/drive/hls/${fileId}/playlist.m3u8?sessionId=${sessionId || ''}&q=${quality}`;
     },
 
     // ── Upload ────────────────────────────────────────────────────────────────

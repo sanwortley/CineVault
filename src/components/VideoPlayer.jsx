@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Play, Pause, Volume2, VolumeX, Maximize, X, 
     Loader2, Subtitles, SkipBack, SkipForward, Lock, Unlock, Film,
-    Plus, Cloud, Upload, AlertCircle, ExternalLink, Star
+    Plus, Cloud, Upload, AlertCircle, ExternalLink, Star, Settings
 } from 'lucide-react';
 import { api, BACKEND_URL } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -98,6 +98,9 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const [userRating, setUserRating] = useState(0);
     const [isSavingRating, setIsSavingRating] = useState(false);
     const [hoverRating, setHoverRating] = useState(0);
+    const [quality, setQuality] = useState('480');
+    const [showQualityMenu, setShowQualityMenu] = useState(false);
+    const [showVersionMenu, setShowVersionMenu] = useState(false);
 
     const [subtitleSettings, setSubtitleSettings] = useState(() => {
         const stored = localStorage.getItem('cinevault_subtitle_settings');
@@ -111,7 +114,6 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     };
     const controlsTimeoutRef = useRef(null);
     const fileInputRef = useRef(null);
-    const [showVersionMenu, setShowVersionMenu] = useState(false);
     
     const versions = movie.versions || [movie];
     const initialSeekPerformed = useRef(false);
@@ -249,7 +251,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         
         // HLS Path
         if (streamingMode === 'hls' && movie.drive_file_id) {
-            return api.getHLSUrl(movie.drive_file_id);
+            return api.getHLSUrl(movie.drive_file_id, quality);
         }
 
         if (streamSource === 'cloud') {
@@ -297,11 +299,12 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         
         let hls = null;
         const video = videoRef.current;
+        const savedTime = currentTime; // Preserve time on quality switch
         
         if (video) {
             const Hls = window.Hls;
             if (Hls && Hls.isSupported()) {
-                console.log('[VideoPlayer] Initializing Hls.js...');
+                console.log(`[VideoPlayer] Initializing Hls.js at ${quality}p...`);
                 hls = new Hls({
                     enableWorker: true,
                     lowLatencyMode: true,
@@ -311,6 +314,9 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, () => {
                     console.log('[VideoPlayer] HLS Manifest parsed');
+                    if (savedTime > 0) {
+                        video.currentTime = savedTime;
+                    }
                 });
                 hls.on(Hls.Events.ERROR, (event, data) => {
                     if (data.fatal) {
@@ -320,8 +326,11 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                 });
             } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                 // Native HLS support (Safari/iOS)
-                console.log('[VideoPlayer] Using native HLS support');
+                console.log(`[VideoPlayer] Using native HLS support at ${quality}p`);
                 video.src = videoUrl;
+                if (savedTime > 0) {
+                    video.currentTime = savedTime;
+                }
             }
         }
         
@@ -1185,17 +1194,24 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                 <button onClick={toggleFullscreen} className="p-3 text-white/70 hover:text-white transition-colors active:scale-90">
                                     <Maximize size={isMobile ? 24 : 28} />
                                 </button>
+                                <button 
+                                    onClick={() => { setShowQualityMenu(true); resetTimer(); }}
+                                    className="p-3 hover:bg-white/10 rounded-full transition-colors text-white relative group"
+                                >
+                                    <Settings size={22} className="group-hover:rotate-45 transition-transform duration-300" />
+                                    <span className="absolute -top-1 -right-1 bg-netflix-red text-[8px] font-black px-1 rounded-sm">{quality}p</span>
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Sidebar Menus (Subtitles & Versions) */}
-            {(showSubtitleMenu || showVersionMenu) && (
+            {/* Sidebar Menu (Subtitles / Versions / Quality) */}
+            {(showSubtitleMenu || showVersionMenu || showQualityMenu) && (
                 <div 
-                    className="absolute inset-0 bg-black/20 backdrop-blur-[2px] z-[55] flex justify-end animate-in fade-in duration-300"
-                    onClick={() => { setShowSubtitleMenu(false); setShowVersionMenu(false); }}
+                    className="absolute inset-0 z-[60] bg-black/40 backdrop-blur-sm flex justify-end"
+                    onClick={() => { setShowSubtitleMenu(false); setShowVersionMenu(false); setShowQualityMenu(false); }}
                 >
                     <div 
                         className="w-full max-w-[320px] h-full bg-slate-900/95 backdrop-blur-xl border-l border-white/10 shadow-2xl flex flex-col p-6 animate-in slide-in-from-right duration-500"
@@ -1203,10 +1219,10 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                     >
                         <div className="flex justify-between items-center mb-8">
                             <h3 className="text-sm font-black uppercase tracking-[0.2em] text-white/90">
-                                {showSubtitleMenu ? 'Subtítulos' : 'Versión'}
+                                {showSubtitleMenu ? 'Subtítulos' : showVersionMenu ? 'Versión' : 'Calidad'}
                             </h3>
                             <button 
-                                onClick={() => { setShowSubtitleMenu(false); setShowVersionMenu(false); }} 
+                                onClick={() => { setShowSubtitleMenu(false); setShowVersionMenu(false); setShowQualityMenu(false); }} 
                                 className="p-2 hover:bg-white/10 rounded-full text-white/40 transition-colors"
                             >
                                 <X size={20} />
@@ -1214,6 +1230,43 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         </div>
 
                         <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3">
+                            {showQualityMenu && (
+                                <div className="space-y-4">
+                                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest px-1">Selecciona una calidad</p>
+                                    {[
+                                        { id: '480', label: '480p', desc: 'Fluido (Bajo consumo)', icon: 'SD' },
+                                        { id: '720', label: '720p', desc: 'Alta Definición (HD)', icon: 'HD' },
+                                        { id: '1080', label: '1080p', desc: 'Full HD (Máxima)', icon: 'FHD' }
+                                    ].map((q) => (
+                                        <button
+                                            key={q.id}
+                                            onClick={() => {
+                                                setQuality(q.id);
+                                                setShowQualityMenu(false);
+                                                setIsLoading(true);
+                                            }}
+                                            className={`w-full text-left p-5 rounded-2xl flex items-center justify-between transition-all border ${
+                                                quality === q.id 
+                                                ? 'bg-cyan-500 border-cyan-500 text-black shadow-lg shadow-cyan-500/20' 
+                                                : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
+                                            }`}
+                                        >
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-black italic">{q.label}</span>
+                                                <span className="text-[9px] opacity-60 uppercase tracking-tighter font-bold">{q.desc}</span>
+                                            </div>
+                                            <span className="text-[10px] font-black opacity-40">{q.icon}</span>
+                                        </button>
+                                    ))}
+                                    <div className="p-4 bg-amber-500/10 rounded-2xl border border-amber-500/20 flex items-start gap-3 mt-8">
+                                        <AlertCircle size={16} className="text-amber-500 shrink-0 mt-0.5" />
+                                        <p className="text-[9px] text-amber-200/60 leading-relaxed uppercase font-bold">
+                                            Las calidades altas (1080p) pueden causar tirones si el servidor tiene mucha carga o tu internet es inestable.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
                             {showVersionMenu && versions.map((ver) => {
                                 const vInfo = detectVersionInfo(ver);
                                 const isSelected = String(ver.id) === String(movie.id);

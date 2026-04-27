@@ -11,8 +11,9 @@ const hlsManager = {
      * @param {string} fileId Google Drive file ID
      * @param {number} duration Total duration in seconds
      * @param {string} baseUrl Base URL for segments
+     * @param {string} quality Segment quality level
      */
-    generatePlaylist: (fileId, duration, baseUrl) => {
+    generatePlaylist: (fileId, duration, baseUrl, quality = '480') => {
         let playlist = '#EXTM3U\n';
         playlist += '#EXT-X-VERSION:3\n';
         playlist += `#EXT-X-TARGETDURATION:${SEGMENT_DURATION}\n`;
@@ -24,8 +25,8 @@ const hlsManager = {
         for (let i = 0; i < segmentCount; i++) {
             const currentDuration = Math.min(SEGMENT_DURATION, duration - (i * SEGMENT_DURATION));
             playlist += `#EXTINF:${currentDuration.toFixed(3)},\n`;
-            // Use relative paths to avoid Mixed Content (HTTP vs HTTPS)
-            playlist += `segment/${i}.ts\n`;
+            // Include quality in segment URL
+            playlist += `segment/${i}.ts?q=${quality}\n`;
         }
 
         playlist += '#EXT-X-ENDLIST\n';

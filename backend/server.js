@@ -292,10 +292,11 @@ app.get('/api/drive/hls/:fileId/playlist.m3u8', sessionMiddleware, async (req, r
         const movie = await db.getMovieByFileId(fileId);
         if (!movie) return res.status(404).send('Movie not found');
         
+        const quality = req.query.q || '480';
         const duration = movie.duration || 7200; // Fallback to 2 hours if not found
         const baseUrl = `${req.protocol}://${req.get('host')}/api/drive/hls/${fileId}`;
         
-        const playlist = hlsManager.generatePlaylist(fileId, duration, baseUrl);
+        const playlist = hlsManager.generatePlaylist(fileId, duration, baseUrl, quality);
         
         res.set({
             'Content-Type': 'application/vnd.apple.mpegurl',
@@ -311,13 +312,14 @@ app.get('/api/drive/hls/:fileId/playlist.m3u8', sessionMiddleware, async (req, r
 app.get('/api/drive/hls/:fileId/segment/:index.ts', async (req, res) => {
     const { fileId, index } = req.params;
     const segmentIndex = parseInt(index);
+    const quality = req.query.q || '480';
     const { startTime, duration } = hlsManager.getSegmentRange(segmentIndex);
     
     try {
         const bodyStream = await driveApi.getStream(fileId);
         const { getHLSSegmentStream } = require('./optimizer');
         
-        const segmentStream = getHLSSegmentStream(bodyStream, startTime, duration);
+        const segmentStream = getHLSSegmentStream(bodyStream, startTime, duration, null, quality);
         
         res.set({
             'Content-Type': 'video/mp2t',

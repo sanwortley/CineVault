@@ -110,8 +110,9 @@ function getTranscodeStream(input, startTime = 0) {
 /**
  * Returns a stream for a specific HLS segment (MPEG-TS format).
  */
-function getHLSSegmentStream(input, startTime = 0, duration = 10, headers = null) {
-    console.log(`[Optimizer] Generating HLS Segment: ${startTime}s to ${startTime + duration}s`);
+function getHLSSegmentStream(input, startTime = 0, duration = 10, headers = null, quality = '480') {
+    const profile = QUALITY_PROFILES[quality] || QUALITY_PROFILES['480'];
+    console.log(`[Optimizer] Generating HLS Segment (${quality}p): ${startTime}s to ${startTime + duration}s`);
     
     const passThrough = new PassThrough();
     const command = ffmpeg(input);
@@ -149,12 +150,12 @@ function getHLSSegmentStream(input, startTime = 0, duration = 10, headers = null
             '-pix_fmt', 'yuv420p',
             '-g', '30', // Force keyframe every 30 frames for faster segmenting
             '-crf', '28', 
-            '-maxrate', '600k', 
-            '-bufsize', '1.2M',
+            '-maxrate', profile.bitrate, 
+            '-bufsize', profile.bufsize,
             '-threads', '1',
             '-map_chapters', '-1'
         ])
-        .videoFilter('scale=854:480')
+        .videoFilter(`scale=${profile.width}:${profile.height}`)
         .on('error', (err) => {
             if (err.message.includes('SIGKILL')) return;
             console.error('[Optimizer] HLS Segment Error:', err.message);
@@ -169,4 +170,10 @@ function getHLSSegmentStream(input, startTime = 0, duration = 10, headers = null
     return passThrough;
 }
 
-module.exports = { getOptimizedUploadStream, getTranscodeStream, getHLSSegmentStream };
+const QUALITY_PROFILES = {
+    '480': { width: 854, height: 480, bitrate: '600k', bufsize: '1.2M' },
+    '720': { width: 1280, height: 720, bitrate: '1500k', bufsize: '3M' },
+    '1080': { width: 1920, height: 1080, bitrate: '3000k', bufsize: '6M' }
+};
+
+module.exports = { getOptimizedUploadStream, getTranscodeStream, getHLSSegmentStream, QUALITY_PROFILES };
