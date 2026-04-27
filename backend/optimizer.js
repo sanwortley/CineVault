@@ -15,6 +15,7 @@ try {
     } catch (e) {
         if (require('fs').existsSync('/usr/bin/ffmpeg')) systemFfmpeg = '/usr/bin/ffmpeg';
         else if (require('fs').existsSync('/usr/local/bin/ffmpeg')) systemFfmpeg = '/usr/local/bin/ffmpeg';
+        else if (require('fs').existsSync('/nix/var/nix/profiles/default/bin/ffmpeg')) systemFfmpeg = '/nix/var/nix/profiles/default/bin/ffmpeg';
         else throw new Error('Not found in common paths');
     }
 
