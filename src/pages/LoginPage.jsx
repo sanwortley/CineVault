@@ -14,7 +14,6 @@ function LoginPage() {
     const [isLoading, setIsLoading] = useState(false);
 
     const [showDisclaimer, setShowDisclaimer] = useState(false);
-    const [loginData, setLoginData] = useState(null);
 
     useEffect(() => {
         if (searchParams.get('expired') === 'true') {
@@ -28,8 +27,8 @@ function LoginPage() {
         setIsLoading(true);
 
         try {
-            // Tentatively login but wait for disclaimer
-            setLoginData({ email, password });
+            // First login, then show disclaimer
+            await login(email, password);
             setShowDisclaimer(true);
         } catch (err) {
             setError(err.message || 'Error al iniciar sesión');
@@ -38,18 +37,9 @@ function LoginPage() {
         }
     };
 
-    const handleAcceptDisclaimer = async () => {
-        if (!loginData) return;
-        setIsLoading(true);
-        try {
-            await login(loginData.email, loginData.password);
-            navigate('/');
-        } catch (err) {
-            setError(err.message || 'Error al iniciar sesión');
-            setShowDisclaimer(false);
-        } finally {
-            setIsLoading(false);
-        }
+    const handleAcceptDisclaimer = () => {
+        setShowDisclaimer(false);
+        navigate('/');
     };
 
     return (
@@ -60,50 +50,34 @@ function LoginPage() {
 
             {/* Disclaimer Modal */}
             {showDisclaimer && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 animate-fade-in">
-                    <div className="absolute inset-0 bg-black/90 backdrop-blur-md"></div>
-                    <div className="glass max-w-2xl w-full p-8 md:p-12 rounded-[2rem] md:rounded-[3rem] border border-white/10 relative z-10 shadow-[0_0_100px_rgba(229,9,20,0.2)] animate-scale-in">
-                        {/* Close Button */}
-                        <button 
-                            onClick={() => setShowDisclaimer(false)}
-                            className="absolute top-6 right-6 md:top-10 md:right-10 p-3 text-slate-500 hover:text-white hover:bg-white/5 rounded-full transition-all"
-                        >
-                            <X size={24} />
-                        </button>
-
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 md:p-8 animate-fade-in">
+                    <div className="absolute inset-0 bg-black/95 backdrop-blur-md"></div>
+                    <div className="glass max-w-xl w-full p-6 md:p-12 rounded-[2rem] border border-white/10 relative z-10 shadow-[0_0_100px_rgba(229,9,20,0.2)] animate-scale-in max-h-[90vh] overflow-y-auto">
                         <div className="flex flex-col items-center text-center">
-                            <div className="p-4 bg-netflix-red/10 rounded-2xl mb-6">
-                                <Film className="text-netflix-red" size={32} />
+                            <div className="p-3 bg-netflix-red/10 rounded-xl mb-4">
+                                <Film className="text-netflix-red" size={24} />
                             </div>
-                            <h3 className="text-2xl md:text-3xl font-black text-white tracking-tighter mb-6 uppercase italic">Aviso de Uso y Responsabilidad</h3>
-                            <div className="space-y-4 text-slate-300 text-sm md:text-base font-medium leading-relaxed mb-8 text-left">
+                            <h3 className="text-xl md:text-3xl font-black text-white tracking-tighter mb-4 uppercase italic">Términos de Uso</h3>
+                            <div className="space-y-3 text-slate-300 text-[10px] md:text-sm font-medium leading-relaxed mb-6 text-left">
                                 <p>
-                                    CineVault es un proyecto de código abierto desarrollado exclusivamente para fines de <span className="text-white font-bold">investigación tecnológica, aprendizaje y uso personal privado</span>.
-                                </p>
-                                <p>
-                                    El software ha sido diseñado para estudiar protocolos de streaming (HLS), transcodificación en tiempo real (JIT) y optimización de recursos en la nube. 
-                                </p>
-                                <p className="p-4 bg-white/5 rounded-xl border border-white/5 italic">
-                                    "No se permite el uso comercial de esta plataforma. CineVault no aloja, distribuye ni facilita contenido protegido por derechos de autor de forma pública."
+                                    CineVault es un proyecto exclusivo para fines de <span className="text-white font-bold">investigación tecnológica y aprendizaje personal</span>.
                                 </p>
                                 <p>
-                                    Al continuar, usted declara que es el único responsable del uso que le dé a esta herramienta y que posee los derechos o copias legales de cualquier archivo al que acceda de forma privada.
+                                    El software ha sido diseñado para estudiar protocolos de streaming y optimización de recursos. 
+                                </p>
+                                <p className="p-3 bg-white/5 rounded-xl border border-white/5 italic text-[9px] md:text-xs">
+                                    "No se permite el uso comercial. CineVault no aloja ni facilita contenido protegido de forma pública."
+                                </p>
+                                <p>
+                                    Usted es el único responsable del uso que le dé a esta herramienta y declara poseer los derechos legales de cualquier archivo al que acceda.
                                 </p>
                             </div>
-                            <div className="flex flex-col md:flex-row gap-4 w-full">
-                                <button 
-                                    onClick={() => setShowDisclaimer(false)}
-                                    className="flex-1 py-4 px-6 border border-white/10 hover:bg-white/5 rounded-xl text-xs font-black uppercase tracking-widest text-slate-500 hover:text-white transition-all"
-                                >
-                                    Cancelar
-                                </button>
-                                <button 
-                                    onClick={handleAcceptDisclaimer}
-                                    className="flex-[2] py-4 px-12 bg-netflix-red text-white font-black rounded-xl hover:bg-red-600 transition-all shadow-[0_10px_30px_rgba(229,9,20,0.3)] text-xs uppercase tracking-[0.3em]"
-                                >
-                                    Aceptar y Continuar
-                                </button>
-                            </div>
+                            <button 
+                                onClick={handleAcceptDisclaimer}
+                                className="w-full py-4 bg-netflix-red text-white font-black rounded-xl hover:bg-red-600 transition-all shadow-[0_10px_30px_rgba(229,9,20,0.3)] text-[10px] uppercase tracking-[0.2em]"
+                            >
+                                Aceptar y Continuar
+                            </button>
                         </div>
                     </div>
                 </div>
