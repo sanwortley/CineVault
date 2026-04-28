@@ -4,6 +4,7 @@ const ffprobePath = require('ffprobe-static').path;
 
 // Configure paths - prefer system ffmpeg (from nixpacks) over static binary
 let CURRENT_FFMPEG_PATH = '';
+let IS_SYSTEM_FFMPEG = false;
 try {
     const { execSync } = require('child_process');
     let systemFfmpeg = 'ffmpeg';
@@ -21,14 +22,14 @@ try {
 
     execSync(`${systemFfmpeg} -version`);
     ffmpeg.setFfmpegPath(systemFfmpeg);
-    CURRENT_FFMPEG_PATH = systemFfmpeg;
+    IS_SYSTEM_FFMPEG = true;
     console.log(`[Optimizer] Using system FFmpeg: ${systemFfmpeg}`);
 } catch (e) {
     console.log('[Optimizer] System FFmpeg not found, falling back to ffmpeg-static');
-    CURRENT_FFMPEG_PATH = require('ffmpeg-static');
-    ffmpeg.setFfmpegPath(CURRENT_FFMPEG_PATH);
+    const staticFfmpeg = require('ffmpeg-static');
+    ffmpeg.setFfmpegPath(staticFfmpeg);
+    IS_SYSTEM_FFMPEG = false;
 }
-const IS_SYSTEM_FFMPEG = !CURRENT_FFMPEG_PATH.includes('ffmpeg-static');
 ffmpeg.setFfprobePath(ffprobePath);
 
 /**
@@ -115,15 +116,16 @@ function getTranscodeStream(input, startTime = 0) {
 /**
  * Returns a stream for a specific HLS segment (MPEG-TS format).
  */
-function getHLSSegmentStream(input, startTime, duration, headers, quality) {
+function getHLSSegmentStream(input, startTime, duration, headers, quality, realStartTime = null) {
     const profile = QUALITY_PROFILES[quality] || QUALITY_PROFILES['480'];
     const command = ffmpeg();
+    const tsOffset = realStartTime !== null ? realStartTime : startTime;
 
     // Use system-level seeking or pipe consumption
     const inputOptions = [
         '-threads', '1',
-        '-probesize', '5M',
-        '-analyzeduration', '5M'
+        '-probesize', '10M',
+        '-analyzeduration', '10M'
     ];
 
     if (typeof input === 'string' && input.startsWith('http')) {
@@ -133,7 +135,6 @@ function getHLSSegmentStream(input, startTime, duration, headers, quality) {
     } else {
         // It's a stream pipe
         command.input(input);
-        // We have to seek after input for pipes
         command.inputOptions(inputOptions);
     }
 
@@ -142,9 +143,9 @@ function getHLSSegmentStream(input, startTime, duration, headers, quality) {
     command
         .inputOptions(typeof input === 'string' ? inputOptions : [])
         .outputOptions([
-            '-ss', typeof input === 'string' ? '0' : startTime.toString(), // If we seeked before, offset is 0
+            '-ss', typeof input === 'string' ? '0' : startTime.toString(),
             '-t', duration.toString(),
-            '-output_ts_offset', startTime.toString(),
+            '-output_ts_offset', tsOffset.toString(),
             '-preset', 'ultrafast', 
             '-profile:v', 'main', 
             '-level', '4.1',

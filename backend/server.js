@@ -356,6 +356,13 @@ app.get('/api/drive/hls/:fileId/segment/:index.ts', async (req, res) => {
                 const drive = driveApi.getClient();
                 const meta = await drive.files.get({ fileId, fields: 'size', supportsAllDrives: true });
                 fileSize = parseInt(meta.data.size || 0);
+                
+                // Save back to DB to avoid repeating this fetch
+                if (fileSize > 0 && movie?.id) {
+                    db.updateMovie(movie.id, { file_size: fileSize }).catch(e => {
+                        console.error('[HLS] Error saving file_size fallback:', e.message);
+                    });
+                }
             }
 
             const movieDuration = (movie?.runtime || 120) * 60; // default 2h if missing
@@ -365,15 +372,19 @@ app.get('/api/drive/hls/:fileId/segment/:index.ts', async (req, res) => {
             let byteOffset = Math.floor((startTime / movieDuration) * fileSize) - padding;
             if (byteOffset < 0) byteOffset = 0;
             
-            console.log(`[HLS] Smart-Pipe seek: ${startTime}s -> byte ${byteOffset} (Size: ${fileSize})`);
+            // 3. Calculate the actual time reached by the byte jump (for precise FFmpeg seek)
+            const actualTimeReached = (byteOffset / fileSize) * movieDuration;
+            const ffmpegSeekTime = Math.max(0, startTime - actualTimeReached);
             
-            // 3. Fetch specific range from Drive
+            console.log(`[HLS] Smart-Pipe: Time ${startTime}s -> Byte ${byteOffset} (Actual: ${actualTimeReached.toFixed(2)}s, FFmpeg needs to seek: ${ffmpegSeekTime.toFixed(2)}s)`);
+            
+            // 4. Fetch specific range from Drive
             const bodyStream = await driveApi.getStream(fileId, {
                 headers: { 'Range': `bytes=${byteOffset}-` }
             });
             
-            // 4. Pipe to FFmpeg (FFmpeg will fine-tune seek from there)
-            segmentStream = getHLSSegmentStream(bodyStream, startTime, duration, null, quality);
+            // 5. Pipe to FFmpeg (Passing both the delta and the real target time)
+            segmentStream = getHLSSegmentStream(bodyStream, ffmpegSeekTime, duration, null, quality, startTime);
         }
         
         res.set({
