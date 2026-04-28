@@ -43,7 +43,6 @@ export default function SessionsManager() {
     const getDeviceIcon = (userAgent) => {
         const ua = userAgent?.toLowerCase() || '';
         if (ua.includes('mobi') || ua.includes('android') || ua.includes('iphone')) return <Smartphone size={18} />;
-        if (ua.includes('electron')) return <Shield size={18} />;
         return <Monitor size={18} />;
     };
 

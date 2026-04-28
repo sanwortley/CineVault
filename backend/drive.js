@@ -5,15 +5,9 @@ const fs = require('fs');
 
 // Lazy-load token path for environment compatibility
 const getTokenPath = () => {
-    const os = require('os');
     if (process.env.DRIVE_TOKEN_PATH) return process.env.DRIVE_TOKEN_PATH;
     if (process.env.DRIVE_TOKEN_VOLUME_PATH) return path.join(process.env.DRIVE_TOKEN_VOLUME_PATH, 'drive-token.json');
-    try {
-        const { app } = require('electron');
-        return path.join(app.getPath('userData'), 'drive-token.json');
-    } catch (e) {
-        return path.join(os.tmpdir(), 'cinevault-drive-token.json');
-    }
+    return path.join(os.tmpdir(), 'cinevault-drive-token.json');
 };
 
 const PORT = process.env.PORT || 3001;

@@ -22,7 +22,6 @@ const chardet = require('chardet');
 const axios = require('axios');
 
 const driveApi = require('./drive');
-const hlsManager = require('./hlsManager');
 const driveProxy = require('./driveProxy');
 const db = require('./db');
 const tmdb = require('./tmdb');
@@ -37,13 +36,6 @@ const { normalizeFilename } = require('./parser');
 const { searchMovie, getMovieDetails, getOMDbDetails } = require('./tmdb');
 const { scanDirectory } = require('./scanner');
 const { addMovie } = require('./db');
-
-// Ensure cache directory exists
-const cacheDir = path.join(__dirname, 'cache');
-if (!fs.existsSync(cacheDir)) {
-    fs.mkdirSync(cacheDir, { recursive: true });
-    console.log('[Server] Created HLS cache directory');
-}
 
 // Load persistent config from DB on startup
 (async () => {
@@ -320,127 +312,22 @@ app.get('/api/drive/stream/:fileId', sessionMiddleware, async (req, res) => {
 });
 
 app.get('/api/drive/hls/:fileId/playlist.m3u8', sessionMiddleware, async (req, res) => {
-    const { fileId } = req.params;
-    try {
-        // Find movie to get duration
-        const movie = await db.getMovieByFileId(fileId);
-        if (!movie) return res.status(404).send('Movie not found');
-        
-        const quality = req.query.q || '480';
-        const duration = movie.duration || 7200; // Fallback to 2 hours if not found
-        const baseUrl = `${req.protocol}://${req.get('host')}/api/drive/hls/${fileId}`;
-        
-        const playlist = hlsManager.generatePlaylist(fileId, duration, baseUrl, quality);
-        
-        res.set({
-            'Content-Type': 'application/vnd.apple.mpegurl',
-            'Access-Control-Allow-Origin': '*',
-            'Cache-Control': 'no-cache'
-        });
-        res.send(playlist);
-    } catch (err) {
-        res.status(500).send(err.message);
-    }
+    // HLS disabled due to FFmpeg crashes on Railway
+    // Use direct streaming instead: /api/drive/stream/:fileId
+    res.status(501).json({ 
+        error: 'HLS no disponible', 
+        message: 'Use /api/drive/stream/:fileId para reproducción directa',
+        fallback: `/api/drive/stream/${req.params.fileId}`
+    });
 });
 
 app.get('/api/drive/hls/:fileId/segment/:index.ts', async (req, res) => {
-    const { fileId, index } = req.params;
-    const segmentIndex = parseInt(index);
-    const quality = req.query.q || '480';
-    const { startTime, duration } = hlsManager.getSegmentRange(segmentIndex);
-    
-    const cachePath = path.join(__dirname, 'cache', `${fileId}_${quality}_${index}.ts`);
-    const fs = require('fs');
-
-    // 1. Serve from cache if exists
-    if (fs.existsSync(cachePath)) {
-        res.set({
-            'Content-Type': 'video/mp2t',
-            'Access-Control-Allow-Origin': '*',
-            'X-Cache': 'HIT'
-        });
-        return res.sendFile(cachePath);
-    }
-
-    try {
-        const { getHLSSegmentStream, IS_SYSTEM_FFMPEG } = require('./optimizer');
-        
-        let segmentStream;
-        if (IS_SYSTEM_FFMPEG) {
-            // Direct URL (FAST, needs system ffmpeg)
-            const hasToken = driveApi.isAuthenticated();
-            const apiKey = process.env.GOOGLE_API_KEY;
-            const driveUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media${!hasToken ? `&key=${apiKey}` : ''}`;
-            const authHeader = hasToken ? `Authorization: Bearer ${driveApi.getOAuthClient().credentials.access_token}` : null;
-            segmentStream = getHLSSegmentStream(driveUrl, startTime, duration, authHeader, quality);
-        } else {
-            // Smart-Pipe (ROBUST, avoids SIGSEGV by piping data directly)
-            // 1. Get movie info for byte calculation
-            const movie = await db.getMovieByFileId(fileId);
-            let fileSize = parseInt(movie?.file_size || 0);
-            
-            // FALLBACK: If DB has 0, fetch real size from Drive
-            if (fileSize === 0) {
-                console.log(`[HLS] File size is 0 in DB, fetching from Drive for ${fileId}...`);
-                const drive = driveApi.getClient();
-                const meta = await drive.files.get({ fileId, fields: 'size', supportsAllDrives: true });
-                fileSize = parseInt(meta.data.size || 0);
-                if (fileSize > 0 && movie?.id) db.updateMovie(movie.id, { file_size: fileSize }).catch(() => {});
-            }
-
-            const movieDuration = (movie?.runtime || 120) * 60;
-            const targetStartTime = Math.max(0, startTime - 5);
-            const byteOffset = Math.floor((targetStartTime / movieDuration) * fileSize);
-            const actualTimeReached = (byteOffset / fileSize) * movieDuration;
-            const ffmpegSeekTime = Math.max(0, startTime - actualTimeReached);
-
-            // 4. USE LOCAL PROXY AS INPUT (The ultimate fix for static ffmpeg)
-            const proxyUrl = `http://localhost:8080/api/drive/raw/${fileId}?start=${byteOffset}`;
-            console.log(`[HLS] Using Local Proxy: ${proxyUrl}`);
-            
-            // 5. Pipe to FFmpeg (FFmpeg will now use its own HTTP client to fetch data)
-            segmentStream = getHLSSegmentStream(proxyUrl, ffmpegSeekTime, duration, null, quality, startTime);
-        }
-        
-        res.set({
-            'Content-Type': 'video/mp2t',
-            'Access-Control-Allow-Origin': '*',
-            'Cache-Control': 'public, max-age=3600',
-            'X-Cache': 'MISS'
-        });
-        
-        // 2. Stream to client AND save to cache simultaneously (Safe-Write)
-        const tempPath = cachePath + '.tmp';
-        const cacheWriter = fs.createWriteStream(tempPath);
-        segmentStream.pipe(cacheWriter);
-        segmentStream.pipe(res);
-        
-        res.on('close', () => {
-            if (segmentStream.ffmpegCommand) segmentStream.ffmpegCommand.kill();
-        });
-
-        segmentStream.on('end', () => {
-            cacheWriter.end();
-            // Only rename to final .ts if finished successfully
-            try {
-                if (fs.existsSync(tempPath)) {
-                    fs.renameSync(tempPath, cachePath);
-                }
-            } catch (e) {
-                console.error('[Server] Cache rename error:', e.message);
-            }
-        });
-
-        segmentStream.on('error', (err) => {
-            console.error(`[HLS] Segment ${index} error:`, err.message);
-            cacheWriter.end();
-            if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-        });
-
-    } catch (err) {
-        console.error(`[HLS] Segment ${index} fatal error:`, err.message);
-        if (!res.headersSent) res.status(500).send(err.message);
-    }
+    // HLS disabled due to FFmpeg crashes on Railway
+    res.status(501).json({ 
+        error: 'HLS no disponible', 
+        message: 'Use /api/drive/stream/:fileId para reproducción directa',
+        fallback: `/api/drive/stream/${req.params.fileId}`
+    });
 });
 
 // ─── Local Streaming ──────────────────────────────────────────────────────────

@@ -19,54 +19,12 @@ function MovieCard({ movie, onPlay, onInfo, compact = false, myList = [], toggle
 
     const title = official_title || detected_title;
     
-    // Upload State
+    // Upload State (Web only - uses global queue)
     const [isUploading, setIsUploading] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState(0);
-    const [isOptimizing, setIsOptimizing] = useState(false);
-
-    // Listen to real-time progress events from the backend
-    useEffect(() => {
-        if (!window.electronAPI || !id) return;
-        
-        console.log(`[Card] Listening to progress for movie: ${id}`);
-        const unsubscribe = window.electronAPI.onDriveUploadProgress(id, (data) => {
-            console.log(`[Card] Received Progress Event for ${id}:`, data);
-            if (data.progress !== null) {
-                setUploadProgress(data.progress);
-                setIsOptimizing(false);
-            } else {
-                // Indeterminate progress for optimized uploads
-                setIsOptimizing(true);
-            }
-        });
-        return unsubscribe;
-    }, [id]);
-
-    const handleUpload = async (e) => {
-        e.stopPropagation();
-        if (!window.electronAPI || !file_path || !id) return;
-        const ext = file_path.split('.').pop().toLowerCase();
-        const mimeType = { 'mp4': 'video/mp4', 'mkv': 'video/x-matroska', 'webm': 'video/webm' }[ext] || 'video/mp4';
-        
-        setIsUploading(true);
-        setUploadProgress(0);
-        setIsOptimizing(false);
-        
-        try {
-            const result = await window.electronAPI.uploadMovieToDrive(id, file_path, mimeType);
-            if (result.success) alert(`Película subida exitosamente!`);
-            else alert(`Error: ${result.error}`);
-        } catch (error) {
-            alert(`Surgió un problema: ${error.message}`);
-        } finally {
-            setIsUploading(false);
-            setIsOptimizing(false);
-        }
-    };
 
     const handlePlay = (e) => {
         e.stopPropagation();
-        onPlay ? onPlay(movie) : (window.electronAPI && file_path && window.electronAPI.playVideo(file_path));
+        onPlay ? onPlay(movie) : null;
     };
 
     const [isImageLoaded, setIsImageLoaded] = useState(false);
@@ -182,13 +140,7 @@ function MovieCard({ movie, onPlay, onInfo, compact = false, myList = [], toggle
                         </button>
                             
                         {!isMobile && !drive_file_id && isAdmin() && (
-                            <button 
-                                onClick={handleUpload}
-                                disabled={isUploading}
-                                className={`p-2 bg-black/40 text-white rounded-full border border-white/10 ${isUploading ? 'animate-pulse text-netflix-red' : 'hover:text-netflix-red'}`}
-                            >
-                                <Cloud size={16} />
-                            </button>
+                            <span className="text-[9px] text-slate-400">No disponible para web</span>
                         )}
                     </div>
                     

@@ -80,7 +80,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     }, []);
 
     const [useTranscoding, setUseTranscoding] = useState(isMobile);
-    const [streamingMode, setStreamingMode] = useState(isMobile ? 'hls' : 'classic');
+    const [streamingMode, setStreamingMode] = useState('classic'); // HLS disabled - use direct streaming only
     const [streamSource, setStreamSource] = useState('checking');
     const [unlockProgress, setUnlockProgress] = useState(0);
     const unlockTimerRef = useRef(null);
@@ -245,15 +245,10 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         }
     }, [movie.id, subQuotaReached]);
 
-    // Build video URL after streamSource is determined - Stable reference
+    // Build video URL - Direct streaming only (HLS disabled)
     const videoUrl = useMemo(() => {
         if (streamSource === 'checking' || streamSource === 'error') return '';
         
-        // HLS Path
-        if (streamingMode === 'hls' && movie.drive_file_id) {
-            return api.getHLSUrl(movie.drive_file_id, quality);
-        }
-
         if (streamSource === 'cloud') {
             return api.getCloudStreamUrl(movie.id);
         } else if (streamSource === 'drive') {
@@ -262,7 +257,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             return api.getStreamUrl(null, movie.file_path, { transcode: useTranscoding, seekOffset });
         }
         return '';
-    }, [movie.id, movie.drive_file_id, movie.file_path, streamSource, useTranscoding, streamingMode, seekOffset]);
+    }, [movie.id, movie.drive_file_id, movie.file_path, streamSource, useTranscoding, seekOffset]);
 
     const isDisplayLoading = isInitializing || isLoading;
 
@@ -293,54 +288,18 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         setIsPlaying(false);
         setShowRatingOverlay(true);
     };
-    // HLS Initialization
+    // Video initialization - Direct streaming only (HLS disabled)
     useEffect(() => {
-        if (!videoUrl || streamingMode !== 'hls') return;
+        if (!videoUrl || streamingMode !== 'classic') return;
         
-        let hls = null;
         const video = videoRef.current;
-        const savedTime = currentTime; // Preserve time on quality switch
-        
         if (video) {
-            const Hls = window.Hls;
-            if (Hls && Hls.isSupported()) {
-                console.log(`[VideoPlayer] Initializing Hls.js at ${quality}p...`);
-                hls = new Hls({
-                    enableWorker: true,
-                    lowLatencyMode: true,
-                    backBufferLength: 60
-                });
-                hls.loadSource(videoUrl);
-                hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    console.log('[VideoPlayer] HLS Manifest parsed');
-                    if (savedTime > 0) {
-                        video.currentTime = savedTime;
-                    }
-                });
-                hls.on(Hls.Events.ERROR, (event, data) => {
-                    if (data.fatal) {
-                        console.error('[VideoPlayer] HLS Fatal Error:', data.type);
-                        setStreamingMode('classic'); // Fallback on fatal error
-                    }
-                });
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                // Native HLS support (Safari/iOS)
-                console.log(`[VideoPlayer] Using native HLS support at ${quality}p`);
-                video.src = videoUrl;
-                if (savedTime > 0) {
-                    video.currentTime = savedTime;
-                }
+            video.src = videoUrl;
+            if (seekOffset > 0) {
+                video.currentTime = seekOffset;
             }
         }
-        
-        return () => {
-            if (hls) {
-                hls.destroy();
-                console.log('[VideoPlayer] HLS instance destroyed');
-            }
-        };
-    }, [videoUrl, streamingMode]);
+    }, [videoUrl, streamingMode, seekOffset]);
 
     const handleVideoError = (e) => {
         const videoElement = e.target;

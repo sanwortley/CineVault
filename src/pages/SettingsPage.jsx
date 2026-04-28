@@ -95,12 +95,7 @@ function SettingsPage({ onClose, onTabChange }) {
     const handleAddFolder = async () => {
         setIsAdding(true);
         try {
-            if (api.isElectron()) {
-                const paths = await api.openDirectory();
-                if (paths && paths.length > 0) await fetchConfig();
-            } else {
-                if (onTabChange) onTabChange('upload');
-            }
+            if (onTabChange) onTabChange('upload');
         } catch (error) {
             alert(`Error al agregar carpeta: ${error.message}`);
         } finally {
