@@ -1904,21 +1904,26 @@ app.post('/api/admin/refresh-metadata', async (req, res) => {
         let updatedCount = 0;
         for (const movie of movies) {
             try {
-                // Search TMDb for the same movie and year
-                const details = await tmdb.getMovieDetails(movie.official_title, movie.detected_year);
-                if (details) {
-                    await db.updateMovie(movie.id, {
-                        official_title: details.official_title,
-                        overview: details.overview,
-                        poster_path: details.poster_path,
-                        backdrop_path: details.backdrop_path,
-                        runtime: details.runtime,
-                        rating: details.rating
-                    });
-                    updatedCount++;
+                // 1. Search TMDb for the movie by title and year to get its ID
+                const searchResult = await tmdb.searchMovie(movie.official_title, movie.detected_year);
+                
+                if (searchResult && searchResult.id) {
+                    // 2. Fetch full details using the TMDb ID
+                    const details = await tmdb.getMovieDetails(searchResult.id);
+                    if (details) {
+                        await db.updateMovie(movie.id, {
+                            official_title: details.official_title,
+                            overview: details.overview,
+                            poster_url: details.poster_url,
+                            backdrop_url: details.backdrop_url,
+                            runtime: details.runtime,
+                            rating: details.rating
+                        });
+                        updatedCount++;
+                    }
                 }
             } catch (err) {
-                console.warn(`[Server] Failed to refresh metadata for: ${movie.official_title}`);
+                console.warn(`[Server] Failed to refresh metadata for: ${movie.official_title}`, err.message);
             }
         }
         
