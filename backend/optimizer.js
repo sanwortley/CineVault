@@ -1,13 +1,14 @@
 const ffmpeg = require('fluent-ffmpeg');
 const { PassThrough } = require('stream');
-const ffprobePath = require('ffprobe-static').path;
 
-// Configure paths - prefer system ffmpeg (from nixpacks) over static binary
+// Configure paths - prefer system ffmpeg/ffprobe (from nixpacks) over static binaries
 let CURRENT_FFMPEG_PATH = '';
 let IS_SYSTEM_FFMPEG = false;
+
 try {
     const { execSync } = require('child_process');
     let systemFfmpeg = 'ffmpeg';
+    let systemFfprobe = 'ffprobe';
     
     // Check if it's in common Linux paths or PATH
     try {
@@ -18,20 +19,32 @@ try {
         else if (require('fs').existsSync('/bin/ffmpeg')) systemFfmpeg = '/bin/ffmpeg';
         else if (require('fs').existsSync('/usr/local/bin/ffmpeg')) systemFfmpeg = '/usr/local/bin/ffmpeg';
         else if (require('fs').existsSync('/nix/var/nix/profiles/default/bin/ffmpeg')) systemFfmpeg = '/nix/var/nix/profiles/default/bin/ffmpeg';
-        else throw new Error('Not found in common paths');
+        else throw new Error('FFmpeg not found in common paths');
     }
-
+    
+    // Check ffprobe
+    try {
+        execSync('which ffprobe');
+        systemFfprobe = 'ffprobe';
+    } catch (e) {
+        if (require('fs').existsSync('/usr/bin/ffprobe')) systemFfprobe = '/usr/bin/ffprobe';
+        else if (require('fs').existsSync('/bin/ffprobe')) systemFfprobe = '/bin/ffprobe';
+        else if (require('fs').existsSync('/usr/local/bin/ffprobe')) systemFfprobe = '/usr/local/bin/ffprobe';
+        else if (require('fs').existsSync('/nix/var/nix/profiles/default/bin/ffprobe')) systemFfprobe = '/nix/var/nix/profiles/default/bin/ffprobe';
+        else systemFfprobe = systemFfmpeg.replace('ffmpeg', 'ffprobe'); // Fallback
+    }
+    
     execSync(`${systemFfmpeg} -version`);
+    execSync(`${systemFfprobe} -version`);
     ffmpeg.setFfmpegPath(systemFfmpeg);
+    ffmpeg.setFfprobePath(systemFfprobe);
     IS_SYSTEM_FFMPEG = true;
-    console.log(`[Optimizer] Using system FFmpeg: ${systemFfmpeg}`);
+    console.log(`[Optimizer] Using system FFmpeg: ${systemFfmpeg}, ffprobe: ${systemFfprobe}`);
 } catch (e) {
-    console.log('[Optimizer] System FFmpeg not found, falling back to ffmpeg-static');
-    const staticFfmpeg = require('ffmpeg-static');
-    ffmpeg.setFfmpegPath(staticFfmpeg);
-    IS_SYSTEM_FFMPEG = false;
+    console.error('[Optimizer] System FFmpeg/ffprobe not found:', e.message);
+    console.error('[Optimizer] Please ensure ffmpeg and ffprobe are installed in the system (nixpacks.toml for Railway)');
+    console.error('[Optimizer] Application may not be able to transcode videos');
 }
-ffmpeg.setFfprobePath(ffprobePath);
 
 /**
  * Returns a stream that compresses a video file for uploading.
