@@ -368,7 +368,7 @@ app.get('/api/drive/hls/:fileId/segment/:index.ts', async (req, res) => {
             const movieDuration = (movie?.runtime || 120) * 60; // default 2h if missing
             
             // 2. Calculate approximate byte offset (with 2MB safety margin/padding)
-            const padding = 2 * 1024 * 1024; // 2MB padding
+            const padding = 5 * 1024 * 1024; // 5MB padding
             let byteOffset = Math.floor((startTime / movieDuration) * fileSize) - padding;
             if (byteOffset < 0) byteOffset = 0;
             
