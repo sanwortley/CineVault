@@ -1904,11 +1904,14 @@ app.post('/api/admin/refresh-metadata', async (req, res) => {
         let updatedCount = 0;
         for (const movie of movies) {
             try {
-                // 1. Search TMDb for the movie by title and year to get its ID
-                const searchResult = await tmdb.searchMovie(movie.official_title, movie.detected_year);
+                // 1. Clean the title of any noise like [English] or (2005) before searching
+                const searchTitle = movie.official_title ? movie.official_title.replace(/\[.*?\]|\(.*?\)/g, '').trim() : '';
+                
+                // 2. Search TMDb for the movie by title and year to get its ID
+                const searchResult = await tmdb.searchMovie(searchTitle || movie.official_title, movie.detected_year);
                 
                 if (searchResult && searchResult.id) {
-                    // 2. Fetch full details using the TMDb ID
+                    // 3. Fetch full details using the TMDb ID
                     const details = await tmdb.getMovieDetails(searchResult.id);
                     if (details) {
                         await db.updateMovie(movie.id, {
