@@ -376,15 +376,36 @@ app.get('/api/drive/hls/:fileId/segment/:index.ts', async (req, res) => {
             const actualTimeReached = (byteOffset / fileSize) * movieDuration;
             const ffmpegSeekTime = Math.max(0, startTime - actualTimeReached);
             
-            console.log(`[HLS] Smart-Pipe: Target ${startTime}s -> Jump to ${targetStartTime}s (Byte ${byteOffset}) -> FFmpeg seek: ${ffmpegSeekTime.toFixed(2)}s`);
+            console.log(`[HLS] Smart-Pipe (Header Injection): Target ${startTime}s -> Jump to ${targetStartTime}s (Byte ${byteOffset}) -> FFmpeg seek: ${ffmpegSeekTime.toFixed(2)}s`);
             
-            // 4. Fetch specific range from Drive
-            const bodyStream = await driveApi.getStream(fileId, {
-                headers: { 'Range': `bytes=${byteOffset}-` }
-            });
+            // 4. Fetch Header (first 1MB) and Data Jump (sequentially)
+            const combinedStream = new PassThrough();
             
-            // 5. Pipe to FFmpeg (Passing both the delta and the real target time)
-            segmentStream = getHLSSegmentStream(bodyStream, ffmpegSeekTime, duration, null, quality, startTime);
+            try {
+                const headerStream = await driveApi.getStream(fileId, {
+                    headers: { 'Range': `bytes=0-1048575` } // First 1MB for metadata
+                });
+                
+                const bodyStream = await driveApi.getStream(fileId, {
+                    headers: { 'Range': `bytes=${byteOffset}-` } // The actual data jump
+                });
+                
+                // Pipe header first, then body
+                headerStream.pipe(combinedStream, { end: false });
+                headerStream.on('end', () => {
+                    bodyStream.pipe(combinedStream);
+                });
+                
+                headerStream.on('error', (err) => combinedStream.emit('error', err));
+                bodyStream.on('error', (err) => combinedStream.emit('error', err));
+                
+            } catch (err) {
+                console.error('[HLS] Stream Fetch Error:', err.message);
+                return res.status(500).send('Error fetching stream from Drive');
+            }
+            
+            // 5. Pipe to FFmpeg
+            segmentStream = getHLSSegmentStream(combinedStream, ffmpegSeekTime, duration, null, quality, startTime);
         }
         
         res.set({

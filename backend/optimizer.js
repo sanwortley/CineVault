@@ -125,10 +125,11 @@ function getHLSSegmentStream(input, startTime, duration, headers, quality, realS
     // Use system-level seeking or pipe consumption
     const inputOptions = [
         '-threads', '2',
-        '-probesize', '50M',
-        '-analyzeduration', '50M',
+        '-probesize', '10M',
+        '-analyzeduration', '10M',
         '-ignore_unknown',
-        '-fflags', '+genpts+igndts+discardcorrupt'
+        '-fflags', '+genpts+igndts+discardcorrupt',
+        '-err_detect', 'ignore_err'
     ];
 
     if (typeof input === 'string' && input.startsWith('http')) {
