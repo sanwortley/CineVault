@@ -1,8 +1,9 @@
 [phases.setup]
-nixPkgs = ["ffmpeg"]
+nixPkgs = ["ffmpeg", "ffprobe"]
 
 [phases.build]
 cmds = ["npm install", "npm run build"]
 
 [start]
 cmd = "npm start"
+path = "/app"
