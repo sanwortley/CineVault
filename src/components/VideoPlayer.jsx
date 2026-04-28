@@ -1252,26 +1252,26 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
 
                             {showSubtitleMenu && (
                                 <>
-                                    <div className="grid grid-cols-2 gap-3 mb-6">
+                                    <div className="grid grid-cols-2 gap-2 mb-4">
                                         <button 
                                             onClick={() => fileInputRef.current?.click()}
-                                            className="flex flex-col items-center gap-2 p-4 bg-white/5 hover:bg-white/10 rounded-2xl transition-all border border-white/5"
+                                            className="flex flex-col items-center gap-1.5 p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/5"
                                         >
-                                            <Upload size={18} className="text-cyan-400" />
-                                            <span className="text-[9px] font-black uppercase tracking-wider text-white/50">Subir Local</span>
+                                            <Upload size={16} className="text-cyan-400" />
+                                            <span className="text-[8px] font-black uppercase tracking-wider text-white/50">Subir Local</span>
                                         </button>
                                         <button 
                                             onClick={() => { setShowDriveExplorer(true); setShowSubtitleMenu(false); }}
-                                            className="flex flex-col items-center gap-2 p-4 bg-white/5 hover:bg-white/10 rounded-2xl transition-all border border-white/5"
+                                            className="flex flex-col items-center gap-1.5 p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/5"
                                         >
-                                            <Cloud size={18} className="text-cyan-400" />
-                                            <span className="text-[9px] font-black uppercase tracking-wider text-white/50">G. Drive</span>
+                                            <Cloud size={16} className="text-cyan-400" />
+                                            <span className="text-[8px] font-black uppercase tracking-wider text-white/50">G. Drive</span>
                                         </button>
                                     </div>
 
                                     <button
                                         onClick={() => { setSelectedSubtitle(null); setSubtitleCues([]); setSubtitleOffset(0); setShowSubtitleMenu(false); }}
-                                        className={`w-full text-left p-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${!selectedSubtitle ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'bg-white/5 text-slate-400 hover:text-white'}`}
+                                        className={`w-full text-left p-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!selectedSubtitle ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'bg-white/5 text-slate-400 hover:text-white'}`}
                                     >
                                         Sin Subtítulos
                                     </button>
@@ -1280,15 +1280,15 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                         <button
                                             key={i}
                                             onClick={() => { handleSubtitleSelect(sub); setShowSubtitleMenu(false); }}
-                                            className={`w-full text-left p-4 rounded-xl text-xs flex flex-col gap-1 transition-all border ${selectedSubtitle?.id === sub.id ? 'bg-white/10 border-cyan-500/50' : 'bg-transparent border-white/5 text-white/70 hover:bg-white/5 hover:text-white'}`}
+                                            className={`w-full text-left p-2.5 rounded-lg text-[10px] flex flex-col gap-0.5 transition-all border ${selectedSubtitle?.id === sub.id ? 'bg-white/10 border-cyan-500/50' : 'bg-transparent border-white/5 text-white/70 hover:bg-white/5 hover:text-white'}`}
                                         >
                                             <div className="flex items-center justify-between gap-2">
-                                                <span className={selectedSubtitle?.id === sub.id ? 'text-cyan-400 font-black' : 'font-bold line-clamp-2'}>
+                                                <span className={selectedSubtitle?.id === sub.id ? 'text-cyan-400 font-black' : 'font-bold line-clamp-1'}>
                                                     {sub.file_name || sub.label}
                                                 </span>
                                             </div>
                                             {sub.release && sub.release !== sub.label && (
-                                                <span className="text-[9px] opacity-40 truncate uppercase tracking-tighter">{sub.release}</span>
+                                                <span className="text-[8px] opacity-40 truncate uppercase tracking-tighter">{sub.release}</span>
                                             )}
                                         </button>
                                     ))}
@@ -1297,22 +1297,22 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         </div>
 
                         {showSubtitleMenu && (
-                            <div className="mt-8 pt-8 border-t border-white/10 space-y-6">
-                                <div className="flex flex-col gap-3 px-1">
-                                    <span className="text-[10px] font-black uppercase text-white/30 tracking-widest text-center">Sincronización</span>
-                                    <div className="flex items-center justify-between bg-black/40 p-2 rounded-2xl border border-white/5">
+                            <div className="mt-4 pt-4 border-t border-white/10 space-y-4">
+                                <div className="flex flex-col gap-2 px-1">
+                                    <span className="text-[9px] font-black uppercase text-white/30 tracking-widest text-center">Sincronización</span>
+                                    <div className="flex items-center justify-between bg-black/40 p-1.5 rounded-xl border border-white/5">
                                         <button 
                                             onClick={() => setSubtitleOffset(prev => prev - 0.5)}
-                                            className="w-12 h-12 flex items-center justify-center bg-white/5 rounded-xl text-white hover:bg-white/10 active:scale-90 transition-all text-xl font-bold"
+                                            className="w-10 h-10 flex items-center justify-center bg-white/5 rounded-lg text-white hover:bg-white/10 active:scale-90 transition-all text-lg font-bold"
                                         >
                                             -
                                         </button>
-                                        <span className={`text-xs font-black min-w-[4rem] text-center ${subtitleOffset !== 0 ? 'text-cyan-400' : 'text-white/40'}`}>
+                                        <span className={`text-[10px] font-black min-w-[3.5rem] text-center ${subtitleOffset !== 0 ? 'text-cyan-400' : 'text-white/40'}`}>
                                             {subtitleOffset > 0 ? '+' : ''}{subtitleOffset.toFixed(1)}s
                                         </span>
                                         <button 
                                             onClick={() => setSubtitleOffset(prev => prev + 0.5)}
-                                            className="w-12 h-12 flex items-center justify-center bg-white/5 rounded-xl text-white hover:bg-white/10 active:scale-90 transition-all text-xl font-bold"
+                                            className="w-10 h-10 flex items-center justify-center bg-white/5 rounded-lg text-white hover:bg-white/10 active:scale-90 transition-all text-lg font-bold"
                                         >
                                             +
                                         </button>
@@ -1322,15 +1322,15 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                 <button
                                     onClick={handleSearchSubtitles}
                                     disabled={isSearchingSubtitles}
-                                    className="w-full py-5 bg-cyan-500/10 hover:bg-cyan-500/20 rounded-2xl text-cyan-400 text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50 border border-cyan-500/20"
+                                    className="w-full py-3.5 bg-cyan-500/10 hover:bg-cyan-500/20 rounded-xl text-cyan-400 text-[9px] font-black uppercase tracking-widest transition-all disabled:opacity-50 border border-cyan-500/20"
                                 >
                                     {isSearchingSubtitles ? 'Buscando...' : 'Buscar Online'}
                                 </button>
 
                                 <div className="space-y-4 pt-4 border-t border-white/10">
-                                    <div className="flex flex-col gap-3">
-                                        <span className="text-[10px] font-black uppercase text-white/30 tracking-widest text-center">Tamaño de Texto</span>
-                                        <div className="grid grid-cols-4 gap-1 p-1 bg-black/40 rounded-2xl border border-white/5">
+                                    <div className="flex flex-col gap-2">
+                                        <span className="text-[9px] font-black uppercase text-white/30 tracking-widest text-center">Tamaño de Texto</span>
+                                        <div className="grid grid-cols-4 gap-1 p-1 bg-black/40 rounded-xl border border-white/5">
                                             {[
                                                 { id: 'small', label: 'T', size: 'text-[8px]' },
                                                 { id: 'medium', label: 'T', size: 'text-[10px]' },
@@ -1340,7 +1340,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                                 <button
                                                     key={s.id}
                                                     onClick={() => updateSubtitleSettings({ size: s.id })}
-                                                    className={`py-2 rounded-xl flex items-center justify-center transition-all ${
+                                                    className={`py-1.5 rounded-lg flex items-center justify-center transition-all ${
                                                         subtitleSettings.size === s.id 
                                                         ? 'bg-white/10 text-white shadow-inner' 
                                                         : 'text-white/30 hover:text-white/60'
@@ -1352,9 +1352,9 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                         </div>
                                     </div>
 
-                                    <div className="flex flex-col gap-3">
-                                        <span className="text-[10px] font-black uppercase text-white/30 tracking-widest text-center">Color</span>
-                                        <div className="flex justify-center gap-4">
+                                    <div className="flex flex-col gap-2">
+                                        <span className="text-[9px] font-black uppercase text-white/30 tracking-widest text-center">Color</span>
+                                        <div className="flex justify-center gap-3">
                                             {[
                                                 { id: 'white', color: 'bg-white' },
                                                 { id: 'yellow', color: 'bg-yellow-400' },
@@ -1363,10 +1363,10 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                                 <button
                                                     key={c.id}
                                                     onClick={() => updateSubtitleSettings({ color: c.id })}
-                                                    className={`w-8 h-8 rounded-full border-2 transition-all ${
+                                                    className={`w-7 h-7 rounded-full border-2 transition-all ${
                                                         subtitleSettings.color === c.id 
-                                                        ? 'border-white scale-125' 
-                                                        : 'border-white/10 scale-100 hover:scale-110'
+                                                        ? 'border-white scale-110' 
+                                                        : 'border-white/10 scale-100 hover:scale-105'
                                                     } ${c.color}`}
                                                 />
                                             ))}
