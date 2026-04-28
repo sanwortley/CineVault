@@ -223,6 +223,34 @@ app.get('/api/auth/status', (req, res) => {
     res.json({ authenticated: driveApi.isAuthenticated() });
 });
 
+// High-Performance Raw Stream Proxy (Used by FFmpeg for stable streaming)
+app.get('/api/drive/raw/:fileId', async (req, res) => {
+    const { fileId } = req.params;
+    const startByte = req.query.start || 0;
+    
+    try {
+        const stream = await driveApi.getStream(fileId, {
+            headers: { 'Range': `bytes=${startByte}-` }
+        });
+        
+        // Pass through essential headers
+        res.set({
+            'Content-Type': 'video/mp4', // Generic hint
+            'Accept-Ranges': 'bytes',
+            'Access-Control-Allow-Origin': '*'
+        });
+        
+        stream.pipe(res);
+        
+        req.on('close', () => {
+            if (stream.destroy) stream.destroy();
+        });
+    } catch (err) {
+        console.error('[RawProxy] Error:', err.message);
+        res.status(500).send(err.message);
+    }
+});
+
 // User Session Management
 app.post('/api/auth/register-session', async (req, res) => {
     const { userId, email } = req.body;
@@ -357,56 +385,21 @@ app.get('/api/drive/hls/:fileId/segment/:index.ts', async (req, res) => {
                 const drive = driveApi.getClient();
                 const meta = await drive.files.get({ fileId, fields: 'size', supportsAllDrives: true });
                 fileSize = parseInt(meta.data.size || 0);
-                
-                // Save back to DB to avoid repeating this fetch
-                if (fileSize > 0 && movie?.id) {
-                    db.updateMovie(movie.id, { file_size: fileSize }).catch(e => {
-                        console.error('[HLS] Error saving file_size fallback:', e.message);
-                    });
-                }
+                if (fileSize > 0 && movie?.id) db.updateMovie(movie.id, { file_size: fileSize }).catch(() => {});
             }
 
-            const movieDuration = (movie?.runtime || 120) * 60; // default 2h if missing
-            
-            // 2. Calculate byte offset for (startTime - 5s) to ensure FFmpeg has a small seek
-            const seekBackSeconds = 5;
-            let targetStartTime = Math.max(0, startTime - seekBackSeconds);
-            let byteOffset = Math.floor((targetStartTime / movieDuration) * fileSize);
-            
-            // 3. Calculate the actual time reached by the byte jump (for precise FFmpeg seek)
+            const movieDuration = (movie?.runtime || 120) * 60;
+            const targetStartTime = Math.max(0, startTime - 5);
+            const byteOffset = Math.floor((targetStartTime / movieDuration) * fileSize);
             const actualTimeReached = (byteOffset / fileSize) * movieDuration;
             const ffmpegSeekTime = Math.max(0, startTime - actualTimeReached);
+
+            // 4. USE LOCAL PROXY AS INPUT (The ultimate fix for static ffmpeg)
+            const proxyUrl = `http://localhost:8080/api/drive/raw/${fileId}?start=${byteOffset}`;
+            console.log(`[HLS] Using Local Proxy: ${proxyUrl}`);
             
-            console.log(`[HLS] Smart-Pipe (Header Injection): Target ${startTime}s -> Jump to ${targetStartTime}s (Byte ${byteOffset}) -> FFmpeg seek: ${ffmpegSeekTime.toFixed(2)}s`);
-            
-            // 4. Fetch Header (first 1MB) and Data Jump (sequentially)
-            const combinedStream = new PassThrough();
-            
-            try {
-                const headerStream = await driveApi.getStream(fileId, {
-                    headers: { 'Range': `bytes=0-1048575` } // First 1MB for metadata
-                });
-                
-                const bodyStream = await driveApi.getStream(fileId, {
-                    headers: { 'Range': `bytes=${byteOffset}-` } // The actual data jump
-                });
-                
-                // Pipe header first, then body
-                headerStream.pipe(combinedStream, { end: false });
-                headerStream.on('end', () => {
-                    bodyStream.pipe(combinedStream);
-                });
-                
-                headerStream.on('error', (err) => combinedStream.emit('error', err));
-                bodyStream.on('error', (err) => combinedStream.emit('error', err));
-                
-            } catch (err) {
-                console.error('[HLS] Stream Fetch Error:', err.message);
-                return res.status(500).send('Error fetching stream from Drive');
-            }
-            
-            // 5. Pipe to FFmpeg
-            segmentStream = getHLSSegmentStream(combinedStream, ffmpegSeekTime, duration, null, quality, startTime);
+            // 5. Pipe to FFmpeg (FFmpeg will now use its own HTTP client to fetch data)
+            segmentStream = getHLSSegmentStream(proxyUrl, ffmpegSeekTime, duration, null, quality, startTime);
         }
         
         res.set({
