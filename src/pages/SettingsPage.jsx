@@ -143,6 +143,16 @@ function SettingsPage({ onClose, onTabChange }) {
         }
     };
 
+    const handleRefreshAllMetadata = async () => {
+        if (!window.confirm('¿Quieres refrescar las puntuaciones de Rotten Tomatoes de todas las películas de tu biblioteca? Esto se ejecutará en segundo plano.')) return;
+        try {
+            await api.refreshAllMetadata();
+            alert('Refresco de metadatos iniciado. Las puntuaciones aparecerán en unos minutos.');
+        } catch (error) {
+            alert('Error al iniciar el refresco: ' + error.message);
+        }
+    };
+
     const handleSaveRDToken = async () => {
         try {
             await api.saveRDToken(rdToken);
