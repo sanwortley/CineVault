@@ -79,7 +79,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         };
     }, []);
 
-    const [useTranscoding, setUseTranscoding] = useState(isMobile);
+    const [useTranscoding, setUseTranscoding] = useState(false); // Disabled by default - use direct streaming for speed
     const [streamingMode, setStreamingMode] = useState('classic'); // HLS disabled - use direct streaming only
     const [streamSource, setStreamSource] = useState('checking');
     const [unlockProgress, setUnlockProgress] = useState(0);
