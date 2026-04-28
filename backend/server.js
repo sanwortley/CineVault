@@ -717,10 +717,17 @@ app.get('/api/subtitles/cloud/check', sessionMiddleware, async (req, res) => {
 
 // ─── Subtitles ────────────────────────────────────────────────────────────────
 app.post('/api/subtitles/search', async (req, res) => {
-    const { imdbId, title } = req.body;
+    const { imdbId, title, query: customQuery } = req.body;
     const apiKey = process.env.OPENSUBTITLES_API_KEY;
-    const query = imdbId ? `imdb_id=${imdbId.replace('tt', '')}` : `query=${encodeURIComponent(title)}`;
-    const url = `https://api.opensubtitles.com/api/v1/subtitles?${query}&languages=es,en`;
+    
+    let queryStr = '';
+    if (customQuery) {
+        queryStr = `query=${encodeURIComponent(customQuery)}`;
+    } else {
+        queryStr = imdbId ? `imdb_id=${imdbId.replace('tt', '')}` : `query=${encodeURIComponent(title)}`;
+    }
+    
+    const url = `https://api.opensubtitles.com/api/v1/subtitles?${queryStr}&languages=es,en`;
 
     try {
         const headers = { 

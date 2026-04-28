@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Play, Pause, Volume2, VolumeX, Maximize, X, 
     Loader2, Subtitles, SkipBack, SkipForward, Lock, Unlock, Film,
-    Plus, Cloud, Upload, AlertCircle, ExternalLink, Star, Settings
+    Plus, Cloud, Upload, AlertCircle, ExternalLink, Star, Settings, Search
 } from 'lucide-react';
 import { api, BACKEND_URL } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -90,6 +90,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const [showSubtitleMenu, setShowSubtitleMenu ] = useState(false);
     const [showDriveExplorer, setShowDriveExplorer] = useState(false);
     const [isSearchingSubtitles, setIsSearchingSubtitles] = useState(false);
+    const [subtitleSearchText, setSubtitleSearchText] = useState('');
     const [subtitleCues, setSubtitleCues] = useState([]);
     const [subtitleOffset, setSubtitleOffset] = useState(0); // in seconds
     const [subQuotaReached, setSubQuotaReached] = useState(false);
@@ -529,8 +530,9 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         setIsSearchingSubtitles(true);
         try {
             const res = await api.searchSubtitles({ 
-                imdbId: movie.imdb_id,
-                title: movie.official_title || movie.file_name 
+                imdbId: subtitleSearchText ? null : movie.imdb_id,
+                title: movie.official_title || movie.file_name,
+                query: subtitleSearchText || null
             });
             if (res.data && res.data.length > 0) {
                 setSubtitles(prev => {
@@ -1319,13 +1321,38 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                     </div>
                                 </div>
 
-                                <button
-                                    onClick={handleSearchSubtitles}
-                                    disabled={isSearchingSubtitles}
-                                    className="w-full py-3.5 bg-cyan-500/10 hover:bg-cyan-500/20 rounded-xl text-cyan-400 text-[9px] font-black uppercase tracking-widest transition-all disabled:opacity-50 border border-cyan-500/20"
-                                >
-                                    {isSearchingSubtitles ? 'Buscando...' : 'Buscar Online'}
-                                </button>
+                                <div className="space-y-3">
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                                            <Search size={14} className="text-white/20 group-focus-within:text-cyan-400 transition-colors" />
+                                        </div>
+                                        <input 
+                                            type="text"
+                                            value={subtitleSearchText}
+                                            onChange={(e) => setSubtitleSearchText(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleSearchSubtitles()}
+                                            placeholder="Buscar otro título..."
+                                            className="w-full bg-white/5 border border-white/5 rounded-xl py-3 pl-10 pr-4 text-[10px] text-white placeholder:text-white/20 focus:outline-none focus:border-cyan-500/50 focus:bg-white/10 transition-all"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={handleSearchSubtitles}
+                                        disabled={isSearchingSubtitles}
+                                        className="w-full py-3.5 bg-cyan-500/10 hover:bg-cyan-500/20 rounded-xl text-cyan-400 text-[9px] font-black uppercase tracking-widest transition-all disabled:opacity-50 border border-cyan-500/20 flex items-center justify-center gap-2"
+                                    >
+                                        {isSearchingSubtitles ? (
+                                            <>
+                                                <Loader2 size={14} className="animate-spin" />
+                                                Buscando...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Subtitles size={14} />
+                                                {subtitleSearchText ? 'Buscar Subtítulos' : 'Buscar Mejores Subtítulos'}
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
 
                                 <div className="space-y-4 pt-4 border-t border-white/10">
                                     <div className="flex flex-col gap-2">
