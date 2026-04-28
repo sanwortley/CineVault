@@ -8,7 +8,8 @@ RUN apt-get update && \
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --omit=dev
+# Install ALL dependencies (including devDependencies like Vite needed for build)
+RUN npm install
 
 COPY . .
 RUN npm run build
