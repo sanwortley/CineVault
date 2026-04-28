@@ -7,6 +7,7 @@
 require('dotenv').config();
 const { searchAll, searchGlobal, searchSubtitlesFallback } = require('./movieSearcher');
 const debridManager = require('./debridManager');
+const { PassThrough } = require('stream');
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
