@@ -367,16 +367,16 @@ app.get('/api/drive/hls/:fileId/segment/:index.ts', async (req, res) => {
 
             const movieDuration = (movie?.runtime || 120) * 60; // default 2h if missing
             
-            // 2. Calculate approximate byte offset (with 2MB safety margin/padding)
-            const padding = 5 * 1024 * 1024; // 5MB padding
-            let byteOffset = Math.floor((startTime / movieDuration) * fileSize) - padding;
-            if (byteOffset < 0) byteOffset = 0;
+            // 2. Calculate byte offset for (startTime - 5s) to ensure FFmpeg has a small seek
+            const seekBackSeconds = 5;
+            let targetStartTime = Math.max(0, startTime - seekBackSeconds);
+            let byteOffset = Math.floor((targetStartTime / movieDuration) * fileSize);
             
             // 3. Calculate the actual time reached by the byte jump (for precise FFmpeg seek)
             const actualTimeReached = (byteOffset / fileSize) * movieDuration;
             const ffmpegSeekTime = Math.max(0, startTime - actualTimeReached);
             
-            console.log(`[HLS] Smart-Pipe: Time ${startTime}s -> Byte ${byteOffset} (Actual: ${actualTimeReached.toFixed(2)}s, FFmpeg needs to seek: ${ffmpegSeekTime.toFixed(2)}s)`);
+            console.log(`[HLS] Smart-Pipe: Target ${startTime}s -> Jump to ${targetStartTime}s (Byte ${byteOffset}) -> FFmpeg seek: ${ffmpegSeekTime.toFixed(2)}s`);
             
             // 4. Fetch specific range from Drive
             const bodyStream = await driveApi.getStream(fileId, {
