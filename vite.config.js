@@ -11,4 +11,6 @@ export default defineConfig({
   build: {
     outDir: 'dist',
   },
+  // Load env vars from process.env (Railway sets them)
+  envPrefix: 'VITE_',
 });
