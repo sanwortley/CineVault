@@ -57,7 +57,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     // Add to debug log
     const addDebug = (msg) => {
         console.log(`[DEBUG] ${msg}`);
-        setDebugInfo(prev => [...prev.slice(-20), { time: new Date().toLocaleTimeString(), msg }];
+        setDebugInfo(prev => [...prev.slice(-20), { time: new Date().toLocaleTimeString(), msg }]);
     };
 
     // GLOBAL ERROR CATCHER
