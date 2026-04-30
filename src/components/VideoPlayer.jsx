@@ -57,7 +57,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     // Add to debug log
     const addDebug = (msg) => {
         console.log(`[DEBUG] ${msg}`);
-        setDebugInfo(prev => [...prev.slice(-20), { time: new Date().toLocaleTimeString(), msg }]);
+        setDebugInfo(prev => [...prev.slice(-20), { time: new Date().toLocaleTimeString(), msg }];
     };
 
     // GLOBAL ERROR CATCHER
@@ -99,10 +99,10 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const [userRating, setUserRating] = useState(0);
     const [isSavingRating, setIsSavingRating] = useState(false);
     const [hoverRating, setHoverRating] = useState(0);
-    const [quality, setQuality] = useState('480');
+    const [quality, setQuality] = useState('original'); // Default to original (direct streaming)
     const [showQualityMenu, setShowQualityMenu] = useState(false);
     const [showVersionMenu, setShowVersionMenu] = useState(false);
-
+    
     const [subtitleSettings, setSubtitleSettings] = useState(() => {
         const stored = localStorage.getItem('cinevault_subtitle_settings');
         return stored ? JSON.parse(stored) : { size: 'medium', color: 'white' };
@@ -134,7 +134,6 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             console.log(`[VideoPlayer] Progreso detectado para película ${movie.id}: ${initialSeek}s`);
         }
     }, [movie.id, initialSeek]);
-
 
     // Initial mute logic for mobile
     useEffect(() => {
@@ -246,30 +245,66 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         }
     }, [movie.id, subQuotaReached]);
 
-    // Build video URL - Direct streaming ONLY (no transcoding for speed)
+    // Available qualities based on video metadata
+    const availableQualities = useMemo(() => {
+        const qualities = [];
+        const height = movie.video_height || 0;
+        
+        if (height >= 1080) qualities.push({ id: '1080', label: '1080p', desc: 'Full HD (Máxima)' });
+        if (height >= 720) qualities.push({ id: '720', label: '720p', desc: 'Alta Definición (HD)' });
+        qualities.push({ id: '480', label: '480p', desc: 'Fluido (Bajo consumo)' });
+        qualities.push({ id: 'original', label: `Original (${movie.original_resolution || '...'})`, desc: 'Directo (Sin transcodificar)' });
+        
+        return qualities;
+    }, [movie.video_height, movie.original_resolution]);
+
+    // Determine if we need transcoding based on selected quality vs video metadata
+    const needsTranscoding = useMemo(() => {
+        if (quality === 'original') return false; // Never transcode if "original"
+        
+        const vidCodec = (movie.video_codec || '').toLowerCase();
+        const audCodec = (movie.audio_codec || '').toLowerCase();
+        
+        // Compatible codecs with browsers
+        const isVideoCompatible = ['h264', 'avc1', 'avc2', 'vp8', 'vp9', 'av1'].some(c => vidCodec.includes(c));
+        const isAudioCompatible = ['aac', 'mp3', 'opus', 'vorbis'].some(c => audCodec.includes(c));
+        
+        // If already compatible and selected quality >= original height -> No transcode
+        if (isVideoCompatible && isAudioCompatible) {
+            const height = movie.video_height || 0;
+            if (height <= parseInt(quality)) return false; // Original is good enough
+        }
+        
+        // Otherwise, we need transcode
+        return !isVideoCompatible || !isAudioCompatible;
+    }, [quality, movie.video_codec, movie.audio_codec, movie.video_height]);
+
+    // Build video URL - Smart transcoding based on compatibility
     const videoUrl = useMemo(() => {
         if (streamSource === 'checking' || streamSource === 'error') return '';
         
-        // Force direct streaming - no transcoding
+        // Don't include quality in deps if we don't need transcoding
+        // This avoids unnecessary video reloads when quality changes but no transcoding needed
         if (streamSource === 'cloud') {
             return api.getCloudStreamUrl(movie.id);
         } else if (streamSource === 'drive') {
-            // Always use direct streaming for speed
             return api.getStreamUrl(movie.drive_file_id, movie.file_path, { 
-                transcode: false, // NEVER transcode
-                seekOffset 
+                transcode: needsTranscoding,
+                seekOffset,
+                quality: needsTranscoding ? quality : null // Only pass quality if transcoding
             });
         } else if (streamSource === 'local') {
             return api.getStreamUrl(null, movie.file_path, { 
-                transcode: false, // NEVER transcode
-                seekOffset 
+                transcode: needsTranscoding, 
+                seekOffset,
+                quality: needsTranscoding ? quality : null
             });
         }
         return '';
-    }, [movie.id, movie.drive_file_id, movie.file_path, streamSource, seekOffset]);
+    }, [movie.id, movie.drive_file_id, movie.file_path, movie.video_codec, movie.audio_codec, movie.video_height, streamSource, needsTranscoding, quality, seekOffset]);
 
     const isDisplayLoading = isInitializing || isLoading;
-
+    
     // Fetch existing rating
     useEffect(() => {
         if (movie?.id && user?.id) {
@@ -297,6 +332,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         setIsPlaying(false);
         setShowRatingOverlay(true);
     };
+
     // Video initialization - Direct streaming only (HLS disabled)
     useEffect(() => {
         if (!videoUrl || streamingMode !== 'classic') return;
@@ -319,10 +355,19 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                 setIsLoading(false); // Reset on error too
             };
             
+            // Safety timeout: if video takes >15s, force reset
+            const safetyTimer = setTimeout(() => {
+                if (isLoading) {
+                    console.warn('[VideoPlayer] Timeout: forcing isLoading=false');
+                    setIsLoading(false);
+                }
+            }, 15000);
+            
             video.addEventListener('loadeddata', handleLoadedData);
             video.addEventListener('error', handleError);
             
             return () => {
+                clearTimeout(safetyTimer);
                 video.removeEventListener('loadeddata', handleLoadedData);
                 video.removeEventListener('error', handleError);
             };
@@ -334,15 +379,13 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         const errorCode = videoElement.error ? videoElement.error.code : 'Unknown';
         const errorMsg = videoElement.error?.message || '';
         addDebug(`VIDEO ERROR: Code ${errorCode} - ${errorMsg}`);
-
+        
         console.error('[VideoPlayer] Video Error:', {
             errorCode,
             errorMessage: errorMsg,
             src: videoElement.currentSrc?.substring(0, 100)
         });
-        
-        setIsLoading(false);
-        
+
         // Auto-transcode fallback
         if (!useTranscoding && (errorCode === 3 || errorCode === 4)) {
             console.log('[VideoPlayer] Fallback to transcoding...');
@@ -357,11 +400,11 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         if (errorCode === 2) msg = 'Error de red al cargar el video.';
         if (errorCode === 3) msg = 'Error al decodificar el video (Formato incompatible).';
         if (errorCode === 4) msg = 'Formato de video no soportado por este dispositivo.';
-
+        
         setError(msg);
     };
 
-    const handleLoadedData = () => {
+    const handleLoadedMetadata = (e) => {
         setIsInitializing(false);
         if (videoRef.current) {
             videoRef.current.preload = 'auto';
@@ -378,7 +421,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                     videoRef.current.currentTime = seekOffset;
                     initialSeekPerformed.current = true;
                 }
-
+                
                 // Try to play WITH sound first
                 videoRef.current.muted = false;
                 setIsMuted(false);
@@ -477,12 +520,12 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
 
     const toggleFullscreen = async () => {
         if (!playerRef.current && !videoRef.current) return;
-
+        
         const isCurrentlyFullscreen = document.fullscreenElement || 
-                                     document.webkitFullscreenElement || 
-                                     document.mozFullScreenElement || 
-                                     document.msFullscreenElement;
-
+                                         document.webkitFullscreenElement || 
+                                         document.mozFullScreenElement || 
+                                         document.msFullscreenElement;
+        
         if (isCurrentlyFullscreen) {
             if (document.exitFullscreen) await document.exitFullscreen();
             else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
@@ -506,10 +549,10 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             
             // Priority 2: Standard Fullscreen API (iPad, Android, Desktop)
             const requestFS = containerEl.requestFullscreen || 
-                               containerEl.webkitRequestFullscreen || 
-                               containerEl.mozRequestFullScreen || 
-                               containerEl.msRequestFullscreen;
-                               
+                                   containerEl.webkitRequestFullscreen || 
+                                   containerEl.mozRequestFullScreen || 
+                                   containerEl.msRequestFullscreen;
+            
             if (requestFS) {
                 try {
                     await requestFS.call(containerEl);
@@ -538,7 +581,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                 resetTimer();
             }
         };
-
+        
         window.screen.orientation?.addEventListener('change', handleOrientationChange);
         return () => window.screen.orientation?.removeEventListener('change', handleOrientationChange);
     }, [isMobile]);
@@ -572,7 +615,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                     // Sort cloud results by score
                     return unique.sort((a, b) => (b.score || 0) - (a.score || 0));
                 });
-
+                
                 // Auto-select the first (best) Spanish subtitle if none is currently selected
                 if (!selectedSubtitle) {
                     const bestSpanish = res.data.find(s => s.language === 'es');
@@ -580,7 +623,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         console.log('[VideoPlayer] Autoselección: Mejor opción en Español:', bestSpanish.release);
                         handleSubtitleSelect(bestSpanish);
                     } else if (res.data.length > 0) {
-                         // Fallback to English if no Spanish
+                        // Fallback to English if no Spanish
                         const bestEnglish = res.data.find(s => s.language === 'en');
                         if (bestEnglish) handleSubtitleSelect(bestEnglish);
                     }
@@ -603,9 +646,9 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         try {
             let url = '';
             let directContent = null;
-
+            
             if (subtitle.type === 'cloud') {
-                url = BACKEND_URL + '/api/subtitles/cloud?id=' + subtitle.id;
+                url = BACKEND_URL + '/api/subtitles/download?id=' + subtitle.id;
                 api.downloadSubtitle(subtitle.id, movie.id).catch(e => console.warn('[VideoPlayer] Pairing failed:', e));
             } else if (subtitle.type === 'local') {
                 url = BACKEND_URL + '/api/subtitles/external?path=' + encodeURIComponent(subtitle.path);
@@ -629,11 +672,11 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         const errJson = JSON.parse(errorText);
                         if (errJson.isQuota) isQuota = true;
                     } catch(e) {}
-
+                    
                     if (isQuota) setSubQuotaReached(true);
                     throw new Error(`Error ${response.status}: ${errorText.substring(0, 100)}`);
                 }
-
+                
                 const text = await response.text();
                 
                 // Safety check: if it looks like JSON, it's probably an error that bypassed the status check
@@ -641,7 +684,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                     console.error('[VideoPlayer] Received JSON instead of VTT:', text);
                     throw new Error('Formato de subtítulo inválido (JSON)');
                 }
-
+                
                 const cues = parseVTT(text);
                 if (cues.length === 0) {
                     console.warn('[VideoPlayer] Parser returned 0 cues. Malformed VTT?');
@@ -659,7 +702,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const handleLocalSubtitleUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
-
+        
         const reader = new FileReader();
         reader.onload = (event) => {
             let content = event.target.result;
@@ -668,7 +711,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             if (file.name.toLowerCase().endsWith('.srt')) {
                 content = "WEBVTT\n\n" + content.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
             }
-
+            
             const manualSub = {
                 id: 'manual-' + Date.now(),
                 label: 'Cargado: ' + file.name,
@@ -676,7 +719,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                 type: 'manual',
                 content: content
             };
-
+            
             setSubtitles(prev => [manualSub, ...prev]);
             handleSubtitleSelect(manualSub);
             setShowSubtitleMenu(false);
@@ -695,7 +738,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         while (i < lines.length && !lines[i].includes('-->')) {
             i++;
         }
-
+        
         while (i < lines.length) {
             if (lines[i].includes('-->')) {
                 // Better regex: handles , and . and optional hours
@@ -710,7 +753,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                     const m2 = parseInt(timeMatch[6]);
                     const s2 = parseInt(timeMatch[7]);
                     const ms2 = parseInt(timeMatch[8]);
-
+                    
                     const start = h1 * 3600 + m1 * 60 + s1 + ms1 / 1000;
                     const end = h2 * 3600 + m2 * 60 + s2 + ms2 / 1000;
                     
@@ -794,14 +837,13 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             ref={playerRef}
             className="fixed inset-0 bg-black z-[1000] flex flex-col overflow-hidden select-none touch-none h-full w-full pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
             onMouseMove={resetTimer}
-            onClick={resetTimer}
+            onClick={handleVideoClick}
             onTouchStart={resetTimer}
         >
             <div className="flex-1 flex items-center justify-center bg-black relative">
                 {delayedMount ? (
                     <video
                         ref={videoRef}
-                        src={videoUrl}
                         className="w-full h-full object-contain md:object-contain"
                         style={{ backgroundColor: '#000', height: '100%', width: '100%' }}
                         playsInline
@@ -827,14 +869,16 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         }}
                         onLoadedData={handleLoadedData}
                         onCanPlay={handleCanPlay}
-                        onPlay={() => setIsPlaying(true)}
                         onPause={(e) => {
                             setIsPlaying(false);
                             if (user && movie?.id && e.target.currentTime > 0) {
                                 saveUserProgress(movie.id, Math.floor(e.target.currentTime));
                             }
                         }}
+                        onPlay={() => setIsPlaying(true)}
                         onError={handleVideoError}
+                        onSeeking={() => {}}
+                        onSeeked={() => {}}
                     >
                         {selectedSubtitle && (
                             <track 
@@ -850,198 +894,151 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                 ) : (
                     <div className="flex flex-col items-center gap-4">
                         <Loader2 className="text-cyan-500 animate-spin" size={40} />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Iniciando Bóveda...</span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Iniciando Bóveda...</span>
+                    </div>
+                )}
+                
+                {/* Subtitle Display */}
+                {currentSubtitle && (
+                    <div 
+                        className={`absolute bottom-[10%] left-1/2 -translate-x-1/2 bg-black/80 px-6 py-3 rounded-2xl max-w-[80%] text-center pointer-events-none transition-opacity duration-300 ${
+                            showControls ? 'opacity-0' : 'opacity-100'
+                        }`}
+                        style={{
+                            fontSize: subtitleSettings.size === 'small' ? '14px' : 
+                                     subtitleSettings.size === 'medium' ? '18px' : 
+                                     subtitleSettings.size === 'large' ? '24px' : '30px',
+                            color: subtitleSettings.color === 'yellow' ? '#FFD700' : 
+                                     subtitleSettings.color === 'cyan' ? '#22D3EE' : 'white'
+                        }}
+                    >
+                        {currentSubtitle.text}
                     </div>
                 )}
             </div>
 
-            {isLocked && (
-                <div className="absolute inset-0 z-[1002] pointer-events-auto">
-                    {/* Interaction barrier to block video controls/clicks */}
-                    <div className="absolute inset-0 bg-transparent" />
-                    
-                    {/* Small Lock Icon in Top Right */}
-                    <div 
-                        className={`absolute top-6 right-6 flex flex-col items-center gap-2 transition-all duration-500 cursor-pointer ${isUnlocking ? 'opacity-100 scale-110' : 'opacity-10'}`}
-                        style={{ WebkitTapHighlightColor: 'transparent' }}
-                        onMouseDown={handleUnlockStart}
-                        onMouseUp={handleUnlockEnd}
-                        onMouseLeave={handleUnlockEnd}
-                        onTouchStart={handleUnlockStart}
-                        onTouchEnd={handleUnlockEnd}
-                    >
-                        <div className="relative w-16 h-16 flex items-center justify-center">
-                            {/* Circular progress background - only visible when unlocking */}
-                            <svg className={`absolute inset-0 w-full h-full -rotate-90 transition-opacity duration-300 ${isUnlocking ? 'opacity-100' : 'opacity-0'}`}>
-                                <circle
-                                    cx="32"
-                                    cy="32"
-                                    r="28"
-                                    stroke="rgba(255,255,255,0.1)"
-                                    strokeWidth="3"
-                                    fill="none"
-                                />
-                                <circle
-                                    cx="32"
-                                    cy="32"
-                                    r="28"
-                                    stroke="#06b6d4"
-                                    strokeWidth="3"
-                                    fill="none"
-                                    strokeDasharray="175.93"
-                                    strokeDashoffset={175.93 - (175.93 * unlockProgress) / 100}
-                                    className="transition-all duration-100 ease-linear"
-                                />
-                            </svg>
-                            <div className="flex flex-col items-center">
-                                <Lock size={24} className="text-white" />
-                                {isUnlocking && <span className="text-cyan-400 font-black text-[10px] mt-0.5">{Math.ceil(3 - (unlockProgress * 3 / 100))}s</span>}
+            {/* Playback seems stuck overlay */}
+            {isStuckAtZero && isPlaying && !isLoading && !isInitializing && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-[1010] animate-in fade-in duration-500">
+                    <div className="flex flex-col gap-4 w-full max-w-md">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-3 bg-netflix-red/20 rounded-full">
+                                    <AlertCircle className="text-netflix-red" size={24} />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-[11px] font-bold uppercase tracking-wider text-white">Reproducción trabada</p>
+                                    <p className="text-[10px] font-bold text-slate-400 mt-0.5 leading-relaxed">
+                                        Parece que el video no puede reproducirse. Intenta cambiar la calidad o verifica tu conexión.
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-                        {isUnlocking && (
-                            <p className="text-white/60 text-[8px] font-black uppercase tracking-[0.2em] whitespace-nowrap bg-black/40 px-2 py-1 rounded-full backdrop-blur-sm">Soltá para desbloquear</p>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {!isLocked && (
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setIsLocked(true);
-                        setShowControls(false);
-                    }}
-                    className={`absolute left-[max(1.5rem,env(safe-area-inset-left))] top-1/2 -translate-y-1/2 p-4 bg-black/60 backdrop-blur-xl rounded-full text-white/80 hover:text-cyan-400 hover:scale-110 transition-all z-[1001] border border-white/10 shadow-2xl ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-                >
-                    <Unlock size={28} />
-                </button>
-            )}
-
-            {currentSubtitle && (
-                <div className={`absolute ${showControls ? 'bottom-32' : 'bottom-16'} left-0 right-0 flex justify-center pointer-events-none px-4 z-[1001] transition-all duration-300`}>
-                    <div className="bg-black/80 px-4 py-2 rounded-lg max-w-[90%] text-center border border-white/5 backdrop-blur-md">
-                        <p className={`font-black tracking-tight drop-shadow-lg ${
-                            subtitleSettings.size === 'small' ? 'text-sm md:text-base' :
-                            subtitleSettings.size === 'large' ? 'text-2xl md:text-4xl' :
-                            subtitleSettings.size === 'extra' ? 'text-4xl md:text-6xl' :
-                            'text-lg md:text-2xl' // medium
-                        } ${
-                            subtitleSettings.color === 'yellow' ? 'text-yellow-400' :
-                            subtitleSettings.color === 'cyan' ? 'text-cyan-400' :
-                            'text-white'
-                        }`}>
-                            {currentSubtitle.text}
-                        </p>
-                    </div>
-                </div>
-            )}
-
-            {/* Center unmute button for mobile - Premium style */}
-            {isMuted && isPlaying && !isLocked && !isDisplayLoading && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[1001] animate-in fade-in duration-700">
-                    <button 
-                        onClick={() => {
-                            if (videoRef.current) {
-                                videoRef.current.muted = false;
-                                setIsMuted(false);
-                                setVolume(1);
-                                videoRef.current.volume = 1;
-                                videoRef.current.play().catch(() => {});
-                            }
-                        }}
-                        className="pointer-events-auto flex flex-col items-center gap-4 group"
-                    >
-                        <div className="w-20 h-20 bg-cyan-500/10 backdrop-blur-xl border border-cyan-500/30 rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(6,182,212,0.2)] group-hover:scale-110 group-active:scale-95 transition-all duration-500">
-                            <Volume2 size={32} className="text-cyan-400" fill="currentColor" />
-                        </div>
-                        <div className="bg-black/40 backdrop-blur-md px-5 py-2 rounded-full border border-white/5">
-                            <p className="text-[10px] font-black text-white uppercase tracking-[0.3em]">Activar Sonido</p>
-                        </div>
-                    </button>
-                </div>
-            )}
-
-            {isStuckAtZero && isPlaying && !isLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-[1001] animate-in fade-in duration-300">
-                    <div className="text-center p-8">
-                        <div 
-                            onClick={togglePlay}
-                            className="w-24 h-24 bg-cyan-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_50px_rgba(6,182,212,0.6)] cursor-pointer active:scale-95 transition-transform"
-                        >
-                            <Play size={40} className="text-black ml-2" fill="currentColor" />
-                        </div>
-                        <h2 className="text-white text-xl font-black uppercase tracking-widest mb-2 font-netflix">Toca para Iniciar</h2>
-                        <p className="text-white/60 text-xs font-bold uppercase tracking-widest leading-loose">Tu navegador bloqueó la reproducción automática</p>
-                    </div>
-                </div>
-            )}
-
-            {movie?.drive_file_id === 'pending_cloud' && (
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-950/90 z-[1010] p-8 text-center animate-in fade-in duration-500">
-                    <div className="max-w-md space-y-6">
-                        <div className="relative w-24 h-24 mx-auto">
-                            <div className="absolute inset-0 border-4 border-cyan-500/10 rounded-full"></div>
-                            <div className="absolute inset-0 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <Cloud size={32} className="text-cyan-500 animate-pulse" />
-                            </div>
-                        </div>
-                        
-                        <div className="space-y-2">
-                            <h2 className="text-2xl font-black text-white uppercase tracking-tight">Procesado en Progreso</h2>
-                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] italic">Bóveda Global</p>
-                        </div>
-                        
-                        <p className="text-sm text-slate-400 font-medium leading-relaxed">
-                            Esta película se está descargando y optimizando para tu Bóveda. 
-                            <button 
-                                onClick={() => {
-                                    onClose(0);
-                                    if (onOpenSettings) onOpenSettings();
-                                }}
-                                className="block mt-2 text-cyan-400/80 font-black uppercase text-[9px] tracking-widest hover:text-cyan-300 transition-colors cursor-pointer"
-                            >
-                                Estará disponible en unos minutos.
+                            <button onClick={() => setShowControls(true)} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
+                                <X size={18} className="text-slate-500" />
                             </button>
-                        </p>
+                        </div>
                         
                         <button 
-                            onClick={() => onClose(0)}
-                            className="px-8 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest transition-all active:scale-95"
+                            onClick={() => {
+                                if (user && movie?.id && currentTime > 0) {
+                                    saveUserProgress(movie.id, Math.floor(currentTime));
+                                }
+                                onClose(currentTime);
+                            }}
+                            className="w-full p-3 bg-netflix-red/20 hover:bg-netflix-red/30 border border-netflix-red/30 rounded-2xl text-white text-[10px] font-bold uppercase tracking-wider transition-colors active:scale-95"
                         >
-                            Cerrar y esperar
+                            Saltar y Salir
                         </button>
                     </div>
                 </div>
             )}
 
-            {isDisplayLoading && !error && movie?.drive_file_id !== 'pending_cloud' && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-10 transition-colors">
+            {/* Initializing overlay */}
+            {isInitializing && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-[1010]">
                     <div className="text-center p-6">
-                        <div className="relative">
-                            <Loader2 className="text-cyan-500 animate-spin w-16 h-16 mx-auto mb-6" />
+                        <div className="relative w-20 h-20 mx-auto mb-4">
+                            <div className="absolute inset-0 border-4 border-cyan-500/10 rounded-full"></div>
+                            <div className="absolute inset-0 border-4 border-t-cyan-500 rounded-full animate-spin"></div>
                             <div className="absolute inset-0 flex items-center justify-center">
-                                <Film size={20} className="text-cyan-500/40" />
+                                <Film size={32} className="text-cyan-500 animate-pulse" />
                             </div>
                         </div>
-                        <p className="text-white font-black uppercase tracking-[0.3em] text-[10px] animate-pulse">Conectando Bóveda...</p>
+                        <p className="text-white font-bold uppercase tracking-[0.3em]">Cargando Película</p>
+                        <p className="text-[10px] font-medium text-slate-400 mt-2 leading-relaxed italic">
+                            Conectando con el servidor de streaming...
+                        </p>
                     </div>
                 </div>
             )}
 
-            <button
-                onClick={() => {
-                    if (user && movie?.id && currentTime > 0) {
-                        saveUserProgress(movie.id, Math.floor(currentTime));
-                    }
-                    onClose(currentTime);
-                }}
-                className={`absolute top-[max(1rem,env(safe-area-inset-top))] left-[max(1rem,env(safe-area-inset-left))] p-3 bg-black/50 backdrop-blur-sm rounded-full text-white/80 hover:text-white transition-all z-[1001] active:scale-90 ${showControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}
-            >
-                <X size={isMobile ? 24 : 28} />
-            </button>
+            {/* Loading overlay */}
+            {isDisplayLoading && !isInitializing && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-[1010]">
+                    <div className="text-center p-6">
+                        <Loader2 className="w-16 h-16 text-cyan-500 mx-auto mb-6 animate-spin" />
+                        <p className="text-white font-bold uppercase tracking-[0.3em]">Cargando Video</p>
+                        <p className="text-[10px] font-medium text-slate-400 mt-2 leading-relaxed">
+                            Esto puede tardar unos segundos...
+                        </p>
+                    </div>
+                </div>
+            )}
 
+            {/* Error overlay */}
+            {error && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-[1010] animate-in fade-in duration-500">
+                    <div className="glass-card px-6 py-5 rounded-3xl border border-netflix-red/30 bg-netflix-red/10 flex flex-col gap-4 shadow-2xl backdrop-blur-xl">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-netflix-red/20 rounded-full">
+                                <AlertCircle className="text-netflix-red" size={24} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-bold uppercase tracking-wider text-white">{error}</p>
+                                {error.stack && (
+                                    <p className="text-[9px] font-bold text-slate-400 mt-0.5 leading-relaxed">
+                                        {error.stack.substring(0, 100)}
+                                    </p>
+                                )}
+                            </div>
+                            <button onClick={() => {
+                                if (user && movie?.id && currentTime > 0) {
+                                    saveUserProgress(movie.id, Math.floor(currentTime));
+                                }
+                                onClose(currentTime);
+                            }} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
+                                <X size={18} className="text-slate-500" />
+                            </button>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-2 pt-2 border-t border-white/5">
+                            {(() => {
+                                const raw = (movie?.file_name || movie?.official_title || "").toLowerCase();
+                                const tags = [
+                                    "1080p", "720p", "2160p", "4k", 
+                                    "bluray", "brrip", "webrip", "web-dl", "dvdrip",
+                                    "x264", "x265", "h264", "hevc", 
+                                    "yts", "rarbg", "psa", "lama", "tigole"
+                                ].filter(t => raw.includes(t.toLowerCase()));
+                                
+                                if (tags.length === 0) return <span className="text-[9px] font-bold text-slate-600 italic">No se detectaron etiquetas técnicas</span>;
+                                
+                                return tags.map(tag => (
+                                    <span key={tag} className="px-2 py-1 bg-white/5 border border-white/10 rounded-lg text-[9px] font-bold uppercase tracking-wider text-cyan-400">
+                                        {tag}
+                                    </span>
+                                ));
+                            })()}
+                        </div>
+                        
+                        <p className="text-[9px] font-bold text-slate-500 italic text-center">
+                            Busca en Subdivx o YTS estas etiquetas junto al título.
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {/* Subtitle quota reached overlay */}
             {subQuotaReached && (
                 <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[1100] animate-in slide-in-from-top-10 duration-500 w-[90%] max-w-md">
                     <div className="glass-card px-6 py-5 rounded-3xl border border-netflix-red/30 bg-netflix-red/10 flex flex-col gap-4 shadow-2xl backdrop-blur-xl">
@@ -1050,7 +1047,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                 <AlertCircle className="text-netflix-red" size={24} />
                             </div>
                             <div className="min-w-0 flex-1">
-                                <p className="text-[11px] font-black uppercase tracking-widest text-white">Límite de Subtítulos Alcanzado</p>
+                                <p className="text-[11px] font-bold uppercase tracking-wider text-white">Límite de Subtítulos Alcanzado</p>
                                 <p className="text-[10px] font-bold text-slate-400 mt-0.5 leading-relaxed">
                                     OpenSubtitles ha limitado las descargas. Si tienes VIP, asegúrate de haber guardado tus credenciales en Ajustes.
                                 </p>
@@ -1066,14 +1063,14 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                 const tags = [
                                     "1080p", "720p", "2160p", "4k", 
                                     "bluray", "brrip", "webrip", "web-dl", "dvdrip",
-                                    "x264", "x265", "h264", "hevc",
+                                    "x264", "x265", "h264", "hevc", 
                                     "yts", "rarbg", "psa", "lama", "tigole"
                                 ].filter(t => raw.includes(t.toLowerCase()));
                                 
                                 if (tags.length === 0) return <span className="text-[9px] font-bold text-slate-600 italic">No se detectaron etiquetas técnicas</span>;
                                 
                                 return tags.map(tag => (
-                                    <span key={tag} className="px-2 py-1 bg-white/5 border border-white/10 rounded-lg text-[9px] font-black uppercase tracking-wider text-cyan-400">
+                                    <span key={tag} className="px-2 py-1 bg-white/5 border border-white/10 rounded-lg text-[9px] font-bold uppercase tracking-wider text-cyan-400">
                                         {tag}
                                     </span>
                                 ));
@@ -1087,10 +1084,11 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                 </div>
             )}
 
+            {/* Bottom Controls */}
             {showControls && (
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-4 md:p-8">
                     <div className="flex flex-col gap-4 w-full">
-                        <div className="flex items-center justify-between text-white text-[10px] md:text-xs font-black uppercase tracking-widest opacity-60 px-1">
+                        <div className="flex items-center justify-between text-white text-[10px] md:text-xs font-bold uppercase tracking-widest opacity-60 px-1">
                             <span>{formatTime(currentTime)}</span>
                             <span>
                                 {(() => {
@@ -1107,72 +1105,53 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                 })()}
                             </span>
                         </div>
-                        
-                        {(() => {
-                            const metaRuntime = Number(activeMovie.runtime || 0) * 60;
-                            const isDurationSuspicious = duration > 0 && duration < 600 && metaRuntime > 600;
-                            const validDuration = (duration > 1 && duration !== Infinity && !isDurationSuspicious) ? duration : 0;
-                            
-                            // Use actual duration, or movie metadata runtime
-                            let totalDuration = validDuration > 0 ? validDuration : metaRuntime;
-                            
-                            // SAFETY: Only show progress if we have a real duration > 0
-                            const progressPercent = totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0;
-                            const safeMax = totalDuration > 0 ? totalDuration : 100;
-                            
-                            return (
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max={safeMax}
-                                    value={currentTime}
-                                    onChange={handleSeek}
-                                    className="w-full h-1.5 md:h-2 bg-white/30 rounded-full appearance-none cursor-pointer accent-cyan-500 disabled:cursor-not-allowed"
-                                    style={{ 
-                                        background: `linear-gradient(to right, #06b6d4 ${Math.min(100, progressPercent)}%, rgba(255,255,255,0.1) 0%)` 
-                                    }}
-                                />
-                            );
-                        })()}
-                        
+
+                        <input 
+                            type="range"
+                            min="0"
+                            max={duration || 0}
+                            value={currentTime}
+                            onChange={handleSeek}
+                            className="w-full h-1 bg-white/20 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-500 [&::-webkit-slider-thumb]:shadow-lg"
+                        />
+
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3 md:gap-6">
-                                <button onClick={skipBackward} className="text-white hover:text-cyan-400 transition-colors">
-                                    <SkipBack size={isMobile ? 24 : 28} />
+                            <div className="flex items-center gap-3">
+                                <button 
+                                    onClick={togglePlay}
+                                    className="p-2 hover:bg-white/10 rounded-full transition-colors active:scale-90"
+                                >
+                                    {isPlaying ? <Pause size={isMobile ? 24 : 28} /> : <Play size={isMobile ? 24 : 28} />}
                                 </button>
-                                
-                                <button onClick={togglePlay} className="p-3 md:p-4 bg-cyan-500 rounded-full text-black hover:bg-cyan-400 transition-colors">
-                                    {isPlaying ? <Pause size={isMobile ? 28 : 32} /> : <Play size={isMobile ? 28 : 32} className="ml-1" />}
+
+                                <button onClick={skipBackward} className="p-2 hover:bg-white/10 rounded-full transition-colors active:scale-90">
+                                    <SkipBack size={isMobile ? 20 : 24} />
                                 </button>
-                                
-                                <button onClick={skipForward} className="text-white hover:text-cyan-400 transition-colors">
-                                    <SkipForward size={isMobile ? 24 : 28} />
+
+                                <button onClick={skipForward} className="p-2 hover:bg-white/10 rounded-full transition-colors active:scale-90">
+                                    <SkipForward size={isMobile ? 20 : 24} />
                                 </button>
-                            </div>
-                            
-                            <div className="flex items-center gap-3 md:gap-6">
-                                <div className="flex items-center gap-2">
-                                    <button onClick={toggleMute} className="text-white/70 hover:text-white transition-colors">
-                                        {isMuted ? <VolumeX size={isMobile ? 20 : 24} /> : <Volume2 size={isMobile ? 20 : 24} />}
+
+                                <div className="flex items-center gap-2 group">
+                                    <button 
+                                        onClick={toggleMute}
+                                        className="p-2 hover:bg-white/10 rounded-full transition-colors active:scale-90"
+                                    >
+                                        {isMuted || volume === 0 ? <VolumeX size={isMobile ? 20 : 24} /> : <Volume2 size={isMobile ? 20 : 24} />}
                                     </button>
-                                    <input
+                                    <input 
                                         type="range"
                                         min="0"
                                         max="1"
-                                        step="0.1"
+                                        step="0.01"
                                         value={isMuted ? 0 : volume}
                                         onChange={handleVolumeChange}
-                                        className="w-16 md:w-24 h-1.5 bg-white/30 rounded-full appearance-none cursor-pointer"
-                                        style={{ 
-                                            background: 'linear-gradient(to right, #06b6d4 ' + ((isMuted ? 0 : volume) * 100) + '%, rgba(255,255,255,0.3) 0%)' 
-                                        }}
+                                        className="w-24 h-1 bg-white/20 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
                                     />
                                 </div>
-                                
-                                <button onClick={() => { setShowSubtitleMenu(!showSubtitleMenu); setShowVersionMenu(false); setShowControls(true); }} className={'p-3 rounded-full transition-colors ' + (selectedSubtitle ? 'text-cyan-400 bg-cyan-400/20' : 'text-white/70 hover:text-white')}>
-                                    <Subtitles size={isMobile ? 24 : 28} />
-                                </button>
+                            </div>
 
+                            <div className="flex items-center gap-3">
                                 {versions.length > 1 && (
                                     <button onClick={() => { setShowVersionMenu(!showVersionMenu); setShowSubtitleMenu(false); setShowControls(true); }} className={'p-3 rounded-full transition-colors ' + (showVersionMenu ? 'text-netflix-red bg-netflix-red/20' : 'text-white/70 hover:text-white')}>
                                         <Film size={isMobile ? 24 : 28} />
@@ -1187,7 +1166,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                     className="p-3 hover:bg-white/10 rounded-full transition-colors text-white relative group"
                                 >
                                     <Settings size={22} className="group-hover:rotate-45 transition-transform duration-300" />
-                                    <span className="absolute -top-1 -right-1 bg-netflix-red text-[8px] font-black px-1 rounded-sm">{quality}p</span>
+                                    <span className="absolute -top-1 -right-1 bg-netflix-red text-[8px] font-bold px-1 rounded-sm">{quality}p</span>
                                 </button>
                             </div>
                         </div>
@@ -1206,7 +1185,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="flex justify-between items-center mb-8">
-                            <h3 className="text-sm font-black uppercase tracking-[0.2em] text-white/90">
+                            <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-white/90">
                                 {showSubtitleMenu ? 'Subtítulos' : showVersionMenu ? 'Versión' : 'Calidad'}
                             </h3>
                             <button 
@@ -1221,29 +1200,27 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                             {showQualityMenu && (
                                 <div className="space-y-4">
                                     <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest px-1">Selecciona una calidad</p>
-                                    {[
-                                        { id: '480', label: '480p', desc: 'Fluido (Bajo consumo)', icon: 'SD' },
-                                        { id: '720', label: '720p', desc: 'Alta Definición (HD)', icon: 'HD' },
-                                        { id: '1080', label: '1080p', desc: 'Full HD (Máxima)', icon: 'FHD' }
-                                    ].map((q) => (
+                                    {availableQualities.map((q) => (
                                         <button
                                             key={q.id}
                                             onClick={() => {
                                                 setQuality(q.id);
                                                 setShowQualityMenu(false);
-                                                setIsLoading(true);
+                                                if (needsTranscoding) {
+                                                    setIsLoading(true); // Only set loading if we actually need to transcode
+                                                }
                                             }}
                                             className={`w-full text-left p-5 rounded-2xl flex items-center justify-between transition-all border ${
                                                 quality === q.id 
-                                                ? 'bg-cyan-500 border-cyan-500 text-black shadow-lg shadow-cyan-500/20' 
-                                                : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
+                                                    ? 'bg-cyan-500 border-cyan-500 text-black shadow-lg shadow-cyan-500/20' 
+                                                    : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
                                             }`}
                                         >
                                             <div className="flex flex-col">
-                                                <span className="text-sm font-black italic">{q.label}</span>
+                                                <span className="text-sm font-bold italic">{q.label}</span>
                                                 <span className="text-[9px] opacity-60 uppercase tracking-tighter font-bold">{q.desc}</span>
                                             </div>
-                                            <span className="text-[10px] font-black opacity-40">{q.icon}</span>
+                                            <span className="text-[10px] font-bold opacity-40">{q.icon}</span>
                                         </button>
                                     ))}
                                     <div className="p-4 bg-amber-500/10 rounded-2xl border border-amber-500/20 flex items-start gap-3 mt-8">
@@ -1255,323 +1232,190 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                 </div>
                             )}
 
-                            {showVersionMenu && versions.map((ver) => {
-                                const vInfo = detectVersionInfo(ver);
-                                const isSelected = String(ver.id) === String(movie.id);
-                                return (
-                                    <button
-                                        key={ver.id}
-                                        onClick={() => {
-                                            if (onVersionChange) onVersionChange(ver);
-                                            setShowVersionMenu(false);
-                                        }}
-                                        className={`w-full text-left p-5 rounded-[1.5rem] text-xs font-black uppercase tracking-widest transition-all border ${
-                                            isSelected 
-                                            ? 'bg-netflix-red border-netflix-red text-white shadow-[0_10px_30px_rgba(229,9,20,0.3)]' 
-                                            : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10 hover:text-white'
-                                        }`}
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <span>{vInfo.label}</span>
-                                            {isSelected && <div className="w-2 h-2 bg-white rounded-full"></div>}
-                                        </div>
-                                    </button>
-                                );
-                            })}
-
                             {showSubtitleMenu && (
-                                <>
-                                    <div className="grid grid-cols-2 gap-2 mb-4">
-                                        <button 
-                                            onClick={() => fileInputRef.current?.click()}
-                                            className="flex flex-col items-center gap-1.5 p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/5"
-                                        >
-                                            <Upload size={16} className="text-cyan-400" />
-                                            <span className="text-[8px] font-black uppercase tracking-wider text-white/50">Subir Local</span>
-                                        </button>
-                                        <button 
-                                            onClick={() => { setShowDriveExplorer(true); setShowSubtitleMenu(false); }}
-                                            className="flex flex-col items-center gap-1.5 p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/5"
-                                        >
-                                            <Cloud size={16} className="text-cyan-400" />
-                                            <span className="text-[8px] font-black uppercase tracking-wider text-white/50">G. Drive</span>
-                                        </button>
-                                    </div>
-
-                                    <button
-                                        onClick={() => { setSelectedSubtitle(null); setSubtitleCues([]); setSubtitleOffset(0); setShowSubtitleMenu(false); }}
-                                        className={`w-full text-left p-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!selectedSubtitle ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20' : 'bg-white/5 text-slate-400 hover:text-white'}`}
-                                    >
-                                        Sin Subtítulos
-                                    </button>
+                                <div className="space-y-4">
+                                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest px-1">Subtítulos encontrados</p>
+                                    {isSearchingSubtitles ? (
+                                        <div className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl">
+                                            <Loader2 size={18} className="text-cyan-400 animate-spin" />
+                                            <span className="text-[10px] text-slate-400">Buscando...</span>
+                                        </div>
+                                    ) : subtitles.length > 0 ? (
+                                        subtitles.map(sub => (
+                                            <button
+                                                key={sub.id}
+                                                onClick={() => handleSubtitleSelect(sub)}
+                                                className={`w-full text-left p-4 rounded-2xl transition-all border ${
+                                                    selectedSubtitle?.id === sub.id 
+                                                        ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400' 
+                                                        : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
+                                                }`}
+                                            >
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-bold">{sub.label}</span>
+                                                    <span className="text-[9px] opacity-60">{sub.lang || 'unknown'}</span>
+                                                    {sub.provider && <span className="text-[8px] opacity-40 uppercase tracking-widest">{sub.provider}</span>}
+                                                </div>
+                                            </button>
+                                        ))
+                                    ) : (
+                                        <p className="text-[10px] text-slate-600 text-center py-4">No se encontraron subtítulos. ¡Prueba buscar manualmente!</p>
+                                    )}
                                     
-                                    {subtitles.map((sub, i) => (
-                                        <button
-                                            key={i}
-                                            onClick={() => { handleSubtitleSelect(sub); setShowSubtitleMenu(false); }}
-                                            className={`w-full text-left p-2.5 rounded-lg text-[10px] flex flex-col gap-0.5 transition-all border ${selectedSubtitle?.id === sub.id ? 'bg-white/10 border-cyan-500/50' : 'bg-transparent border-white/5 text-white/70 hover:bg-white/5 hover:text-white'}`}
+                                    <div className="pt-4 border-t border-white/5 space-y-3">
+                                        <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest px-1">Opciones</p>
+                                        <button 
+                                            onClick={handleSearchSubtitles}
+                                            className="w-full p-4 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl text-left transition-colors flex items-center gap-3"
                                         >
-                                            <div className="flex items-center justify-between gap-2">
-                                                <span className={selectedSubtitle?.id === sub.id ? 'text-cyan-400 font-black' : 'font-bold line-clamp-1'}>
-                                                    {sub.file_name || sub.label}
-                                                </span>
+                                            <Search size={18} className="text-cyan-400" />
+                                            <span className="text-sm">Buscar en línea</span>
+                                        </button>
+                                        <div className="relative">
+                                            <button 
+                                                onClick={() => document.getElementById('subtitleUpload')?.click()}
+                                                className="w-full p-4 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl text-left transition-colors flex items-center gap-3"
+                                            >
+                                                <Plus size={18} className="text-cyan-400" />
+                                                <span className="text-sm">Cargar archivo local</span>
+                                            </button>
+                                            <input 
+                                                id="subtitleUpload"
+                                                type="file"
+                                                accept=".srt,.vtt,.sub,.sbv,.ass"
+                                                className="hidden"
+                                                onChange={handleLocalSubtitleUpload}
+                                            />
+                                        </div>
+                                        <div className="flex items-center gap-2 px-1">
+                                            <input 
+                                                type="text"
+                                                value={subtitleSearchText}
+                                                onChange={(e) => setSubtitleSearchText(e.target.value)}
+                                                placeholder="Buscar por título..."
+                                                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50"
+                                            />
+                                            <button 
+                                                onClick={handleSearchSubtitles}
+                                                className="p-2 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/30 rounded-lg text-cyan-400 transition-colors"
+                                            >
+                                                <Search size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {showVersionMenu && (
+                                <div className="space-y-4">
+                                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest px-1">Versiones disponibles</p>
+                                    {versions.map((v, i) => (
+                                        <button
+                                            key={v.id || i}
+                                            onClick={() => {
+                                                onVersionChange(v);
+                                                setShowVersionMenu(false);
+                                            }}
+                                            className={`w-full text-left p-4 rounded-2xl transition-all border ${
+                                                v.id === movie.id 
+                                                    ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400' 
+                                                    : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
+                                            }`}
+                                        >
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-bold">{v.official_title || v.detected_title}</span>
+                                                <span className="text-[9px] opacity-60">{v.file_name || v.detected_year}</span>
                                             </div>
-                                            {sub.release && sub.release !== sub.label && (
-                                                <span className="text-[8px] opacity-40 truncate uppercase tracking-tighter">{sub.release}</span>
-                                            )}
                                         </button>
                                     ))}
-                                </>
+                                </div>
                             )}
                         </div>
+                    </div>
+                </div>
+            )}
 
-                        {showSubtitleMenu && (
-                            <div className="mt-4 pt-4 border-t border-white/10 space-y-4">
-                                <div className="flex flex-col gap-2 px-1">
-                                    <span className="text-[9px] font-black uppercase text-white/30 tracking-widest text-center">Sincronización</span>
-                                    <div className="flex items-center justify-between bg-black/40 p-1.5 rounded-xl border border-white/5">
-                                        <button 
-                                            onClick={() => setSubtitleOffset(prev => prev - 0.5)}
-                                            className="w-10 h-10 flex items-center justify-center bg-white/5 rounded-lg text-white hover:bg-white/10 active:scale-90 transition-all text-lg font-bold"
-                                        >
-                                            -
-                                        </button>
-                                        <span className={`text-[10px] font-black min-w-[3.5rem] text-center ${subtitleOffset !== 0 ? 'text-cyan-400' : 'text-white/40'}`}>
-                                            {subtitleOffset > 0 ? '+' : ''}{subtitleOffset.toFixed(1)}s
-                                        </span>
-                                        <button 
-                                            onClick={() => setSubtitleOffset(prev => prev + 0.5)}
-                                            className="w-10 h-10 flex items-center justify-center bg-white/5 rounded-lg text-white hover:bg-white/10 active:scale-90 transition-all text-lg font-bold"
-                                        >
-                                            +
-                                        </button>
-                                    </div>
-                                </div>
+            {/* Lock/Unlock UI */}
+            {!isLocked && (
+                <button 
+                    onClick={() => {
+                        if (user && movie?.id && currentTime > 0) {
+                            saveUserProgress(movie.id, Math.floor(currentTime));
+                        }
+                        onClose(currentTime);
+                    }}
+                    className={`absolute top-[max(1rem,env(safe-area-inset-top))] left-[max(1rem,env(safe-area-inset-left))] p-3 bg-black/50 backdrop-blur-sm rounded-full text-white/80 hover:text-white transition-all z-[1001] active:scale-90 ${showControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}
+                >
+                    <X size={isMobile ? 24 : 28} />
+                </button>
+            )}
 
-                                <div className="space-y-3">
-                                    <div className="relative group">
-                                        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                                            <Search size={14} className="text-white/20 group-focus-within:text-cyan-400 transition-colors" />
-                                        </div>
-                                        <input 
-                                            type="text"
-                                            value={subtitleSearchText}
-                                            onChange={(e) => setSubtitleSearchText(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && handleSearchSubtitles()}
-                                            placeholder="Buscar otro título..."
-                                            className="w-full bg-white/5 border border-white/5 rounded-xl py-3 pl-10 pr-4 text-[10px] text-white placeholder:text-white/20 focus:outline-none focus:border-cyan-500/50 focus:bg-white/10 transition-all"
-                                        />
-                                    </div>
-                                    <button
-                                        onClick={handleSearchSubtitles}
-                                        disabled={isSearchingSubtitles}
-                                        className="w-full py-3.5 bg-cyan-500/10 hover:bg-cyan-500/20 rounded-xl text-cyan-400 text-[9px] font-black uppercase tracking-widest transition-all disabled:opacity-50 border border-cyan-500/20 flex items-center justify-center gap-2"
-                                    >
-                                        {isSearchingSubtitles ? (
-                                            <>
-                                                <Loader2 size={14} className="animate-spin" />
-                                                Buscando...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Subtitles size={14} />
-                                                {subtitleSearchText ? 'Buscar Subtítulos' : 'Buscar Mejores Subtítulos'}
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-
-                                <div className="space-y-4 pt-4 border-t border-white/10">
-                                    <div className="flex flex-col gap-2">
-                                        <span className="text-[9px] font-black uppercase text-white/30 tracking-widest text-center">Tamaño de Texto</span>
-                                        <div className="grid grid-cols-4 gap-1 p-1 bg-black/40 rounded-xl border border-white/5">
-                                            {[
-                                                { id: 'small', label: 'T', size: 'text-[8px]' },
-                                                { id: 'medium', label: 'T', size: 'text-[10px]' },
-                                                { id: 'large', label: 'T', size: 'text-[13px]' },
-                                                { id: 'extra', label: 'T', size: 'text-[16px]' }
-                                            ].map((s) => (
-                                                <button
-                                                    key={s.id}
-                                                    onClick={() => updateSubtitleSettings({ size: s.id })}
-                                                    className={`py-1.5 rounded-lg flex items-center justify-center transition-all ${
-                                                        subtitleSettings.size === s.id 
-                                                        ? 'bg-white/10 text-white shadow-inner' 
-                                                        : 'text-white/30 hover:text-white/60'
-                                                    }`}
-                                                >
-                                                    <span className={`font-black ${s.size}`}>{s.label}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="flex flex-col gap-2">
-                                        <span className="text-[9px] font-black uppercase text-white/30 tracking-widest text-center">Color</span>
-                                        <div className="flex justify-center gap-3">
-                                            {[
-                                                { id: 'white', color: 'bg-white' },
-                                                { id: 'yellow', color: 'bg-yellow-400' },
-                                                { id: 'cyan', color: 'bg-cyan-500' }
-                                            ].map((c) => (
-                                                <button
-                                                    key={c.id}
-                                                    onClick={() => updateSubtitleSettings({ color: c.id })}
-                                                    className={`w-7 h-7 rounded-full border-2 transition-all ${
-                                                        subtitleSettings.color === c.id 
-                                                        ? 'border-white scale-110' 
-                                                        : 'border-white/10 scale-100 hover:scale-105'
-                                                    } ${c.color}`}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
+            {isLocked && (
+                <div className="absolute inset-0 z-[1002]">
+                    {/* Interaction barrier to block video controls/clicks */}
+                    <div className="absolute inset-0 bg-transparent" />
+                    
+                    {/* Small Lock Icon in Top Right */}
+                    <div 
+                        className={`absolute top-6 right-6 flex flex-col items-center gap-2 transition-all duration-500 cursor-pointer ${isUnlocking ? 'opacity-100 scale-110' : 'opacity-10'}`}
+                        onClick={handleUnlockStart}
+                        onMouseUp={handleUnlockEnd}
+                        onMouseLeave={handleUnlockEnd}
+                        onTouchStart={handleUnlockStart}
+                        onTouchEnd={handleUnlockEnd}
+                    >
+                        <div className="relative w-16 h-16 flex items-center justify-center">
+                            <div className="absolute inset-0 border-4 border-white/10 rounded-full"></div>
+                            <div 
+                                className="absolute inset-0 border-4 border-t-cyan-500 rounded-full animate-spin"
+                                style={{ 
+                                    borderTopColor: isUnlocking ? '#06b6d4' : 'transparent',
+                                    transform: `rotate(${unlockProgress * 3.6}deg)`
+                                }}
+                            ></div>
+                            <div className="relative z-10">
+                                <Lock size={24} className="text-white" />
                             </div>
+                        </div>
+                        {isUnlocking && (
+                            <span className="text-[10px] font-bold text-cyan-400">Suelta para desbloquear</span>
                         )}
                     </div>
                 </div>
             )}
 
-
-            {showDriveExplorer && (
-                <DriveExplorer 
-                    onClose={() => setShowDriveExplorer(false)} 
-                    onSelect={(file) => {
-                        handleSubtitleSelect({
-                            id: file.id,
-                            label: 'Drive: ' + file.name,
-                            file_name: file.name,
-                            type: 'drive'
-                        });
-                        setShowDriveExplorer(false);
-                    }}
-                />
-            )}
-            {/* DEBUG OVERLAY (Simplified for mobile performance) */}
-            {error && (
-                <div className="absolute inset-0 z-[1000] bg-black flex items-center justify-center p-6 md:p-12 overflow-y-auto">
-                    <div className="max-w-2xl w-full bg-zinc-900 border border-red-500/30 rounded-3xl p-8 md:p-12 shadow-2xl relative">
-                        <button 
-                            onClick={onClose}
-                            className="absolute top-6 right-6 p-3 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-white"
-                        >
-                            <X size={24} />
-                        </button>
-
-                        <div className="flex items-center gap-4 mb-8 text-red-500">
-                            <AlertCircle size={40} />
-                            <h2 className="text-3xl font-black uppercase italic tracking-tighter">Error de Reproducción</h2>
-                        </div>
-
-                        <div className="space-y-6">
-                            <div className="p-6 bg-black/50 rounded-2xl border border-red-500/20">
-                                <p className="text-red-400 font-bold mb-2">Mensaje:</p>
-                                <p className="text-white font-mono text-sm break-words">
-                                    {typeof error === 'string' ? error : (error.message || 'Error desconocido')}
-                                </p>
-                            </div>
-
-                            {error.stack && (
-                                <div className="p-6 bg-black/50 rounded-2xl border border-white/5">
-                                    <p className="text-slate-500 font-bold mb-2 uppercase text-[10px] tracking-widest">Stack Trace:</p>
-                                    <pre className="text-slate-300 font-mono text-[10px] overflow-x-auto max-h-40 whitespace-pre-wrap">
-                                        {error.stack}
-                                    </pre>
-                                </div>
-                            )}
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="p-4 bg-white/5 rounded-xl border border-white/5">
-                                    <p className="text-[10px] text-slate-500 uppercase font-black mb-1">Dispositivo</p>
-                                    <p className="text-xs text-white font-bold">{isMobile ? 'Móvil / Tablet' : 'Desktop'}</p>
-                                </div>
-                                <div className="p-4 bg-white/5 rounded-xl border border-white/5">
-                                    <p className="text-[10px] text-slate-500 uppercase font-black mb-1">Transcodificación</p>
-                                    <p className="text-xs text-white font-bold">{useTranscoding ? 'SÍ (Activa)' : 'NO (Directo)'}</p>
-                                </div>
-                            </div>
-
-                            <div className="pt-6 border-t border-white/5 flex flex-col gap-4">
-                                <button 
-                                    onClick={() => window.location.reload()}
-                                    className="w-full py-5 bg-white text-black font-black uppercase tracking-widest rounded-2xl hover:scale-[1.02] active:scale-95 transition-all"
-                                >
-                                    Reiniciar Aplicación
-                                </button>
-                                <button 
-                                    onClick={() => {
-                                        const errorStr = typeof error === 'string' ? error : (error.message || 'Error desconocido');
-                                        const text = `Error: ${errorStr}\nDevice: ${isMobile ? 'Mobile' : 'Desktop'}\nTranscoding: ${useTranscoding}\nUrl: ${videoUrl}\nStack: ${error.stack || 'No stack'}`;
-                                        navigator.clipboard.writeText(text);
-                                        alert('Copiado al portapapeles');
-                                    }}
-                                    className="w-full py-5 bg-white/5 text-white font-bold uppercase tracking-widest rounded-xl border border-white/10 hover:bg-white/10 transition-all active:scale-95"
-                                >
-                                    Copiar Diagnóstico para Soporte
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Rating Overlay */}
             {showRatingOverlay && (
-                <div className="absolute inset-0 z-[2000] bg-zinc-950/95 backdrop-blur-2xl flex items-center justify-center p-6">
-                    <div className="max-w-md w-full text-center space-y-10 animate-in fade-in zoom-in duration-500">
-                        <div className="relative inline-block">
-                             <div className="absolute -inset-4 bg-cyan-500/20 blur-3xl rounded-full" />
-                             <Film className="relative text-cyan-500 mx-auto mb-4" size={48} />
-                             <h2 className="relative text-4xl md:text-5xl font-black text-white uppercase italic tracking-tighter leading-none">¿Qué te pareció?</h2>
-                        </div>
-                        
-                        <p className="text-white/40 uppercase text-[11px] font-black tracking-[0.3em] max-w-[280px] mx-auto leading-relaxed">
-                            Tu valoración ayuda a mejorar la biblioteca
-                        </p>
-
-                        <div className="flex justify-center gap-3">
-                            {[1, 2, 3, 4, 5].map((star) => (
+                <div className="absolute inset-0 z-[1100] bg-black/80 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-500">
+                    <div className="glass-card p-8 rounded-3xl max-w-sm w-full mx-4 text-center border border-cyan-500/20 shadow-2xl shadow-cyan-500/10">
+                        <h3 className="text-lg font-black uppercase tracking-wider text-white mb-6">¿Qué te pareció?</h3>
+                        <div className="flex justify-center gap-3 mb-8">
+                            {[1, 2, 3, 4, 5].map(star => (
                                 <button
                                     key={star}
+                                    onClick={() => handleRating(star)}
                                     onMouseEnter={() => setHoverRating(star)}
                                     onMouseLeave={() => setHoverRating(0)}
-                                    onClick={() => handleRating(star)}
-                                    className="group relative p-2 transition-all hover:scale-125 active:scale-90 disabled:opacity-50"
-                                    disabled={isSavingRating}
+                                    className={`p-2 rounded-full transition-all ${
+                                        star <= (hoverRating || userRating) 
+                                            ? 'text-yellow-400 scale-110' 
+                                            : 'text-white/30 hover:text-yellow-400/50'
+                                    }`}
                                 >
-                                    {/* Star Glow */}
-                                    {(hoverRating || userRating) >= star && (
-                                        <div className="absolute inset-0 bg-cyan-500/40 blur-xl rounded-full scale-75 group-hover:scale-100 transition-transform" />
-                                    )}
-                                    
-                                    <Star 
-                                        size={48} 
-                                        fill={(hoverRating || userRating) >= star ? "#06b6d4" : "none"} 
-                                        strokeWidth={1.5}
-                                        className={`relative transition-all duration-300 ${
-                                            (hoverRating || userRating) >= star 
-                                            ? "text-cyan-500 drop-shadow-[0_0_15px_rgba(6,182,212,0.5)]" 
-                                            : "text-white/20"
-                                        }`}
-                                    />
+                                    <Star size={40} fill={star <= (hoverRating || userRating) ? 'currentColor' : 'none'} />
                                 </button>
                             ))}
                         </div>
-
-                        <div className="flex flex-col items-center gap-6 pt-4">
-                            {userRating > 0 && !isSavingRating && (
-                                <div className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/20 rounded-full animate-in slide-in-from-bottom-2">
-                                    <p className="text-cyan-400 text-[10px] font-black uppercase tracking-widest">¡Gracias por tu voto!</p>
-                                </div>
-                            )}
-                            
+                        {isSavingRating ? (
+                            <Loader2 size={24} className="text-cyan-500 animate-spin mx-auto" />
+                        ) : (
                             <button 
-                                onClick={onClose}
-                                className="group flex items-center gap-2 text-white/30 hover:text-white uppercase text-[11px] font-black tracking-[0.2em] transition-all"
+                                onClick={() => setShowRatingOverlay(false)}
+                                className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-white transition-colors"
                             >
-                                <span>Cerrar</span>
-                                <X size={14} className="group-hover:rotate-90 transition-transform" />
+                                Omitir
                             </button>
-                        </div>
+                        )}
                     </div>
                 </div>
             )}
