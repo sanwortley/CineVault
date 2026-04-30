@@ -83,12 +83,20 @@ const database = {
         legacyFields.forEach(f => delete payload[f]);
 
         // Convert empty strings to null for numeric fields to avoid Supabase errors
-        const numericFields = ['detected_year', 'runtime', 'rating', 'watched_duration'];
+        const numericFields = ['detected_year', 'runtime', 'rating', 'watched_duration', 'video_width', 'video_height', 'video_bitrate', 'duration_seconds'];
         numericFields.forEach(f => {
             if (payload[f] === '') payload[f] = null;
             if (f === 'detected_year' && payload[f]) {
                 const year = parseInt(payload[f]);
                 payload[f] = isNaN(year) ? null : year;
+            }
+        });
+
+        // Handle new video metadata fields
+        const metadataFields = ['video_width', 'video_height', 'video_codec', 'audio_codec', 'video_bitrate', 'duration_seconds', 'original_resolution'];
+        metadataFields.forEach(f => {
+            if (payload[f] === undefined || payload[f] === '') {
+                delete payload[f]; // Let Supabase use default/null
             }
         });
 

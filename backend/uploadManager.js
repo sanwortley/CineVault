@@ -5,6 +5,7 @@ const { EventEmitter } = require('events');
 const axios = require('axios');
 const driveApi = require('./drive');
 const db = require('./db');
+const { getVideoMetadata } = require('./optimizer'); // Import new function
 
 // Cross-environment persistent storage
 const QUEUE_FILE = process.platform === 'win32' 
@@ -202,6 +203,19 @@ class UploadManager extends EventEmitter {
             }
 
             console.log(`[UploadManager] Procesando subida: ${nextJob.title}`);
+            
+            // Extract video metadata before uploading
+            let videoMetadata = {};
+            try {
+                if (!isActuallyUrl && fs.existsSync(workingFilePath)) {
+                    console.log(`[UploadManager] Extracting metadata from: ${workingFilePath}`);
+                    videoMetadata = await getVideoMetadata(workingFilePath);
+                    console.log(`[UploadManager] Metadata: ${JSON.stringify(videoMetadata)}`);
+                }
+            } catch (metaErr) {
+                console.warn('[UploadManager] Metadata extraction failed:', metaErr.message);
+            }
+            
             const result = await driveApi.uploadVideo(workingFilePath, nextJob.mimeType, (progress, uploaded, total) => {
                 nextJob.progress = progress;
                 // Emitir progreso por SSE
