@@ -277,10 +277,11 @@ const driveApi = {
                     }
 
                     const { getTranscodeStream } = require('./optimizer');
+                    const quality = req?.query?.q || '720'; // Get quality from query
                     
                     // We go back to pipe approach because ffmpeg-static SIGSEGVs on direct HTTPS URLs in Railway
                     // But we use the optimized optimizer to handle it
-                    const transcodeStream = getTranscodeStream(bodyStream, startTime);
+                    const transcodeStream = getTranscodeStream(bodyStream, startTime, quality);
                     
                     transcodeStream.pipe(res);
 

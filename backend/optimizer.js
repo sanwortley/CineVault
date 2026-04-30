@@ -47,6 +47,40 @@ try {
 }
 
 /**
+ * Get video metadata using ffprobe
+ * Returns: { width, height, codec, audioCodec, duration, bitrate }
+ */
+function getVideoMetadata(input) {
+    return new Promise((resolve, reject) => {
+        ffmpeg.ffprobe(input, (err, metadata) => {
+            if (err) return reject(err);
+            
+            const videoStream = metadata.streams.find(s => s.codec_type === 'video');
+            const audioStream = metadata.streams.find(s => s.codec_type === 'audio');
+            
+            resolve({
+                width: videoStream?.width || 0,
+                height: videoStream?.height || 0,
+                videoCodec: videoStream?.codec_name || 'unknown',
+                audioCodec: audioStream?.codec_name || 'unknown',
+                duration: parseFloat(metadata.format?.duration) || 0,
+                bitrate: parseInt(metadata.format?.bit_rate) || 0
+            });
+        });
+    });
+}
+
+/**
+ * Quality profiles for transcoding
+ */
+const QUALITY_PROFILES = {
+    '480': { width: 854, height: 480, scale: '854:-2', bitrate: '600k', bufsize: '1.2M', crf: 28 },
+    '720': { width: 1280, height: 720, scale: '1280:-2', bitrate: '1500k', bufsize: '3M', crf: 28 },
+    '1080': { width: 1920, height: 1080, scale: '1920:-2', bitrate: '2200k', bufsize: '4.4M', crf: 30 },
+    'original': { scale: null, bitrate: null, bufsize: null, crf: 23 } // No scaling
+};
+
+/**
  * Returns a stream that compresses a video file for uploading.
  */
 function getOptimizedUploadStream(inputPath) {
@@ -78,10 +112,12 @@ function getOptimizedUploadStream(inputPath) {
 /**
  * Returns a stream that transcodes a video into a browser-friendly format (H.264/AAC).
  * Optimized for low-latency streaming.
+ * Now accepts quality parameter for dynamic resolution.
  */
-function getTranscodeStream(input, startTime = 0) {
-    console.log(`[Optimizer] Starting real-time transcode. Start: ${startTime}s`);
+function getTranscodeStream(input, startTime = 0, quality = '720') {
+    console.log(`[Optimizer] Starting real-time transcode. Start: ${startTime}s, Quality: ${quality}`);
     
+    const profile = QUALITY_PROFILES[quality] || QUALITY_PROFILES['720'];
     const passThrough = new PassThrough();
     const command = ffmpeg(input);
 
@@ -100,17 +136,26 @@ function getTranscodeStream(input, startTime = 0) {
             '-ss', startTime.toString(), // Seek after input for pipe stability
             '-preset', 'ultrafast', 
             '-tune', 'zerolatency',
-            '-profile:v', 'baseline', 
-            '-level', '3.0',
+            '-profile:v', profile.height <= 480 ? 'baseline' : 'main', 
+            '-level', profile.height <= 480 ? '3.0' : '4.1',
             '-pix_fmt', 'yuv420p',
             '-movflags', 'frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset+frag_discont', 
-            '-crf', '28', 
-            '-maxrate', '800k', 
-            '-bufsize', '1.6M',
+            '-crf', profile.crf.toString(),
             '-threads', '1',
             '-map_chapters', '-1'
-        ])
-        .videoFilter('scale=720:-2')
+        ]);
+
+    // Add scaling only if not 'original' quality
+    if (profile.scale) {
+        command.videoFilter(`scale=${profile.scale}`);
+    }
+
+    // Add bitrate control only if specified
+    if (profile.bitrate) {
+        command.outputOptions(['-b:v', profile.bitrate, '-bufsize', profile.bufsize]);
+    }
+
+    command
         .on('start', (cmd) => console.log(`[Optimizer] FFmpeg Stream: ${cmd}`))
         .on('error', (err) => {
             if (err.message.includes('SIGKILL') || err.message.includes('Output stream closed')) return;
@@ -134,7 +179,7 @@ function getHLSSegmentStream(input, startTime, duration, headers, quality, realS
     const profile = QUALITY_PROFILES[quality] || QUALITY_PROFILES['480'];
     const command = ffmpeg();
     const tsOffset = realStartTime !== null ? realStartTime : startTime;
-
+    
     // Use system-level seeking or pipe consumption
     const inputOptions = [
         '-threads', '2',
@@ -144,7 +189,7 @@ function getHLSSegmentStream(input, startTime, duration, headers, quality, realS
         '-fflags', '+genpts+igndts+discardcorrupt',
         '-err_detect', 'ignore_err'
     ];
-
+    
     if (typeof input === 'string' && input.startsWith('http')) {
         if (headers) inputOptions.push('-headers', headers.trim() + '\r\n');
         inputOptions.push('-ss', startTime.toString());
@@ -154,9 +199,9 @@ function getHLSSegmentStream(input, startTime, duration, headers, quality, realS
         command.input(input);
         command.inputOptions(inputOptions);
     }
-
+    
     const stream = new PassThrough();
-
+    
     command
         .inputOptions(inputOptions)
         .outputOptions([
@@ -169,7 +214,7 @@ function getHLSSegmentStream(input, startTime, duration, headers, quality, realS
             '-pix_fmt', 'yuv420p',
             '-g', '30',
             '-crf', profile.crf.toString(), 
-            '-maxrate', profile.bitrate, 
+            '-b:v', profile.bitrate, 
             '-bufsize', profile.bufsize,
             '-b:a', '128k',
             '-threads', '1',
@@ -189,10 +234,11 @@ function getHLSSegmentStream(input, startTime, duration, headers, quality, realS
     return stream;
 }
 
-const QUALITY_PROFILES = {
-    '480': { width: 854, height: 480, bitrate: '600k', bufsize: '1.2M', crf: 28 },
-    '720': { width: 1280, height: 720, bitrate: '1500k', bufsize: '3M', crf: 28 },
-    '1080': { width: 1920, height: 1080, bitrate: '2200k', bufsize: '4.4M', crf: 30 }
+module.exports = { 
+    getOptimizedUploadStream, 
+    getTranscodeStream, 
+    getHLSSegmentStream, 
+    getVideoMetadata,  // Export new function
+    QUALITY_PROFILES, 
+    IS_SYSTEM_FFMPEG 
 };
-
-module.exports = { getOptimizedUploadStream, getTranscodeStream, getHLSSegmentStream, QUALITY_PROFILES, IS_SYSTEM_FFMPEG };

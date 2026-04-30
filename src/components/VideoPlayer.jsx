@@ -253,12 +253,20 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         if (streamSource === 'cloud') {
             return api.getCloudStreamUrl(movie.id);
         } else if (streamSource === 'drive') {
-            return api.getStreamUrl(movie.drive_file_id, movie.file_path, { transcode: useTranscoding, seekOffset });
+            return api.getStreamUrl(movie.drive_file_id, movie.file_path, { 
+                transcode: useTranscoding, 
+                seekOffset,
+                quality // Pass selected quality
+            });
         } else if (streamSource === 'local') {
-            return api.getStreamUrl(null, movie.file_path, { transcode: useTranscoding, seekOffset });
+            return api.getStreamUrl(null, movie.file_path, { 
+                transcode: useTranscoding, 
+                seekOffset,
+                quality // Pass selected quality
+            });
         }
         return '';
-    }, [movie.id, movie.drive_file_id, movie.file_path, streamSource, useTranscoding, seekOffset]);
+    }, [movie.id, movie.drive_file_id, movie.file_path, streamSource, useTranscoding, seekOffset, quality]);
 
     const isDisplayLoading = isInitializing || isLoading;
 

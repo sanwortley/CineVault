@@ -305,7 +305,7 @@ export const api = {
         if (fileId) {
             const sessionId = localStorage.getItem('cinevault_session_id');
             let url = `${BACKEND_URL}/api/drive/stream/${fileId}?sessionId=${sessionId || ''}`;
-            if (options.transcode) url += `&transcode=true&t=${options.seekOffset || 0}`;
+            if (options.transcode) url += `&transcode=true&t=${options.seekOffset || 0}&q=${options.quality || '720'}`;
             return url;
         }
         return null;
