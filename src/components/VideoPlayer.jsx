@@ -250,23 +250,39 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const videoUrl = useMemo(() => {
         if (streamSource === 'checking' || streamSource === 'error') return '';
         
+        // Determine available qualities based on video metadata
+        const availableQualities = [];
+        const height = movie.video_height || 0;
+        
+        if (height >= 1080) availableQualities.push('1080');
+        if (height >= 720) availableQualities.push('720');
+        availableQualities.push('480'); // Always show 480p as fallback
+        
+        // Use selected quality if available, otherwise use '720' as default
+        const effectiveQuality = availableQualities.includes(quality) ? quality : '720';
+        
         if (streamSource === 'cloud') {
             return api.getCloudStreamUrl(movie.id);
         } else if (streamSource === 'drive') {
+            // Only transcode if quality is not 'original' and video needs it
+            const shouldTranscode = effectiveQuality !== 'original' && 
+                                     (movie.video_codec !== 'h264' || movie.video_height > parseInt(effectiveQuality));
             return api.getStreamUrl(movie.drive_file_id, movie.file_path, { 
-                transcode: useTranscoding, 
+                transcode: shouldTranscode,
                 seekOffset,
-                quality // Pass selected quality
+                quality: effectiveQuality
             });
         } else if (streamSource === 'local') {
+            const shouldTranscode = effectiveQuality !== 'original' && 
+                                     (movie.video_codec !== 'h264' || movie.video_height > parseInt(effectiveQuality));
             return api.getStreamUrl(null, movie.file_path, { 
-                transcode: useTranscoding, 
+                transcode: shouldTranscode,
                 seekOffset,
-                quality // Pass selected quality
+                quality: effectiveQuality
             });
         }
         return '';
-    }, [movie.id, movie.drive_file_id, movie.file_path, streamSource, useTranscoding, seekOffset, quality]);
+    }, [movie.id, movie.drive_file_id, movie.file_path, movie.video_height, movie.video_codec, streamSource, quality, seekOffset]);
 
     const isDisplayLoading = isInitializing || isLoading;
 
@@ -303,10 +319,29 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         
         const video = videoRef.current;
         if (video) {
+            setIsLoading(true); // Reset loading state
             video.src = videoUrl;
             if (seekOffset > 0) {
                 video.currentTime = seekOffset;
             }
+            
+            const handleCanPlay = () => {
+                setIsLoading(false);
+                console.log('[VideoPlayer] Video ready, isLoading=false');
+            };
+            
+            const handleError = (e) => {
+                console.error('[VideoPlayer] Video error during load:', e);
+                setIsLoading(false); // Reset on error too
+            };
+            
+            video.addEventListener('canplay', handleCanPlay);
+            video.addEventListener('error', handleError);
+            
+            return () => {
+                video.removeEventListener('canplay', handleCanPlay);
+                video.removeEventListener('error', handleError);
+            };
         }
     }, [videoUrl, streamingMode, seekOffset]);
 
