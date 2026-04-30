@@ -246,43 +246,27 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         }
     }, [movie.id, subQuotaReached]);
 
-    // Build video URL - Direct streaming only (HLS disabled)
+    // Build video URL - Direct streaming ONLY (no transcoding for speed)
     const videoUrl = useMemo(() => {
         if (streamSource === 'checking' || streamSource === 'error') return '';
         
-        // Determine available qualities based on video metadata
-        const availableQualities = [];
-        const height = movie.video_height || 0;
-        
-        if (height >= 1080) availableQualities.push('1080');
-        if (height >= 720) availableQualities.push('720');
-        availableQualities.push('480'); // Always show 480p as fallback
-        
-        // Use selected quality if available, otherwise use '720' as default
-        const effectiveQuality = availableQualities.includes(quality) ? quality : '720';
-        
+        // Force direct streaming - no transcoding
         if (streamSource === 'cloud') {
             return api.getCloudStreamUrl(movie.id);
         } else if (streamSource === 'drive') {
-            // Only transcode if quality is not 'original' and video needs it
-            const shouldTranscode = effectiveQuality !== 'original' && 
-                                     (movie.video_codec !== 'h264' || movie.video_height > parseInt(effectiveQuality));
+            // Always use direct streaming for speed
             return api.getStreamUrl(movie.drive_file_id, movie.file_path, { 
-                transcode: shouldTranscode,
-                seekOffset,
-                quality: effectiveQuality
+                transcode: false, // NEVER transcode
+                seekOffset 
             });
         } else if (streamSource === 'local') {
-            const shouldTranscode = effectiveQuality !== 'original' && 
-                                     (movie.video_codec !== 'h264' || movie.video_height > parseInt(effectiveQuality));
             return api.getStreamUrl(null, movie.file_path, { 
-                transcode: shouldTranscode,
-                seekOffset,
-                quality: effectiveQuality
+                transcode: false, // NEVER transcode
+                seekOffset 
             });
         }
         return '';
-    }, [movie.id, movie.drive_file_id, movie.file_path, movie.video_height, movie.video_codec, streamSource, quality, seekOffset]);
+    }, [movie.id, movie.drive_file_id, movie.file_path, streamSource, seekOffset]);
 
     const isDisplayLoading = isInitializing || isLoading;
 
@@ -325,9 +309,9 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                 video.currentTime = seekOffset;
             }
             
-            const handleCanPlay = () => {
+            const handleLoadedData = () => {
                 setIsLoading(false);
-                console.log('[VideoPlayer] Video ready, isLoading=false');
+                console.log('[VideoPlayer] Video loaded, isLoading=false');
             };
             
             const handleError = (e) => {
@@ -335,11 +319,11 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                 setIsLoading(false); // Reset on error too
             };
             
-            video.addEventListener('canplay', handleCanPlay);
+            video.addEventListener('loadeddata', handleLoadedData);
             video.addEventListener('error', handleError);
             
             return () => {
-                video.removeEventListener('canplay', handleCanPlay);
+                video.removeEventListener('loadeddata', handleLoadedData);
                 video.removeEventListener('error', handleError);
             };
         }
