@@ -333,6 +333,12 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         setShowRatingOverlay(true);
     };
 
+    // Handle video loaded data event
+    const handleLoadedData = () => {
+        setIsLoading(false);
+        console.log('[VideoPlayer] Video loaded, isLoading=false');
+    };
+
     // Video initialization - Direct streaming only (HLS disabled)
     useEffect(() => {
         if (!videoUrl || streamingMode !== 'classic') return;
@@ -345,16 +351,6 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                 video.currentTime = seekOffset;
             }
             
-            const handleLoadedData = () => {
-                setIsLoading(false);
-                console.log('[VideoPlayer] Video loaded, isLoading=false');
-            };
-            
-            const handleError = (e) => {
-                console.error('[VideoPlayer] Video error during load:', e);
-                setIsLoading(false); // Reset on error too
-            };
-            
             // Safety timeout: if video takes >15s, force reset
             const safetyTimer = setTimeout(() => {
                 if (isLoading) {
@@ -363,13 +359,8 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                 }
             }, 15000);
             
-            video.addEventListener('loadeddata', handleLoadedData);
-            video.addEventListener('error', handleError);
-            
             return () => {
                 clearTimeout(safetyTimer);
-                video.removeEventListener('loadeddata', handleLoadedData);
-                video.removeEventListener('error', handleError);
             };
         }
     }, [videoUrl, streamingMode, seekOffset]);
