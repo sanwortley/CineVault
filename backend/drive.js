@@ -288,8 +288,11 @@ const driveApi = {
                     });
                 } catch (streamErr) {
                     console.error('[DriveStream] Critical error during stream initialization:', streamErr.message);
-                    if (streamErr.message.includes('invalid_grant')) {
+                    if (streamErr.message && streamErr.message.toLowerCase().includes('invalid_grant')) {
                         console.error('[DriveStream] Authentication expired. User needs to re-link Google Drive.');
+                        try {
+                            await driveApi.disconnect();
+                        } catch (e) {}
                     }
                     if (!res.headersSent) {
                         res.status(500).json({ error: 'Error al obtener flujo de Drive', details: streamErr.message });

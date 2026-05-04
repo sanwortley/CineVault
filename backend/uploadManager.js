@@ -246,8 +246,20 @@ class UploadManager extends EventEmitter {
 
         } catch (error) {
             console.error(`[UploadManager] Fallo en subida ${nextJob.title}:`, error.message);
+            
+            let errorMessage = error.message;
+            if (errorMessage && errorMessage.toLowerCase().includes('invalid_grant')) {
+                console.error('[UploadManager] Token de Drive revocado o expirado. Desconectando...');
+                try {
+                    await driveApi.disconnect();
+                } catch (e) {
+                    console.error('[UploadManager] Error al desconectar drive:', e.message);
+                }
+                errorMessage = 'Google Drive desconectado (Sesión expirada). Reconéctalo en Ajustes.';
+            }
+
             nextJob.status = 'error';
-            nextJob.error = error.message;
+            nextJob.error = errorMessage;
             this.emit('job_error', nextJob);
         }
 
