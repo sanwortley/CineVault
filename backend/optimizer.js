@@ -122,9 +122,9 @@ function getTranscodeStream(input, startTime = 0, quality = '720', headers = nul
     const command = ffmpeg(input);
 
     const inputOptions = [
-        '-threads', '1',
-        '-probesize', '5M',
-        '-analyzeduration', '5M',
+        '-threads', '0', // Auto-threads for better performance
+        '-probesize', '15M', // More room for 4K headers
+        '-analyzeduration', '15M',
         '-fflags', '+genpts+igndts',
         '-err_detect', 'ignore_err'
     ];
@@ -153,10 +153,10 @@ function getTranscodeStream(input, startTime = 0, quality = '720', headers = nul
             '-level', profile.height <= 480 ? '3.0' : '4.1',
             '-pix_fmt', 'yuv420p',
             '-movflags', 'frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset+frag_discont', 
-            '-crf', profile.crf.toString(),
-            '-threads', '1',
+            '-crf', (parseInt(profile.crf) + 4).toString(), // Lighter load for server
+            '-threads', '0',
             '-map_chapters', '-1',
-            '-max_muxing_queue_size', '1024'
+            '-max_muxing_queue_size', '2048'
         ]);
 
     // Slow seeking after input if it's a pipe
