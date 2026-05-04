@@ -107,6 +107,52 @@ const database = {
         console.log('[DB] Attempting addMovie with payload:', JSON.stringify(payload, null, 2));
 
         try {
+            let existing = null;
+            
+            // Check by exact path (only for local files)
+            if (payload.file_path && !payload.file_path.startsWith('remote://')) {
+                const byPath = await database.findMovies({ file_path: payload.file_path });
+                if (byPath.length > 0) existing = byPath[0];
+            }
+            
+            // Check by official title and year
+            if (!existing && payload.official_title && payload.detected_year) {
+                const byTitle = await database.findMovies({ official_title: payload.official_title, detected_year: payload.detected_year });
+                if (byTitle.length > 0) {
+                    existing = byTitle[0];
+                } else {
+                    // Try loosely matching title without tags like [English]
+                    const baseTitle = payload.official_title.replace(/\s*\[.*?\]/g, '').trim();
+                    if (baseTitle && baseTitle !== payload.official_title) {
+                        const allMovies = await database.getMovies();
+                        const looseMatch = allMovies.find(m => 
+                            m.official_title && 
+                            m.official_title.replace(/\s*\[.*?\]/g, '').trim() === baseTitle &&
+                            m.detected_year == payload.detected_year
+                        );
+                        if (looseMatch) existing = looseMatch;
+                    } else {
+                        // Also check if the DB has a title with a tag and we are adding one without
+                        const allMovies = await database.getMovies();
+                        const looseMatch = allMovies.find(m => 
+                            m.official_title && 
+                            m.official_title.replace(/\s*\[.*?\]/g, '').trim() === payload.official_title &&
+                            m.detected_year == payload.detected_year
+                        );
+                        if (looseMatch) existing = looseMatch;
+                    }
+                }
+            }
+
+            if (existing) {
+                console.log(`[DB] Duplicado detectado para "${payload.official_title}". Actualizando el registro existente (ID: ${existing.id})...`);
+                if (existing.drive_file_id && existing.drive_file_id !== 'pending_cloud' && payload.drive_file_id === 'pending_cloud') {
+                    delete payload.drive_file_id;
+                }
+                await database.updateMovie(existing.id, payload);
+                return { ...existing, ...payload };
+            }
+
             const res = await supabaseFetch('movies', { 
                 method: 'POST', 
                 body: JSON.stringify(payload),
