@@ -650,8 +650,38 @@ app.get('/api/drive/stream-cloud/:movieId', async (req, res) => {
                if (transcodeStream.ffmpegCommand) transcodeStream.ffmpegCommand.kill();
             });
         } else {
-            console.log(`[InstantPlay] Redirigiendo a stream cloud para movie ${movieId}`);
-            return res.redirect(cloudUrl);
+            console.log(`[InstantPlay] Proxying cloud source para movie ${movieId}: ${cloudUrl}`);
+            const axios = require('axios');
+            const range = req.headers.range;
+            
+            try {
+                const response = await axios({
+                    method: 'get',
+                    url: cloudUrl,
+                    responseType: 'stream',
+                    headers: range ? { Range: range } : {},
+                    timeout: 15000
+                });
+
+                res.status(response.status);
+                // Forward essential headers for video streaming
+                const headersToForward = ['content-type', 'content-length', 'content-range', 'accept-ranges'];
+                headersToForward.forEach(h => {
+                    if (response.headers[h]) res.setHeader(h, response.headers[h]);
+                });
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                
+                response.data.pipe(res);
+                
+                res.on('close', () => {
+                    if (response.data.destroy) response.data.destroy();
+                });
+            } catch (proxyErr) {
+                console.warn(`[InstantPlay] Proxy falló para ${movieId}, usando redirección como fallback:`, proxyErr.message);
+                if (!res.headersSent) {
+                    return res.redirect(cloudUrl);
+                }
+            }
         }
     } catch (e) {
         console.error('[InstantPlay] Error:', e.message);

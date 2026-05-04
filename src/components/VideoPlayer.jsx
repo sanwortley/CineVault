@@ -293,9 +293,9 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             return url;
         } else if (streamSource === 'drive') {
             return api.getStreamUrl(movie.drive_file_id, movie.file_path, { 
-                transcode: needsTranscoding,
-                seekOffset,
-                quality: needsTranscoding ? quality : null // Only pass quality if transcoding
+                transcode: needsTranscoding || useTranscoding,
+                quality: quality,
+                startTime: seekOffset
             });
         } else if (streamSource === 'local') {
             return api.getStreamUrl(null, movie.file_path, { 
@@ -611,8 +611,10 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             let url = '';
             let directContent = null;
             
-            if (subtitle.type === 'cloud') {
-                url = BACKEND_URL + '/api/subtitles/download?id=' + subtitle.id;
+            if (subtitle.type === 'os') {
+                // Use the cloud GET endpoint for streaming subtitles in the player
+                url = BACKEND_URL + '/api/subtitles/cloud?id=' + subtitle.id;
+                // Still notify backend to pair/cache it in the background
                 api.downloadSubtitle(subtitle.id, movie.id).catch(e => console.warn('[VideoPlayer] Pairing failed:', e));
             } else if (subtitle.type === 'local') {
                 url = BACKEND_URL + '/api/subtitles/external?path=' + encodeURIComponent(subtitle.path);
