@@ -123,21 +123,20 @@ function getTranscodeStream(input, startTime = 0, quality = '720', headers = nul
 
     const inputOptions = [
         '-threads', '1',
-        '-probesize', '10M',
-        '-analyzeduration', '10M'
+        '-probesize', '5M',
+        '-analyzeduration', '5M',
+        '-fflags', '+genpts+igndts',
+        '-err_detect', 'ignore_err'
     ];
 
     if (typeof input === 'string') {
         if (headers) inputOptions.push('-headers', headers.trim() + '\r\n');
         // Fast seeking before input
         inputOptions.push('-ss', startTime.toString());
-        command.input(input);
-    } else {
-        // It's a stream pipe
-        command.input(input);
     }
 
     command.inputOptions(inputOptions);
+    command.input(input);
 
     command
         .videoCodec('libx264')
