@@ -119,7 +119,7 @@ function getTranscodeStream(input, startTime = 0, quality = '720', headers = nul
     
     const profile = QUALITY_PROFILES[quality] || QUALITY_PROFILES['720'];
     const passThrough = new PassThrough();
-    const command = ffmpeg();
+    const command = ffmpeg(input);
 
     const inputOptions = [
         '-threads', '1',
@@ -131,11 +131,11 @@ function getTranscodeStream(input, startTime = 0, quality = '720', headers = nul
 
     if (typeof input === 'string') {
         if (headers) inputOptions.push('-headers', headers.trim() + '\r\n');
+        // Fast seeking before input
         inputOptions.push('-ss', startTime.toString());
     }
 
     command.inputOptions(inputOptions);
-    command.input(input);
 
     if (quality === 'original') {
         command.videoCodec('copy').audioCodec('aac'); // Still transcode audio to AAC for better compatibility
