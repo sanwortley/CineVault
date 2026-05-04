@@ -811,7 +811,6 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         muted={isMuted}
                         webkit-playsinline="true"
                         src={videoUrl}
-                        crossOrigin="anonymous"
                         onEnded={handleVideoEnded}
                         onTimeUpdate={(e) => {
                             const time = e.target.currentTime;
@@ -841,16 +840,6 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         onSeeking={() => {}}
                         onSeeked={() => {}}
                     >
-                        {selectedSubtitle && (
-                            <track 
-                                key={selectedSubtitle.id}
-                                label={selectedSubtitle.label}
-                                kind="subtitles"
-                                srcLang={selectedSubtitle.lang}
-                                src={selectedSubtitle.url}
-                                default
-                            />
-                        )}
                     </video>
                 ) : (
                     <div className="flex flex-col items-center gap-4">
