@@ -74,9 +74,9 @@ function getVideoMetadata(input) {
  * Quality profiles for transcoding
  */
 const QUALITY_PROFILES = {
-    '480': { width: 854, height: 480, scale: '854:-2', bitrate: '600k', bufsize: '1.2M', crf: 28 },
-    '720': { width: 1280, height: 720, scale: '1280:-2', bitrate: '1500k', bufsize: '3M', crf: 28 },
-    '1080': { width: 1920, height: 1080, scale: '1920:-2', bitrate: '2200k', bufsize: '4.4M', crf: 30 },
+    '480': { width: 854, height: 480, scale: '854:-2', bitrate: '1000k', bufsize: '2M', crf: 26 },
+    '720': { width: 1280, height: 720, scale: '1280:-2', bitrate: '2500k', bufsize: '5M', crf: 26 },
+    '1080': { width: 1920, height: 1080, scale: '1920:-2', bitrate: '4000k', bufsize: '8M', crf: 26 },
     'original': { scale: null, bitrate: null, bufsize: null, crf: 23 } // No scaling
 };
 
@@ -131,17 +131,20 @@ function getTranscodeStream(input, startTime = 0, quality = '720', headers = nul
 
     if (typeof input === 'string') {
         if (headers) inputOptions.push('-headers', headers.trim() + '\r\n');
-        // Fast seeking before input
         inputOptions.push('-ss', startTime.toString());
     }
 
     command.inputOptions(inputOptions);
     command.input(input);
 
+    if (quality === 'original') {
+        command.videoCodec('copy').audioCodec('aac'); // Still transcode audio to AAC for better compatibility
+    } else {
+        command.videoCodec('libx264').audioCodec('aac');
+        command.audioChannels(2);
+    }
+
     command
-        .videoCodec('libx264')
-        .audioCodec('aac')
-        .audioChannels(2)
         .format('mp4')
         .outputOptions([
             '-preset', 'ultrafast', 
@@ -152,7 +155,8 @@ function getTranscodeStream(input, startTime = 0, quality = '720', headers = nul
             '-movflags', 'frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset+frag_discont', 
             '-crf', profile.crf.toString(),
             '-threads', '1',
-            '-map_chapters', '-1'
+            '-map_chapters', '-1',
+            '-max_muxing_queue_size', '1024'
         ]);
 
     // Slow seeking after input if it's a pipe

@@ -260,24 +260,26 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
 
     // Determine if we need transcoding based on selected quality vs video metadata
     const needsTranscoding = useMemo(() => {
-        if (quality === 'original') return false; // Never transcode if "original"
-        
         const vidCodec = (movie.video_codec || '').toLowerCase();
         const audCodec = (movie.audio_codec || '').toLowerCase();
+        const isMKV = movie.file_path?.toLowerCase().endsWith('.mkv') || 
+                      movie.file_name?.toLowerCase().endsWith('.mkv');
         
         // Compatible codecs with browsers
         const isVideoCompatible = ['h264', 'avc1', 'avc2', 'vp8', 'vp9', 'av1'].some(c => vidCodec.includes(c));
         const isAudioCompatible = ['aac', 'mp3', 'opus', 'vorbis'].some(c => audCodec.includes(c));
         
-        // If already compatible and selected quality >= original height -> No transcode
-        if (isVideoCompatible && isAudioCompatible) {
-            const height = movie.video_height || 0;
-            if (height <= parseInt(quality)) return false; // Original is good enough
+        // If quality is "original", we only transcode if the container or codec is incompatible
+        if (quality === 'original') {
+            return isMKV || !isVideoCompatible || !isAudioCompatible;
         }
         
-        // Otherwise, we need transcode
-        return !isVideoCompatible || !isAudioCompatible;
-    }, [quality, movie.video_codec, movie.audio_codec, movie.video_height]);
+        // If quality is specific (e.g. 720p), we always transcode if the original is better or incompatible
+        const height = movie.video_height || 0;
+        if (height > parseInt(quality)) return true; // Scale down
+        
+        return isMKV || !isVideoCompatible || !isAudioCompatible;
+    }, [quality, movie.video_codec, movie.audio_codec, movie.video_height, movie.file_path, movie.file_name]);
 
     // Build video URL - Smart transcoding based on compatibility
     const videoUrl = useMemo(() => {
@@ -349,13 +351,15 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         
         setIsLoading(true);
         
-        // Safety timeout: if video takes >15s, force-clear loading
-        const safetyTimer = setTimeout(() => {
-            console.warn('[VideoPlayer] Timeout: forcing isLoading=false');
-            setIsLoading(false);
-        }, 15000);
+        // Safety timeout: if video takes >45s, force-clear loading
+        const timer = setTimeout(() => {
+            if (isLoading) {
+                console.warn('[VideoPlayer] Timeout (45s): forcing isLoading=false');
+                setIsLoading(false);
+            }
+        }, 45000); // 45s for cold transcoding
         
-        return () => clearTimeout(safetyTimer);
+        return () => clearTimeout(timer);
     }, [videoUrl, streamingMode]);
 
     const handleVideoError = (e) => {
