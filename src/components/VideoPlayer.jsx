@@ -1155,162 +1155,141 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                 </div>
             )}
 
-            {/* Sidebar Menu (Subtitles / Versions / Quality) */}
+            {/* HBO/Max Style Settings Overlay */}
             {(showSubtitleMenu || showVersionMenu || showQualityMenu) && (
                 <div 
-                    className="absolute inset-0 z-[60] bg-black/40 backdrop-blur-sm flex justify-end"
+                    className="absolute inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 md:p-10 animate-in fade-in duration-300"
                     onClick={() => { setShowSubtitleMenu(false); setShowVersionMenu(false); setShowQualityMenu(false); }}
                 >
                     <div 
-                        className="w-full max-w-[320px] h-full bg-slate-900/95 backdrop-blur-xl border-l border-white/10 shadow-2xl flex flex-col p-6 animate-in slide-in-from-right duration-500"
+                        className="w-full max-w-4xl bg-black/40 border border-white/10 rounded-[40px] p-8 md:p-12 relative shadow-2xl overflow-hidden"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="flex justify-between items-center mb-8">
-                            <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-white/90">
-                                {showSubtitleMenu ? 'Subtítulos' : showVersionMenu ? 'Versión' : 'Calidad'}
-                            </h3>
+                        {/* Header with Close */}
+                        <div className="absolute top-8 right-8">
                             <button 
                                 onClick={() => { setShowSubtitleMenu(false); setShowVersionMenu(false); setShowQualityMenu(false); }} 
-                                className="p-2 hover:bg-white/10 rounded-full text-white/40 transition-colors"
+                                className="p-3 hover:bg-white/10 rounded-full text-white/60 transition-colors"
                             >
-                                <X size={20} />
+                                <X size={28} />
                             </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3">
-                            {showQualityMenu && (
-                                <div className="space-y-4">
-                                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest px-1">Selecciona una calidad</p>
-                                    {availableQualities.map((q) => (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-20">
+                            {/* Column 1: Subtitles */}
+                            <div className="space-y-8">
+                                <h3 className="text-xl font-bold text-white/40 uppercase tracking-[0.2em] border-b border-white/10 pb-4">Subtítulos</h3>
+                                <div className="space-y-2 max-h-[40vh] overflow-y-auto custom-scrollbar pr-4">
+                                    <button 
+                                        onClick={() => handleSubtitleSelect(null)}
+                                        className={`w-full text-left py-3 px-4 rounded-xl transition-all flex items-center gap-3 ${!selectedSubtitle ? 'text-white font-bold' : 'text-white/40 hover:text-white'}`}
+                                    >
+                                        {!selectedSubtitle && <Check size={18} className="text-cyan-400" />}
+                                        <span className="text-lg">Apagado</span>
+                                    </button>
+                                    
+                                    {isSearchingSubtitles ? (
+                                        <div className="flex items-center gap-3 py-4 text-cyan-400">
+                                            <Loader2 size={20} className="animate-spin" />
+                                            <span className="text-sm font-bold uppercase tracking-widest">Buscando...</span>
+                                        </div>
+                                    ) : subtitles.map(sub => (
                                         <button
-                                            key={q.id}
-                                            onClick={() => {
-                                                setQuality(q.id);
-                                                setShowQualityMenu(false);
-                                                if (needsTranscoding) {
-                                                    setIsLoading(true); // Only set loading if we actually need to transcode
-                                                }
-                                            }}
-                                            className={`w-full text-left p-5 rounded-2xl flex items-center justify-between transition-all border ${
-                                                quality === q.id 
-                                                    ? 'bg-cyan-500 border-cyan-500 text-black shadow-lg shadow-cyan-500/20' 
-                                                    : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
-                                            }`}
+                                            key={sub.id}
+                                            onClick={() => handleSubtitleSelect(sub)}
+                                            className={`w-full text-left py-3 px-4 rounded-xl transition-all flex items-center gap-3 ${selectedSubtitle?.id === sub.id ? 'text-white font-bold' : 'text-white/40 hover:text-white'}`}
                                         >
+                                            {selectedSubtitle?.id === sub.id && <Check size={18} className="text-cyan-400" />}
                                             <div className="flex flex-col">
-                                                <span className="text-sm font-bold italic">{q.label}</span>
-                                                <span className="text-[9px] opacity-60 uppercase tracking-tighter font-bold">{q.desc}</span>
+                                                <span className="text-lg">{sub.label}</span>
+                                                <span className="text-[10px] uppercase opacity-40">{sub.provider || 'Local'}</span>
                                             </div>
-                                            <span className="text-[10px] font-bold opacity-40">{q.icon}</span>
                                         </button>
                                     ))}
-                                    <div className="p-4 bg-amber-500/10 rounded-2xl border border-amber-500/20 flex items-start gap-3 mt-8">
-                                        <AlertCircle size={16} className="text-amber-500 shrink-0 mt-0.5" />
-                                        <p className="text-[9px] text-amber-200/60 leading-relaxed uppercase font-bold">
-                                            Las calidades altas (1080p) pueden causar tirones si el servidor tiene mucha carga o tu internet es inestable.
-                                        </p>
+
+                                    <div className="pt-6 mt-6 border-t border-white/5 space-y-4">
+                                        <button 
+                                            onClick={handleSearchSubtitles}
+                                            className="w-full py-4 px-6 bg-white/5 hover:bg-white/10 rounded-2xl text-white font-bold transition-all flex items-center justify-center gap-3 border border-white/5"
+                                        >
+                                            <Search size={20} />
+                                            <span>Buscar Más</span>
+                                        </button>
+                                        <div className="relative">
+                                            <input 
+                                                type="file" 
+                                                id="sub-up-hbo" 
+                                                className="hidden" 
+                                                onChange={handleLocalSubtitleUpload}
+                                                accept=".srt,.vtt"
+                                            />
+                                            <button 
+                                                onClick={() => document.getElementById('sub-up-hbo').click()}
+                                                className="w-full py-4 px-6 bg-white/5 hover:bg-white/10 rounded-2xl text-white/60 text-sm transition-all border border-white/5"
+                                            >
+                                                Cargar archivo local
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                            )}
+                            </div>
 
-                            {showSubtitleMenu && (
-                                <div className="space-y-4">
-                                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest px-1">Subtítulos encontrados</p>
-                                    {isSearchingSubtitles ? (
-                                        <div className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl">
-                                            <Loader2 size={18} className="text-cyan-400 animate-spin" />
-                                            <span className="text-[10px] text-slate-400">Buscando...</span>
-                                        </div>
-                                    ) : subtitles.length > 0 ? (
-                                        subtitles.map(sub => (
+                            {/* Column 2: Quality & Versions */}
+                            <div className="space-y-8">
+                                <h3 className="text-xl font-bold text-white/40 uppercase tracking-[0.2em] border-b border-white/10 pb-4">
+                                    {showVersionMenu ? 'Versión' : 'Calidad'}
+                                </h3>
+                                <div className="space-y-2 max-h-[40vh] overflow-y-auto custom-scrollbar pr-4">
+                                    {showQualityMenu ? (
+                                        availableQualities.map(q => (
                                             <button
-                                                key={sub.id}
-                                                onClick={() => handleSubtitleSelect(sub)}
-                                                className={`w-full text-left p-4 rounded-2xl transition-all border ${
-                                                    selectedSubtitle?.id === sub.id 
-                                                        ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400' 
-                                                        : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
-                                                }`}
+                                                key={q.id}
+                                                onClick={() => {
+                                                    setQuality(q.id);
+                                                    setShowQualityMenu(false);
+                                                }}
+                                                className={`w-full text-left py-3 px-4 rounded-xl transition-all flex items-center gap-3 ${quality === q.id ? 'text-white font-bold' : 'text-white/40 hover:text-white'}`}
                                             >
+                                                {quality === q.id && <Check size={18} className="text-cyan-400" />}
                                                 <div className="flex flex-col">
-                                                    <span className="text-sm font-bold">{sub.label}</span>
-                                                    <span className="text-[9px] opacity-60">{sub.lang || 'unknown'}</span>
-                                                    {sub.provider && <span className="text-[8px] opacity-40 uppercase tracking-widest">{sub.provider}</span>}
+                                                    <span className="text-lg">{q.label}</span>
+                                                    <span className="text-[10px] uppercase opacity-40">{q.desc}</span>
                                                 </div>
                                             </button>
                                         ))
                                     ) : (
-                                        <p className="text-[10px] text-slate-600 text-center py-4">No se encontraron subtítulos. ¡Prueba buscar manualmente!</p>
+                                        versions.map((v, i) => (
+                                            <button
+                                                key={v.id || i}
+                                                onClick={() => {
+                                                    onVersionChange(v);
+                                                    setShowVersionMenu(false);
+                                                }}
+                                                className={`w-full text-left py-3 px-4 rounded-xl transition-all flex items-center gap-3 ${v.id === movie.id ? 'text-white font-bold' : 'text-white/40 hover:text-white'}`}
+                                            >
+                                                {v.id === movie.id && <Check size={18} className="text-cyan-400" />}
+                                                <div className="flex flex-col">
+                                                    <span className="text-lg">{v.official_title || v.detected_title}</span>
+                                                    <span className="text-[10px] uppercase opacity-40">{v.detected_year || 'Versión alterna'}</span>
+                                                </div>
+                                            </button>
+                                        ))
                                     )}
-                                    
-                                    <div className="pt-4 border-t border-white/5 space-y-3">
-                                        <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest px-1">Opciones</p>
+
+                                    {/* Toggle between Quality and Versions if available */}
+                                    <div className="pt-10">
                                         <button 
-                                            onClick={handleSearchSubtitles}
-                                            className="w-full p-4 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl text-left transition-colors flex items-center gap-3"
+                                            onClick={() => {
+                                                if (showQualityMenu) { setShowQualityMenu(false); setShowVersionMenu(true); }
+                                                else { setShowQualityMenu(true); setShowVersionMenu(false); }
+                                            }}
+                                            className="text-cyan-400 text-sm font-bold uppercase tracking-[0.2em] hover:text-cyan-300 transition-colors"
                                         >
-                                            <Search size={18} className="text-cyan-400" />
-                                            <span className="text-sm">Buscar en línea</span>
+                                            {showQualityMenu ? 'Ver otras versiones' : 'Cambiar calidad'}
                                         </button>
-                                        <div className="relative">
-                                            <button 
-                                                onClick={() => document.getElementById('subtitleUpload')?.click()}
-                                                className="w-full p-4 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl text-left transition-colors flex items-center gap-3"
-                                            >
-                                                <Plus size={18} className="text-cyan-400" />
-                                                <span className="text-sm">Cargar archivo local</span>
-                                            </button>
-                                            <input 
-                                                id="subtitleUpload"
-                                                type="file"
-                                                accept=".srt,.vtt,.sub,.sbv,.ass"
-                                                className="hidden"
-                                                onChange={handleLocalSubtitleUpload}
-                                            />
-                                        </div>
-                                        <div className="flex items-center gap-2 px-1">
-                                            <input 
-                                                type="text"
-                                                value={subtitleSearchText}
-                                                onChange={(e) => setSubtitleSearchText(e.target.value)}
-                                                placeholder="Buscar por título..."
-                                                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50"
-                                            />
-                                            <button 
-                                                onClick={handleSearchSubtitles}
-                                                className="p-2 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/30 rounded-lg text-cyan-400 transition-colors"
-                                            >
-                                                <Search size={16} />
-                                            </button>
-                                        </div>
                                     </div>
                                 </div>
-                            )}
-
-                            {showVersionMenu && (
-                                <div className="space-y-4">
-                                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest px-1">Versiones disponibles</p>
-                                    {versions.map((v, i) => (
-                                        <button
-                                            key={v.id || i}
-                                            onClick={() => {
-                                                onVersionChange(v);
-                                                setShowVersionMenu(false);
-                                            }}
-                                            className={`w-full text-left p-4 rounded-2xl transition-all border ${
-                                                v.id === movie.id 
-                                                    ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400' 
-                                                    : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
-                                            }`}
-                                        >
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-bold">{v.official_title || v.detected_title}</span>
-                                                <span className="text-[9px] opacity-60">{v.file_name || v.detected_year}</span>
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
+                            </div>
                         </div>
                     </div>
                 </div>
