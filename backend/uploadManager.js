@@ -184,7 +184,8 @@ class UploadManager extends EventEmitter {
                 const writer = fs.createWriteStream(tempFilePath);
                 response.data.on('data', (chunk) => {
                     downloadedLength += chunk.length;
-                    const progress = totalLength ? Math.round((downloadedLength / totalLength) * 100) : 0;
+                    const rawProgress = totalLength ? Math.round((downloadedLength / totalLength) * 100) : 0;
+                    const progress = Math.min(rawProgress, 100);
                     this.emit('job_progress', {
                         movieId: nextJob.movieId,
                         progress,

@@ -126,7 +126,14 @@ const driveApi = {
             fields: 'id, webContentLink, webViewLink'
         }, {
             onUploadProgress: (evt) => {
-                if (onProgress) onProgress(Math.round((evt.bytesRead / fileSize) * 100), evt.bytesRead, fileSize);
+                if (onProgress) {
+                    let progress = Math.round((evt.bytesRead / fileSize) * 100);
+                    // If optimizing, fileSize (source) is not equal to final size, cap at 99% until done
+                    if (options.optimize) progress = Math.min(progress, 99);
+                    else progress = Math.min(progress, 100);
+                    
+                    onProgress(progress, evt.bytesRead, fileSize);
+                }
             }
         });
 
