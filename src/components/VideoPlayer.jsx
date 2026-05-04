@@ -1046,7 +1046,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
 
             {/* Bottom Controls */}
             {showControls && (
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-4 md:p-8">
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 to-transparent p-4 pb-10 md:p-8 md:pb-12">
                     <div className="flex flex-col gap-4 w-full">
                         <div className="flex items-center justify-between text-white text-[10px] md:text-xs font-bold uppercase tracking-widest opacity-60 px-1">
                             <span>{formatTime(currentTime)}</span>
@@ -1124,21 +1124,29 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 md:gap-3">
+                                <button 
+                                    onClick={() => { setShowSubtitleMenu(true); setShowControls(true); }}
+                                    className={`p-2.5 rounded-full transition-colors ${showSubtitleMenu ? 'text-cyan-400 bg-cyan-400/10' : 'text-white/70 hover:text-white'}`}
+                                >
+                                    <MessageSquare size={isMobile ? 22 : 26} />
+                                </button>
+
                                 {versions.length > 1 && (
-                                    <button onClick={() => { setShowVersionMenu(!showVersionMenu); setShowSubtitleMenu(false); setShowControls(true); }} className={'p-3 rounded-full transition-colors ' + (showVersionMenu ? 'text-netflix-red bg-netflix-red/20' : 'text-white/70 hover:text-white')}>
-                                        <Film size={isMobile ? 24 : 28} />
+                                    <button onClick={() => { setShowVersionMenu(!showVersionMenu); setShowSubtitleMenu(false); setShowControls(true); }} className={'p-2.5 rounded-full transition-colors ' + (showVersionMenu ? 'text-netflix-red bg-netflix-red/20' : 'text-white/70 hover:text-white')}>
+                                        <Film size={isMobile ? 22 : 26} />
                                     </button>
                                 )}
                                 
-                                <button onClick={toggleFullscreen} className="p-3 text-white/70 hover:text-white transition-colors active:scale-90">
-                                    <Maximize size={isMobile ? 24 : 28} />
+                                <button onClick={toggleFullscreen} className="p-2.5 text-white/70 hover:text-white transition-colors active:scale-90">
+                                    <Maximize size={isMobile ? 22 : 26} />
                                 </button>
+                                
                                 <button 
                                     onClick={() => { setShowQualityMenu(true); resetTimer(); }}
-                                    className="p-3 hover:bg-white/10 rounded-full transition-colors text-white relative group"
+                                    className={`p-2.5 rounded-full transition-colors relative group ${showQualityMenu ? 'text-cyan-400 bg-cyan-400/10' : 'text-white'}`}
                                 >
-                                    <Settings size={22} className="group-hover:rotate-45 transition-transform duration-300" />
+                                    <Settings size={isMobile ? 22 : 26} className="group-hover:rotate-45 transition-transform duration-300" />
                                     <span className="absolute -top-1 -right-1 bg-netflix-red text-[8px] font-bold px-1 rounded-sm">{quality}p</span>
                                 </button>
                             </div>
