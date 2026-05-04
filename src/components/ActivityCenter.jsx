@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function ActivityCenter() {
+export default function ActivityCenter({ onNavigate }) {
     const [isOpen, setIsOpen] = useState(false);
     const { queue, removeFromQueue, retryQueueItem } = useUploadQueue();
     const { isAdmin } = useAuth();
@@ -206,7 +206,10 @@ export default function ActivityCenter() {
 
                     <footer className="px-6 py-4 border-t border-white/5 bg-white/[0.01]">
                         <button 
-                            onClick={clearCompleted}
+                            onClick={() => {
+                                if (onNavigate) onNavigate('settings');
+                                setIsOpen(false);
+                            }}
                             className="w-full py-3 bg-white/[0.05] hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all flex items-center justify-center gap-2"
                         >
                             Historial completo en Ajustes

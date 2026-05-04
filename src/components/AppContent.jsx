@@ -365,7 +365,10 @@ export default function AppContent() {
                                         <RefreshCw size={20} className={isScanning ? 'animate-spin' : ''} />
                                     </button>
 
-                                    <ActivityCenter />
+                                    <ActivityCenter onNavigate={(tab) => {
+                                        setActiveTab(tab);
+                                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    }} />
 
                                     <button
                                         onClick={() => setActiveTab('settings')}
