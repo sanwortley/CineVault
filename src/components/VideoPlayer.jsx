@@ -1073,14 +1073,17 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                             const effectiveDuration = (duration > 1 && duration !== Infinity && !isDurationSuspicious)
                                 ? duration
                                 : (metaRuntime > 0 ? metaRuntime : 0);
+                            const clampedTime = Math.min(currentTime, effectiveDuration || currentTime);
+                            const progressPct = effectiveDuration > 0 ? (clampedTime / effectiveDuration) * 100 : 0;
                             return (
                                 <input
                                     type="range"
                                     min="0"
                                     max={effectiveDuration || 100}
-                                    value={Math.min(currentTime, effectiveDuration || currentTime)}
+                                    value={clampedTime}
                                     onChange={handleSeek}
-                                    className="w-full h-1 bg-white/20 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-500 [&::-webkit-slider-thumb]:shadow-lg"
+                                    style={{ background: `linear-gradient(to right, #06b6d4 ${progressPct}%, rgba(255,255,255,0.2) ${progressPct}%)` }}
+                                    className="w-full h-1 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-500 [&::-webkit-slider-thumb]:shadow-lg"
                                 />
                             );
                         })()}
@@ -1116,7 +1119,8 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                         step="0.01"
                                         value={isMuted ? 0 : volume}
                                         onChange={handleVolumeChange}
-                                        className="w-24 h-1 bg-white/20 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+                                        style={{ background: `linear-gradient(to right, #06b6d4 ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.2) ${(isMuted ? 0 : volume) * 100}%)` }}
+                                        className="w-20 h-1 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow"
                                     />
                                 </div>
                             </div>
