@@ -286,7 +286,11 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         // Don't include quality in deps if we don't need transcoding
         // This avoids unnecessary video reloads when quality changes but no transcoding needed
         if (streamSource === 'cloud') {
-            return api.getCloudStreamUrl(movie.id);
+            let url = api.getCloudStreamUrl(movie.id);
+            if (needsTranscoding || useTranscoding) {
+                url += `?transcode=true&quality=${quality}&t=${seekOffset}`;
+            }
+            return url;
         } else if (streamSource === 'drive') {
             return api.getStreamUrl(movie.drive_file_id, movie.file_path, { 
                 transcode: needsTranscoding,

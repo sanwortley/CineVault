@@ -596,23 +596,65 @@ app.post('/api/drive/queue/retry', sessionMiddleware, adminMiddleware, (req, res
  */
 app.get('/api/drive/stream-cloud/:movieId', async (req, res) => {
     const { movieId } = req.params;
+    const transcode = req.query.transcode === 'true';
+    const quality = req.query.quality || '720';
+    const startTime = parseFloat(req.query.t || 0);
+
     try {
+        let cloudUrl = null;
+        
         // 1. Buscamos primero en el uploadManager (en memoria actual)
         const job = uploadManager.getQueue().find(j => String(j.movieId) === String(movieId));
         if (job && job.isUrl && job.filePath && job.filePath.startsWith('http')) {
-            console.log(`[InstantPlay] Redirigiendo a stream desde caché de memoria para movie ${movieId}`);
-            return res.redirect(job.filePath);
+            cloudUrl = job.filePath;
+        } else {
+            // 2. Si no está en memoria, buscamos en la base de datos el campo persistente
+            const movies = await db.findMovies({ id: movieId });
+            if (movies && movies.length > 0 && movies[0].cloud_source_url) {
+                cloudUrl = movies[0].cloud_source_url;
+            }
         }
 
-        // 2. Si no está en memoria, buscamos en la base de datos el campo persistente
-        const movies = await db.findMovies({ id: movieId });
-        if (movies && movies.length > 0 && movies[0].cloud_source_url) {
-            console.log(`[InstantPlay] Redirigiendo a stream desde persistencia DB para movie ${movieId}`);
-            return res.redirect(movies[0].cloud_source_url);
+        if (!cloudUrl) {
+            return res.status(404).json({ error: 'No se encontró el enlace de origen para reproducción instantánea.' });
         }
 
-        res.status(404).json({ error: 'No se encontró el enlace de origen para reproducción instantánea.' });
+        if (transcode) {
+            console.log(`[InstantPlay] Transcodificando cloud source para movie ${movieId}: ${cloudUrl}`);
+            const { getTranscodeStream } = require('./optimizer');
+            
+            // Safari Probe handling (0-1 bytes)
+            if (req.headers.range === 'bytes=0-1') {
+                res.writeHead(206, {
+                    'Content-Type': 'video/mp4',
+                    'Content-Range': 'bytes 0-1/2000000000',
+                    'Content-Length': '2',
+                    'Accept-Ranges': 'bytes',
+                    'Access-Control-Allow-Origin': '*'
+                });
+                return res.end(Buffer.from([0, 0]));
+            }
+
+            res.writeHead(200, { 
+                'Content-Type': 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"', 
+                'Access-Control-Allow-Origin': '*',
+                'X-Accel-Buffering': 'no',
+                'Connection': 'keep-alive',
+                'Cache-Control': 'no-cache'
+            });    
+            
+            const transcodeStream = getTranscodeStream(cloudUrl, startTime, quality);
+            transcodeStream.pipe(res);
+
+            res.on('close', () => {
+               if (transcodeStream.ffmpegCommand) transcodeStream.ffmpegCommand.kill();
+            });
+        } else {
+            console.log(`[InstantPlay] Redirigiendo a stream cloud para movie ${movieId}`);
+            return res.redirect(cloudUrl);
+        }
     } catch (e) {
+        console.error('[InstantPlay] Error:', e.message);
         res.status(500).json({ error: e.message });
     }
 });
