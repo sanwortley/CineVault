@@ -339,31 +339,20 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         console.log('[VideoPlayer] Video loaded, isLoading=false');
     };
 
-    // Video initialization - Direct streaming only (HLS disabled)
+    // Video initialization - reset loading state when URL changes
     useEffect(() => {
         if (!videoUrl || streamingMode !== 'classic') return;
         
-        const video = videoRef.current;
-        if (video) {
-            setIsLoading(true); // Reset loading state
-            video.src = videoUrl;
-            if (seekOffset > 0) {
-                video.currentTime = seekOffset;
-            }
-            
-            // Safety timeout: if video takes >15s, force reset
-            const safetyTimer = setTimeout(() => {
-                if (isLoading) {
-                    console.warn('[VideoPlayer] Timeout: forcing isLoading=false');
-                    setIsLoading(false);
-                }
-            }, 15000);
-            
-            return () => {
-                clearTimeout(safetyTimer);
-            };
-        }
-    }, [videoUrl, streamingMode, seekOffset]);
+        setIsLoading(true);
+        
+        // Safety timeout: if video takes >15s, force-clear loading
+        const safetyTimer = setTimeout(() => {
+            console.warn('[VideoPlayer] Timeout: forcing isLoading=false');
+            setIsLoading(false);
+        }, 15000);
+        
+        return () => clearTimeout(safetyTimer);
+    }, [videoUrl, streamingMode]);
 
     const handleVideoError = (e) => {
         const videoElement = e.target;
@@ -402,39 +391,19 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         }
     };
 
-    const handleCanPlay = async () => {
+    const handleCanPlay = () => {
         setIsLoading(false);
-        if (videoRef.current) {
-            try {
-                // Perform initial seek if needed
-                if (!initialSeekPerformed.current && seekOffset > 0) {
-                    console.log(`[VideoPlayer] Initial seek to: ${seekOffset}s`);
-                    videoRef.current.currentTime = seekOffset;
-                    initialSeekPerformed.current = true;
-                }
-                
-                // Try to play WITH sound first
-                videoRef.current.muted = false;
-                setIsMuted(false);
-                
-                const playPromise = videoRef.current.play();
-                if (playPromise !== undefined) {
-                    await playPromise;
-                    setIsPlaying(true);
-                }
-            } catch (err) {
-                console.warn('[VideoPlayer] Autoplay with sound blocked, trying muted...', err.message);
-                try {
-                    videoRef.current.muted = true;
-                    setIsMuted(true);
-                    await videoRef.current.play();
-                    setIsPlaying(true);
-                } catch (mutedErr) {
-                    console.error('[VideoPlayer] Even muted playback failed:', mutedErr.message);
-                    setIsPlaying(false);
-                }
-            }
+        const video = videoRef.current;
+        if (!video) return;
+        
+        // Perform initial seek once
+        if (!initialSeekPerformed.current && seekOffset > 0) {
+            console.log(`[VideoPlayer] Initial seek to: ${seekOffset}s`);
+            video.currentTime = seekOffset;
+            initialSeekPerformed.current = true;
         }
+        // Let autoPlay handle playback — no manual play() call to avoid race condition
+        setIsPlaying(!video.paused);
     };
 
     const resetTimer = () => {
@@ -1098,14 +1067,23 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                             </span>
                         </div>
 
-                        <input 
-                            type="range"
-                            min="0"
-                            max={duration || 0}
-                            value={currentTime}
-                            onChange={handleSeek}
-                            className="w-full h-1 bg-white/20 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-500 [&::-webkit-slider-thumb]:shadow-lg"
-                        />
+                        {(() => {
+                            const metaRuntime = Number(activeMovie.runtime || 0) * 60;
+                            const isDurationSuspicious = duration > 0 && duration < 600 && metaRuntime > 600;
+                            const effectiveDuration = (duration > 1 && duration !== Infinity && !isDurationSuspicious)
+                                ? duration
+                                : (metaRuntime > 0 ? metaRuntime : 0);
+                            return (
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max={effectiveDuration || 100}
+                                    value={Math.min(currentTime, effectiveDuration || currentTime)}
+                                    onChange={handleSeek}
+                                    className="w-full h-1 bg-white/20 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-500 [&::-webkit-slider-thumb]:shadow-lg"
+                                />
+                            );
+                        })()}
 
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
