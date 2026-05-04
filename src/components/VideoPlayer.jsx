@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Play, Pause, Volume2, VolumeX, Maximize, X, 
     Loader2, Subtitles, SkipBack, SkipForward, Lock, Unlock, Film,
-    Plus, Cloud, Upload, AlertCircle, ExternalLink, Star, Settings, Search
+    Plus, Cloud, Upload, AlertCircle, ExternalLink, Star, Settings, Search,
+    MessageSquare, Check
 } from 'lucide-react';
 import { api, BACKEND_URL } from '../api';
 import { useAuth } from '../context/AuthContext';
