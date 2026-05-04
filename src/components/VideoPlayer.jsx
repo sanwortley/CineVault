@@ -841,6 +841,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         autoPlay
                         muted={isMuted}
                         webkit-playsinline="true"
+                        src={videoUrl}
                         crossOrigin="anonymous"
                         onEnded={handleVideoEnded}
                         onTimeUpdate={(e) => {
