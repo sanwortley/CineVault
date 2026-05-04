@@ -168,8 +168,18 @@ async function searchGlobal(query) {
         }
     });
 
-    // Unique by title or hash/magnet if possible, but for now simple sort
-    return combined.sort((a, b) => b.seeds - a.seeds);
+    // Prioritize MP4 as it plays natively in most browsers, then sort by seeds
+    return combined.sort((a, b) => {
+        const aLow = a.title.toLowerCase();
+        const bLow = b.title.toLowerCase();
+        const aIsMp4 = aLow.includes('.mp4') || aLow.includes('mp4');
+        const bIsMp4 = bLow.includes('.mp4') || bLow.includes('mp4');
+        
+        if (aIsMp4 && !bIsMp4) return -1;
+        if (!aIsMp4 && bIsMp4) return 1;
+        
+        return b.seeds - a.seeds;
+    });
 }
 
 async function searchAll(query) {
@@ -185,7 +195,15 @@ async function searchAll(query) {
         }
     });
     
-    return combined.sort((a, b) => b.seeds - a.seeds);
+    return combined.sort((a, b) => {
+        const aIsMp4 = a.title.toLowerCase().includes('mp4');
+        const bIsMp4 = b.title.toLowerCase().includes('mp4');
+        
+        if (aIsMp4 && !bIsMp4) return -1;
+        if (!aIsMp4 && bIsMp4) return 1;
+        
+        return b.seeds - a.seeds;
+    });
 }
 
 async function searchSubtitlesFallback(imdbId, title) {
