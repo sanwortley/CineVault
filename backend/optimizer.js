@@ -114,18 +114,30 @@ function getOptimizedUploadStream(inputPath) {
  * Optimized for low-latency streaming.
  * Now accepts quality parameter for dynamic resolution.
  */
-function getTranscodeStream(input, startTime = 0, quality = '720') {
+function getTranscodeStream(input, startTime = 0, quality = '720', headers = null) {
     console.log(`[Optimizer] Starting real-time transcode. Start: ${startTime}s, Quality: ${quality}`);
     
     const profile = QUALITY_PROFILES[quality] || QUALITY_PROFILES['720'];
     const passThrough = new PassThrough();
-    const command = ffmpeg(input);
+    const command = ffmpeg();
 
-    command.inputOptions([
+    const inputOptions = [
         '-threads', '1',
         '-probesize', '10M',
         '-analyzeduration', '10M'
-    ]);
+    ];
+
+    if (typeof input === 'string') {
+        if (headers) inputOptions.push('-headers', headers.trim() + '\r\n');
+        // Fast seeking before input
+        inputOptions.push('-ss', startTime.toString());
+        command.input(input);
+    } else {
+        // It's a stream pipe
+        command.input(input);
+    }
+
+    command.inputOptions(inputOptions);
 
     command
         .videoCodec('libx264')
@@ -133,7 +145,6 @@ function getTranscodeStream(input, startTime = 0, quality = '720') {
         .audioChannels(2)
         .format('mp4')
         .outputOptions([
-            '-ss', startTime.toString(), // Seek after input for pipe stability
             '-preset', 'ultrafast', 
             '-tune', 'zerolatency',
             '-profile:v', profile.height <= 480 ? 'baseline' : 'main', 
@@ -144,6 +155,11 @@ function getTranscodeStream(input, startTime = 0, quality = '720') {
             '-threads', '1',
             '-map_chapters', '-1'
         ]);
+
+    // Slow seeking after input if it's a pipe
+    if (typeof input !== 'string') {
+        command.outputOptions(['-ss', startTime.toString()]);
+    }
 
     // Add scaling only if not 'original' quality
     if (profile.scale) {

@@ -253,41 +253,32 @@ const driveApi = {
                     'Cache-Control': 'no-cache'
                 });
 
-                let bodyStream;
                 try {
+                    const { getTranscodeStream } = require('./optimizer');
+                    const quality = transcodeOptions.quality || '720';
+                    let transcodeSource;
+                    let headers = null;
+
                     if (hasToken) {
-                        try {
-                            const driveRes = await drive.files.get({ fileId, alt: 'media', supportsAllDrives: true }, { responseType: 'stream' });
-                            bodyStream = driveRes.data;
-                        } catch (tokenErr) {
-                            console.warn('[DriveStream] Token access failed, trying API Key fallback:', tokenErr.message);
-                            if (apiKey) {
-                                const axios = require('axios');
-                                const driveRes = await axios.get(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
-                                    params: { alt: 'media', key: apiKey, supportsAllDrives: true },
-                                    responseType: 'stream'
-                                });
-                                bodyStream = driveRes.data;
-                            } else {
-                                throw tokenErr;
-                            }
-                        }
+                        const accessToken = oauth2Client.credentials.access_token;
+                        headers = `Authorization: Bearer ${accessToken}`;
+                        transcodeSource = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`;
+                        console.log(`[DriveStream] Using authenticated URL for transcode: ${fileId}`);
                     } else if (apiKey) {
+                        transcodeSource = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${apiKey}&supportsAllDrives=true`;
+                        console.log(`[DriveStream] Using API Key URL for transcode: ${fileId}`);
+                    } else {
+                        // Fallback to stream pipe
                         const axios = require('axios');
                         const driveRes = await axios.get(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
                             params: { alt: 'media', key: apiKey, supportsAllDrives: true },
                             responseType: 'stream'
                         });
-                        bodyStream = driveRes.data;
-                    } else {
-                        throw new Error('No authentication method available (Token or API Key)');
+                        transcodeSource = driveRes.data;
+                        console.log(`[DriveStream] Using stream pipe fallback for transcode: ${fileId}`);
                     }
 
-                    const { getTranscodeStream } = require('./optimizer');
-                    const quality = transcodeOptions.quality || '720'; 
-                    
-                    const transcodeStream = getTranscodeStream(bodyStream, startTime, quality);
-                    
+                    const transcodeStream = getTranscodeStream(transcodeSource, startTime, quality, headers);
                     transcodeStream.pipe(res);
 
                     res.on('close', () => {
