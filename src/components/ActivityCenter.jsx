@@ -60,7 +60,7 @@ export default function ActivityCenter({ onNavigate }) {
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 mt-4 w-80 md:w-96 glass-card rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden z-[1000] animate-in slide-in-from-top-4 fade-in duration-300">
+                <div className="absolute right-0 mt-4 w-80 md:w-96 bg-[#121212]/95 backdrop-blur-2xl rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden z-[1000] animate-in slide-in-from-top-4 fade-in duration-300">
                     <header className="px-6 py-5 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
                         <div>
                             <h3 className="text-sm font-black uppercase tracking-wider text-white">Actividad</h3>
@@ -206,7 +206,9 @@ export default function ActivityCenter({ onNavigate }) {
 
                     <footer className="px-6 py-4 border-t border-white/5 bg-white/[0.01]">
                         <button 
-                            onClick={() => {
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
                                 if (onNavigate) onNavigate('settings');
                                 setIsOpen(false);
                             }}

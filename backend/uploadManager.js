@@ -22,7 +22,7 @@ const ensureDirectoryExists = (filePath) => {
 class UploadManager extends EventEmitter {
     constructor() {
         super();
-        this.setMaxListeners(30); // Prevent MaxListenersExceededWarning
+        this.setMaxListeners(200); // Prevent MaxListenersExceededWarning for high concurrent SSE clients
         this.queue = [];
         this.isProcessing = false;
         this.loadQueue();
