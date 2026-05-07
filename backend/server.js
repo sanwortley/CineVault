@@ -299,8 +299,16 @@ app.get('/api/movies/:id/audio-tracks', sessionMiddleware, async (req, res) => {
         if (!movie.drive_file_id) return res.json([]);
 
         const { probeAudioTracks } = require('./optimizer');
-        const apiKey = process.env.GOOGLE_API_KEY;
-        const url = `https://www.googleapis.com/drive/v3/files/${movie.drive_file_id}?alt=media&key=${apiKey}&supportsAllDrives=true`;
+        
+        let url;
+        if (driveApi.isAuthenticated()) {
+            const token = driveApi.getOAuthClient().credentials.access_token;
+            url = `https://www.googleapis.com/drive/v3/files/${movie.drive_file_id}?alt=media&access_token=${token}&supportsAllDrives=true`;
+        } else if (process.env.GOOGLE_API_KEY) {
+            url = `https://www.googleapis.com/drive/v3/files/${movie.drive_file_id}?alt=media&key=${process.env.GOOGLE_API_KEY}&supportsAllDrives=true`;
+        } else {
+            throw new Error('Drive no está autenticado y no hay GOOGLE_API_KEY disponible.');
+        }
         
         console.log(`[Server] Probing audio tracks for ${movie.official_title}...`);
         const tracks = await probeAudioTracks(url);
