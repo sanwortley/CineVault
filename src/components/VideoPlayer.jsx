@@ -271,6 +271,20 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                     if (tracks && tracks.length > 0) {
                         setAudioTracks(tracks);
                         console.log(`[VideoPlayer] Audio tracks loaded:`, tracks);
+                        
+                        // Auto-select Spanish track if available and not already selected
+                        const spanishTrack = tracks.find(t => 
+                            t.language?.toLowerCase().includes('spa') || 
+                            t.language?.toLowerCase().includes('lat') ||
+                            t.title?.toLowerCase().includes('spa') ||
+                            t.title?.toLowerCase().includes('latino') ||
+                            t.title?.toLowerCase().includes('castellano')
+                        );
+                        
+                        if (spanishTrack && spanishTrack.index > 0) {
+                            console.log('[VideoPlayer] Autoselección de audio: Español detectado:', spanishTrack.title);
+                            setSelectedAudioTrack(spanishTrack);
+                        }
                     }
                 }).catch(err => console.warn('[VideoPlayer] Error fetching audio tracks:', err));
             }
@@ -323,7 +337,9 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         const height = movie.video_height || 0;
         if (height > parseInt(quality)) return true; // Scale down
         
-        return isMKV || !isVideoCompatible || !isAudioCompatible;
+        const result = isMKV || !isVideoCompatible || !isAudioCompatible;
+        console.log('[VideoPlayer] needsTranscoding:', result, { isMKV, isVideoCompatible, isAudioCompatible, selectedAudioTrack: selectedAudioTrack?.index });
+        return result;
     }, [quality, movie.video_codec, movie.audio_codec, movie.video_height, movie.file_path, movie.file_name, selectedAudioTrack]);
 
     // Build video URL - Smart transcoding based on compatibility
@@ -344,6 +360,8 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             }
         }
 
+        console.log('[VideoPlayer] Building videoUrl. transcode:', needsTranscoding || useTranscoding, 'audioTrack:', selectedAudioTrack?.index);
+        
         if (streamSource === 'cloud') {
             let url = api.getCloudStreamUrl(movie.id);
             if (needsTranscoding || useTranscoding) {
@@ -361,7 +379,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         } else if (streamSource === 'local') {
             return api.getStreamUrl(null, movie.file_path, { 
                 transcode: needsTranscoding, 
-                seekOffset,
+                startTime: seekOffset,
                 quality: needsTranscoding ? actualQuality : null,
                 audioTrack: selectedAudioTrack ? selectedAudioTrack.index : null
             });
@@ -1046,8 +1064,8 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             )}
 
             {/* Loading overlay */}
-            {isDisplayLoading && !isInitializing && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-[1010]">
+            {isDisplayLoading && !isInitializing && !showSubtitleMenu && !showQualityMenu && !showAudioMenu && !showVersionMenu && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-[40]">
                     <div className="text-center p-6">
                         <Loader2 className="w-16 h-16 text-cyan-500 mx-auto mb-6 animate-spin" />
                         <p className="text-white font-bold uppercase tracking-[0.3em]">Cargando Video</p>

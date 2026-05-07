@@ -304,12 +304,21 @@ export const api = {
     getStreamUrl: (fileId, filePath, options = {}) => {
         if (fileId) {
             const sessionId = localStorage.getItem('cinevault_session_id');
+            const startTime = options.startTime !== undefined ? options.startTime : (options.seekOffset || 0);
+            const quality = options.quality || options.q || '720';
+            
             let url = `${BACKEND_URL}/api/drive/stream/${fileId}?sessionId=${sessionId || ''}`;
+            
             if (options.transcode) {
-                url += `&transcode=true&t=${options.seekOffset || 0}&q=${options.quality || '720'}`;
+                url += `&transcode=true&t=${startTime}&q=${quality}`;
             }
+            
             if (options.audioTrack !== undefined && options.audioTrack !== null) {
                 url += `&audio=${options.audioTrack}`;
+                // If an alternate audio track is selected, we MUST force transcoding
+                if (options.audioTrack > 0 && !url.includes('transcode=true')) {
+                    url += `&transcode=true&t=${startTime}&q=${quality}`;
+                }
             }
             return url;
         }
