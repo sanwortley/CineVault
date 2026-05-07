@@ -943,6 +943,11 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                             const time = isTranscoded ? seekOffset + e.target.currentTime : e.target.currentTime;
                             setCurrentTime(time);
                             
+                            // Safety: If video is moving, it's not loading
+                            if (isLoading && time > 0) {
+                                setIsLoading(false);
+                            }
+                            
                             // Rating trigger: 95% of the movie
                             if (duration > 60 && time > duration * 0.95 && !showRatingOverlay && userRating === 0) {
                                 setShowRatingOverlay(true);
@@ -1214,17 +1219,27 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                             const progressPct = effectiveDuration > 0 ? (clampedTime / effectiveDuration) * 100 : 0;
                             
                             return (
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max={effectiveDuration || 100}
-                                    value={clampedTime}
-                                    onPointerDown={handleSeekStart}
-                                    onChange={handleSeekChange}
-                                    onPointerUp={handleSeekEnd}
-                                    style={{ background: `linear-gradient(to right, #06b6d4 ${progressPct}%, rgba(255,255,255,0.2) ${progressPct}%)` }}
-                                    className="w-full h-1 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-500 [&::-webkit-slider-thumb]:shadow-lg"
-                                />
+                                <div className="relative group/progress">
+                                    {/* Floating Movie Title at bottom middle */}
+                                    <div className={`absolute -top-10 left-1/2 -translate-x-1/2 transition-all duration-500 flex flex-col items-center gap-1 ${showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+                                        <h2 className="text-white text-sm md:text-lg font-black uppercase tracking-[0.3em] drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] text-center whitespace-nowrap">
+                                            {movie.official_title || movie.title}
+                                        </h2>
+                                        <div className="h-1 w-12 bg-cyan-500 rounded-full shadow-[0_0_15px_rgba(34,211,238,0.5)]" />
+                                    </div>
+
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max={effectiveDuration || 100}
+                                        value={clampedTime}
+                                        onPointerDown={handleSeekStart}
+                                        onChange={handleSeekChange}
+                                        onPointerUp={handleSeekEnd}
+                                        style={{ background: `linear-gradient(to right, #06b6d4 ${progressPct}%, rgba(255,255,255,0.2) ${progressPct}%)` }}
+                                        className="w-full h-1 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-500 [&::-webkit-slider-thumb]:shadow-lg"
+                                    />
+                                </div>
                             );
                         })()}
 
@@ -1327,15 +1342,8 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                 >
                                     Subtítulos
                                 </button>
-                                <button
-                                    onClick={() => { setShowQualityMenu(true); setShowSubtitleMenu(false); setShowVersionMenu(false); setShowAudioMenu(false); }}
-                                    className={`text-[10px] font-black uppercase tracking-widest transition-colors pb-1 ${
-                                        showQualityMenu ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-white/40'
-                                    }`}
-                                >
-                                    Calidad
-                                </button>
-                                {audioTracks.length > 1 && (
+                                {console.log('[VideoPlayer] Rendering tabs. audioTracks:', audioTracks.length, 'versions:', versions.length)}
+                                {audioTracks.length > 0 && (
                                     <button
                                         onClick={() => { setShowAudioMenu(true); setShowSubtitleMenu(false); setShowQualityMenu(false); setShowVersionMenu(false); }}
                                         className={`text-[10px] font-black uppercase tracking-widest transition-colors pb-1 ${
