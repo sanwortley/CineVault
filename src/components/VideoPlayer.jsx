@@ -288,9 +288,13 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         const isVideoCompatible = ['h264', 'avc1', 'avc2', 'vp8', 'vp9', 'av1'].some(c => vidCodec.includes(c));
         const isAudioCompatible = ['aac', 'mp3', 'opus', 'vorbis'].some(c => audCodec.includes(c));
         
-        // If quality is "original", we only transcode if the container or codec is incompatible
+        // If codecs are unknown, assume compatible to avoid unnecessary transcoding overhead
+        const isVidUnknown = !vidCodec;
+        const isAudUnknown = !audCodec;
+        
+        // If quality is "original", we only transcode if the container or codec is explicitly incompatible
         if (quality === 'original') {
-            return isMKV || !isVideoCompatible || !isAudioCompatible;
+            return isMKV || (!isVidUnknown && !isVideoCompatible) || (!isAudUnknown && !isAudioCompatible);
         }
         
         // If quality is specific (e.g. 720p), we always transcode if the original is better or incompatible
@@ -369,6 +373,18 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         if (!videoUrl || streamingMode !== 'classic') return;
         
         setIsLoading(true);
+        console.log('[VideoPlayer] Source changed:', videoUrl);
+        
+        // Explicitly tell the browser to load the new source if it's already mounted
+        if (videoRef.current && videoRef.current.src !== videoUrl) {
+            // Note: src is handled by React, but calling load() forces a buffer reset
+            setTimeout(() => {
+                if (videoRef.current) {
+                    videoRef.current.load();
+                    if (isPlaying) videoRef.current.play().catch(e => console.warn('Autoplay blocked:', e));
+                }
+            }, 50);
+        }
         
         // Safety timeout: if video takes >45s, force-clear loading
         const timer = setTimeout(() => {
@@ -379,7 +395,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         }, 45000); // 45s for cold transcoding
         
         return () => clearTimeout(timer);
-    }, [videoUrl, streamingMode]);
+    }, [videoUrl, streamingMode, isPlaying]);
 
     const handleVideoError = (e) => {
         const videoElement = e.target;
