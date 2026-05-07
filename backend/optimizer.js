@@ -74,21 +74,38 @@ function getVideoMetadata(input) {
  * Get detailed audio track information using ffprobe
  * Returns array: [{ index, codec, language, title }]
  */
-function probeAudioTracks(input) {
+function probeAudioTracks(input, headers = null) {
+    const { exec } = require('child_process');
     return new Promise((resolve, reject) => {
-        ffmpeg.ffprobe(input, (err, metadata) => {
-            if (err) return reject(err);
+        let command = `ffprobe -v error -show_entries stream=index,codec_type,codec_name:stream_tags=language,title,LANGUAGE,TITLE -of json`;
+        if (headers) {
+            // Ensure headers end with \r\n for ffmpeg
+            const h = headers.endsWith('\r\n') ? headers : headers + '\r\n';
+            command += ` -headers "${h.replace(/"/g, '\\"')}"`;
+        }
+        command += ` "${input}"`;
+
+        exec(command, { maxBuffer: 1024 * 1024 * 5 }, (err, stdout, stderr) => {
+            if (err) {
+                console.error('[Optimizer] ffprobe error:', stderr || err.message);
+                return reject(new Error(stderr || err.message));
+            }
             
-            const audioStreams = metadata.streams.filter(s => s.codec_type === 'audio');
-            const tracks = audioStreams.map((s, idx) => ({
-                index: idx,
-                streamIndex: s.index,
-                codec: s.codec_name || 'unknown',
-                language: s.tags?.language || s.tags?.LANGUAGE || 'unknown',
-                title: s.tags?.title || s.tags?.TITLE || `Pista ${idx + 1}`
-            }));
-            
-            resolve(tracks);
+            try {
+                const metadata = JSON.parse(stdout);
+                const audioStreams = (metadata.streams || []).filter(s => s.codec_type === 'audio');
+                const tracks = audioStreams.map((s, idx) => ({
+                    index: idx,
+                    streamIndex: s.index,
+                    codec: s.codec_name || 'unknown',
+                    language: s.tags?.language || s.tags?.LANGUAGE || 'unknown',
+                    title: s.tags?.title || s.tags?.TITLE || `Pista ${idx + 1}`
+                }));
+                
+                resolve(tracks);
+            } catch (e) {
+                reject(new Error('Error al parsear metadatos de audio: ' + e.message));
+            }
         });
     });
 }

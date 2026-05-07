@@ -300,18 +300,20 @@ app.get('/api/movies/:id/audio-tracks', sessionMiddleware, async (req, res) => {
 
         const { probeAudioTracks } = require('./optimizer');
         
-        let url;
+        let url = `https://www.googleapis.com/drive/v3/files/${movie.drive_file_id}?alt=media&supportsAllDrives=true`;
+        let headers = null;
+
         if (driveApi.isAuthenticated()) {
             const token = driveApi.getOAuthClient().credentials.access_token;
-            url = `https://www.googleapis.com/drive/v3/files/${movie.drive_file_id}?alt=media&access_token=${token}&supportsAllDrives=true`;
+            headers = `Authorization: Bearer ${token}`;
         } else if (process.env.GOOGLE_API_KEY) {
-            url = `https://www.googleapis.com/drive/v3/files/${movie.drive_file_id}?alt=media&key=${process.env.GOOGLE_API_KEY}&supportsAllDrives=true`;
+            url += `&key=${process.env.GOOGLE_API_KEY}`;
         } else {
             throw new Error('Drive no está autenticado y no hay GOOGLE_API_KEY disponible.');
         }
         
         console.log(`[Server] Probing audio tracks for ${movie.official_title}...`);
-        const tracks = await probeAudioTracks(url);
+        const tracks = await probeAudioTracks(url, headers);
         
         await db.setGlobalConfig(`AUDIO_TRACKS_${id}`, tracks);
         res.json(tracks);
