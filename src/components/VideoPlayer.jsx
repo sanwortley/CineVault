@@ -931,10 +931,18 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                 saveUserProgress(movie.id, Math.floor(absTime));
                             }
                         }}
-                        onPlay={() => setIsPlaying(true)}
+                        onPlay={() => {
+                            setIsPlaying(true);
+                            setIsLoading(false);
+                        }}
+                        onPlaying={() => {
+                            setIsPlaying(true);
+                            setIsLoading(false);
+                        }}
+                        onWaiting={() => setIsLoading(true)}
                         onError={handleVideoError}
-                        onSeeking={() => {}}
-                        onSeeked={() => {}}
+                        onSeeking={() => setIsLoading(true)}
+                        onSeeked={() => setIsLoading(false)}
                     >
                     </video>
                 ) : (
