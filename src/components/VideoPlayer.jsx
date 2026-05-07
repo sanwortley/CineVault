@@ -129,7 +129,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         : (progressObj ?? movie?.watched_duration ?? 0);
         
     const initialSeek = movieUserProgress > 0 ? Math.floor(movieUserProgress) : 0;
-    const [seekOffset] = useState(initialSeek);
+    const [seekOffset, setSeekOffset] = useState(initialSeek);
 
     useEffect(() => {
         console.log('🚀 [CineVault] Player Version 2.1 - Active');
@@ -424,9 +424,12 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         if (!video) return;
         
         // Perform initial seek once
-        if (!initialSeekPerformed.current && seekOffset > 0) {
+        const isTranscoded = needsTranscoding || useTranscoding;
+        if (!isTranscoded && !initialSeekPerformed.current && seekOffset > 0) {
             console.log(`[VideoPlayer] Initial seek to: ${seekOffset}s`);
             video.currentTime = seekOffset;
+            initialSeekPerformed.current = true;
+        } else if (isTranscoded && !initialSeekPerformed.current) {
             initialSeekPerformed.current = true;
         }
         // Let autoPlay handle playback — no manual play() call to avoid race condition
@@ -498,20 +501,31 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const handleSeekEnd = (e) => {
         setIsDragging(false);
         const time = parseFloat(e.target.value);
-        if (videoRef.current) {
+        if (needsTranscoding || useTranscoding) {
+            setSeekOffset(time);
+            setCurrentTime(time);
+        } else if (videoRef.current) {
             videoRef.current.currentTime = time;
             setCurrentTime(time);
         }
     };
 
     const skipBackward = () => {
-        if (videoRef.current) {
+        if (needsTranscoding || useTranscoding) {
+            const newTime = Math.max(0, currentTime - 10);
+            setSeekOffset(newTime);
+            setCurrentTime(newTime);
+        } else if (videoRef.current) {
             videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 10);
         }
     };
 
     const skipForward = () => {
-        if (videoRef.current) {
+        if (needsTranscoding || useTranscoding) {
+            const newTime = Math.min(duration, currentTime + 10);
+            setSeekOffset(newTime);
+            setCurrentTime(newTime);
+        } else if (videoRef.current) {
             videoRef.current.currentTime = Math.min(duration, videoRef.current.currentTime + 10);
         }
     };
@@ -854,7 +868,8 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         onEnded={handleVideoEnded}
                         onTimeUpdate={(e) => {
                             if (isDragging) return; // Don't snap thumb back while user is dragging
-                            const time = e.target.currentTime;
+                            const isTranscoded = needsTranscoding || useTranscoding;
+                            const time = isTranscoded ? seekOffset + e.target.currentTime : e.target.currentTime;
                             setCurrentTime(time);
                             
                             // Rating trigger: 95% of the movie
@@ -863,7 +878,11 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                             }
                         }}
                         onLoadedMetadata={(e) => {
-                            setDuration(e.target.duration);
+                            const isTranscoded = needsTranscoding || useTranscoding;
+                            const trueDuration = (isTranscoded && e.target.duration && e.target.duration !== Infinity)
+                                ? seekOffset + e.target.duration 
+                                : e.target.duration;
+                            setDuration(trueDuration);
                             if (videoRef.current) {
                                 videoRef.current.preload = 'auto';
                             }
@@ -872,8 +891,10 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         onCanPlay={handleCanPlay}
                         onPause={(e) => {
                             setIsPlaying(false);
-                            if (user && movie?.id && e.target.currentTime > 0) {
-                                saveUserProgress(movie.id, Math.floor(e.target.currentTime));
+                            const isTranscoded = needsTranscoding || useTranscoding;
+                            const absTime = isTranscoded ? seekOffset + e.target.currentTime : e.target.currentTime;
+                            if (user && movie?.id && absTime > 0) {
+                                saveUserProgress(movie.id, Math.floor(absTime));
                             }
                         }}
                         onPlay={() => setIsPlaying(true)}
