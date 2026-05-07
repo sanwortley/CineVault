@@ -450,7 +450,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         }, 45000); // 45s for cold transcoding
         
         return () => clearTimeout(timer);
-    }, [videoUrl, streamingMode, isPlaying]);
+    }, [videoUrl, streamingMode]);
 
     const handleVideoError = (e) => {
         const videoElement = e.target;
@@ -1220,14 +1220,6 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                             
                             return (
                                 <div className="relative group/progress">
-                                    {/* Floating Movie Title at bottom middle */}
-                                    <div className={`absolute -top-10 left-1/2 -translate-x-1/2 transition-all duration-500 flex flex-col items-center gap-1 ${showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                                        <h2 className="text-white text-sm md:text-lg font-black uppercase tracking-[0.3em] drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] text-center whitespace-nowrap">
-                                            {movie.official_title || movie.title}
-                                        </h2>
-                                        <div className="h-1 w-12 bg-cyan-500 rounded-full shadow-[0_0_15px_rgba(34,211,238,0.5)]" />
-                                    </div>
-
                                     <input
                                         type="range"
                                         min="0"
@@ -1239,6 +1231,14 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                         style={{ background: `linear-gradient(to right, #06b6d4 ${progressPct}%, rgba(255,255,255,0.2) ${progressPct}%)` }}
                                         className="w-full h-1 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-500 [&::-webkit-slider-thumb]:shadow-lg"
                                     />
+
+                                    {/* Floating Movie Title below progress bar */}
+                                    <div className={`absolute top-6 left-1/2 -translate-x-1/2 transition-all duration-500 flex flex-col items-center gap-1 ${showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+                                        <div className="h-0.5 w-8 bg-cyan-500/50 rounded-full mb-1" />
+                                        <h2 className="text-white text-[10px] md:text-sm font-black uppercase tracking-[0.4em] drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] text-center whitespace-nowrap opacity-80">
+                                            {movie.official_title || movie.title}
+                                        </h2>
+                                    </div>
                                 </div>
                             );
                         })()}
