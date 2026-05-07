@@ -1331,44 +1331,49 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                             </button>
                         </div>
 
-                        {/* Mobile tab nav */}
-                        {isMobile && (
-                            <div className="flex items-center justify-center gap-6 border-b border-white/10 pb-4 mb-6">
+                        {/* Tab Navigation (Always show) */}
+                        <div className="flex items-center justify-center gap-6 border-b border-white/10 pb-4 mb-6">
+                            <button
+                                onClick={() => { setShowSubtitleMenu(true); setShowQualityMenu(false); setShowVersionMenu(false); setShowAudioMenu(false); }}
+                                className={`text-[10px] md:text-xs font-black uppercase tracking-widest transition-colors pb-1 ${
+                                    showSubtitleMenu ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-white/40 hover:text-white'
+                                }`}
+                            >
+                                Subtítulos
+                            </button>
+                            <button
+                                onClick={() => { setShowQualityMenu(true); setShowSubtitleMenu(false); setShowVersionMenu(false); setShowAudioMenu(false); }}
+                                className={`text-[10px] md:text-xs font-black uppercase tracking-widest transition-colors pb-1 ${
+                                    showQualityMenu ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-white/40 hover:text-white'
+                                }`}
+                            >
+                                Calidad
+                            </button>
+                            {audioTracks.length > 0 && (
                                 <button
-                                    onClick={() => { setShowSubtitleMenu(true); setShowQualityMenu(false); setShowVersionMenu(false); }}
-                                    className={`text-[10px] font-black uppercase tracking-widest transition-colors pb-1 ${
-                                        showSubtitleMenu ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-white/40'
+                                    onClick={() => { setShowAudioMenu(true); setShowSubtitleMenu(false); setShowQualityMenu(false); setShowVersionMenu(false); }}
+                                    className={`text-[10px] md:text-xs font-black uppercase tracking-widest transition-colors pb-1 ${
+                                        showAudioMenu ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-white/40 hover:text-white'
                                     }`}
                                 >
-                                    Subtítulos
+                                    Audio
                                 </button>
-                                {console.log('[VideoPlayer] Rendering tabs. audioTracks:', audioTracks.length, 'versions:', versions.length)}
-                                {audioTracks.length > 0 && (
-                                    <button
-                                        onClick={() => { setShowAudioMenu(true); setShowSubtitleMenu(false); setShowQualityMenu(false); setShowVersionMenu(false); }}
-                                        className={`text-[10px] font-black uppercase tracking-widest transition-colors pb-1 ${
-                                            showAudioMenu ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-white/40'
-                                        }`}
-                                    >
-                                        Audio
-                                    </button>
-                                )}
-                                {versions.length > 1 && (
-                                    <button
-                                        onClick={() => { setShowVersionMenu(true); setShowSubtitleMenu(false); setShowQualityMenu(false); setShowAudioMenu(false); }}
-                                        className={`text-[10px] font-black uppercase tracking-widest transition-colors pb-1 ${
-                                            showVersionMenu ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-white/40'
-                                        }`}
-                                    >
-                                        Versión
-                                    </button>
-                                )}
-                            </div>
-                        )}
+                            )}
+                            {versions.length > 1 && (
+                                <button
+                                    onClick={() => { setShowVersionMenu(true); setShowSubtitleMenu(false); setShowQualityMenu(false); setShowAudioMenu(false); }}
+                                    className={`text-[10px] md:text-xs font-black uppercase tracking-widest transition-colors pb-1 ${
+                                        showVersionMenu ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-white/40 hover:text-white'
+                                    }`}
+                                >
+                                    Versión
+                                </button>
+                            )}
+                        </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-20">
+                        <div className="grid grid-cols-1 gap-12 md:gap-20">
                             {/* Column 1: Subtitles */}
-                            <div className={`space-y-8 ${isMobile && !showSubtitleMenu ? 'hidden' : ''}`}>
+                            <div className={`space-y-8 ${!showSubtitleMenu ? 'hidden' : ''}`}>
                                 <h3 className="text-xl font-bold text-white/40 uppercase tracking-[0.2em] border-b border-white/10 pb-4">Subtítulos</h3>
                                 <div className="space-y-2 max-h-[40vh] overflow-y-auto custom-scrollbar pr-4">
                                     <button 
@@ -1426,7 +1431,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                             </div>
 
                             {/* Column 2: Quality, Audio & Versions */}
-                            <div className={`space-y-8 ${isMobile && !showQualityMenu && !showVersionMenu && !showAudioMenu ? 'hidden' : ''}`}>
+                            <div className={`space-y-8 ${showSubtitleMenu ? 'hidden' : ''}`}>
                                 <h3 className="text-xl font-bold text-white/40 uppercase tracking-[0.2em] border-b border-white/10 pb-4">
                                     {showVersionMenu ? 'Versión' : showAudioMenu ? 'Audio' : 'Calidad'}
                                 </h3>
