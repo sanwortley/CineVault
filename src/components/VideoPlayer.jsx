@@ -279,7 +279,13 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
 
     // Determine if we need transcoding based on selected quality vs video metadata
     const needsTranscoding = useMemo(() => {
-        const vidCodec = (movie.video_codec || '').toLowerCase();
+        let vidCodec = (movie.video_codec || '').toLowerCase();
+        if (!vidCodec) {
+            const fileName = (movie.file_name || movie.official_title || '').toLowerCase();
+            if (fileName.includes('hevc') || fileName.includes('x265') || fileName.includes('h265')) vidCodec = 'hevc';
+            else if (fileName.includes('h264') || fileName.includes('x264') || fileName.includes('avc')) vidCodec = 'h264';
+        }
+        
         const audCodec = (movie.audio_codec || '').toLowerCase();
         const isMKV = movie.file_path?.toLowerCase().endsWith('.mkv') || 
                       movie.file_name?.toLowerCase().endsWith('.mkv');
@@ -308,29 +314,41 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const videoUrl = useMemo(() => {
         if (streamSource === 'checking' || streamSource === 'error') return '';
         
-        // Don't include quality in deps if we don't need transcoding
-        // This avoids unnecessary video reloads when quality changes but no transcoding needed
+        let actualQuality = quality;
+        if (needsTranscoding || useTranscoding) {
+            if (quality === 'original') {
+                let vidC = (movie.video_codec || '').toLowerCase();
+                if (!vidC) {
+                    const fn = (movie.file_name || '').toLowerCase();
+                    if (fn.includes('hevc') || fn.includes('x265') || fn.includes('h265')) vidC = 'hevc';
+                }
+                if (vidC && !['h264', 'avc1', 'avc2', 'vp8', 'vp9', 'av1'].some(c => vidC.includes(c))) {
+                    actualQuality = '1080';
+                }
+            }
+        }
+
         if (streamSource === 'cloud') {
             let url = api.getCloudStreamUrl(movie.id);
             if (needsTranscoding || useTranscoding) {
-                url += `?transcode=true&quality=${quality}&t=${seekOffset}`;
+                url += `?transcode=true&quality=${actualQuality}&t=${seekOffset}`;
             }
             return url;
         } else if (streamSource === 'drive') {
             return api.getStreamUrl(movie.drive_file_id, movie.file_path, { 
                 transcode: needsTranscoding || useTranscoding,
-                quality: quality,
+                quality: actualQuality,
                 startTime: seekOffset
             });
         } else if (streamSource === 'local') {
             return api.getStreamUrl(null, movie.file_path, { 
                 transcode: needsTranscoding, 
                 seekOffset,
-                quality: needsTranscoding ? quality : null
+                quality: needsTranscoding ? actualQuality : null
             });
         }
         return '';
-    }, [movie.id, movie.drive_file_id, movie.file_path, movie.video_codec, movie.audio_codec, movie.video_height, streamSource, needsTranscoding, quality, seekOffset]);
+    }, [movie.id, movie.drive_file_id, movie.file_path, movie.video_codec, movie.audio_codec, movie.video_height, streamSource, needsTranscoding, quality, seekOffset, movie.file_name]);
 
     const isDisplayLoading = isInitializing || isLoading;
     
