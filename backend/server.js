@@ -285,6 +285,34 @@ app.delete('/api/admin/sessions/:id', sessionMiddleware, adminMiddleware, async 
     }
 });
 
+// ─── Movie Audio Tracks ──────────────────────────────────────────────────────────
+app.get('/api/movies/:id/audio-tracks', sessionMiddleware, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const cached = await db.getGlobalConfig(`AUDIO_TRACKS_${id}`);
+        if (cached) return res.json(cached);
+
+        const movies = await db.findMovies({ id });
+        if (!movies || movies.length === 0) return res.status(404).json({ error: 'Movie not found' });
+        const movie = movies[0];
+
+        if (!movie.drive_file_id) return res.json([]);
+
+        const { probeAudioTracks } = require('./optimizer');
+        const apiKey = process.env.GOOGLE_API_KEY;
+        const url = `https://www.googleapis.com/drive/v3/files/${movie.drive_file_id}?alt=media&key=${apiKey}&supportsAllDrives=true`;
+        
+        console.log(`[Server] Probing audio tracks for ${movie.official_title}...`);
+        const tracks = await probeAudioTracks(url);
+        
+        await db.setGlobalConfig(`AUDIO_TRACKS_${id}`, tracks);
+        res.json(tracks);
+    } catch (e) {
+        console.error('[Server] Error fetching audio tracks:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // ─── Drive Streaming ──────────────────────────────────────────────────────────
 app.get('/api/drive/stream/:fileId', sessionMiddleware, async (req, res) => {
     if (!driveApi.isAuthenticated()) {
@@ -294,6 +322,7 @@ app.get('/api/drive/stream/:fileId', sessionMiddleware, async (req, res) => {
     const range = req.headers.range;
     const transcode = req.query.transcode === 'true';
     const startTime = req.query.t || 0;
+    const audioTrack = req.query.audio || null;
     
     try {
         if (fileId === 'pending_cloud') {
@@ -302,7 +331,7 @@ app.get('/api/drive/stream/:fileId', sessionMiddleware, async (req, res) => {
                 message: 'La película de la Bóveda Global todavía se está procesando. Reintenta en unos minutos.' 
             });
         }
-        await driveApi.streamVideo(fileId, range, res, { transcode, t: startTime });
+        await driveApi.streamVideo(fileId, range, res, { transcode, t: startTime, audioTrack });
     } catch (err) {
         console.error('[Server] Drive streaming route error:', err.message);
         if (!res.headersSent) {

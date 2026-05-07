@@ -71,6 +71,29 @@ function getVideoMetadata(input) {
 }
 
 /**
+ * Get detailed audio track information using ffprobe
+ * Returns array: [{ index, codec, language, title }]
+ */
+function probeAudioTracks(input) {
+    return new Promise((resolve, reject) => {
+        ffmpeg.ffprobe(input, (err, metadata) => {
+            if (err) return reject(err);
+            
+            const audioStreams = metadata.streams.filter(s => s.codec_type === 'audio');
+            const tracks = audioStreams.map((s, idx) => ({
+                index: idx,
+                streamIndex: s.index,
+                codec: s.codec_name || 'unknown',
+                language: s.tags?.language || s.tags?.LANGUAGE || 'unknown',
+                title: s.tags?.title || s.tags?.TITLE || `Pista ${idx + 1}`
+            }));
+            
+            resolve(tracks);
+        });
+    });
+}
+
+/**
  * Quality profiles for transcoding
  */
 const QUALITY_PROFILES = {
@@ -114,8 +137,8 @@ function getOptimizedUploadStream(inputPath) {
  * Optimized for low-latency streaming.
  * Now accepts quality parameter for dynamic resolution.
  */
-function getTranscodeStream(input, startTime = 0, quality = '720', headers = null) {
-    console.log(`[Optimizer] Starting real-time transcode. Start: ${startTime}s, Quality: ${quality}`);
+function getTranscodeStream(input, startTime = 0, quality = '720', headers = null, audioTrack = null) {
+    console.log(`[Optimizer] Starting real-time transcode. Start: ${startTime}s, Quality: ${quality}, AudioTrack: ${audioTrack}`);
     
     const profile = QUALITY_PROFILES[quality] || QUALITY_PROFILES['720'];
     const passThrough = new PassThrough();
@@ -149,20 +172,27 @@ function getTranscodeStream(input, startTime = 0, quality = '720', headers = nul
     }
 
     command
-        .format('mp4')
-        .outputOptions([
-            '-preset', 'ultrafast', 
-            '-tune', 'zerolatency',
-            '-profile:v', profile.height <= 480 ? 'baseline' : 'main', 
-            '-level', profile.height <= 480 ? '3.0' : '4.1',
-            '-pix_fmt', 'yuv420p',
-            '-movflags', 'frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset+frag_discont', 
-            '-crf', (parseInt(profile.crf) + 4).toString(), // Lighter load for server
-            '-threads', '0',
-            '-map_chapters', '-1',
-            '-max_muxing_queue_size', '4096'
-        ]);
+        .format('mp4');
 
+    const outputOpts = [
+        '-preset', 'ultrafast', 
+        '-tune', 'zerolatency',
+        '-profile:v', profile.height <= 480 ? 'baseline' : 'main', 
+        '-level', profile.height <= 480 ? '3.0' : '4.1',
+        '-pix_fmt', 'yuv420p',
+        '-movflags', 'frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset+frag_discont', 
+        '-crf', (parseInt(profile.crf) + 4).toString(),
+        '-threads', '0',
+        '-map_chapters', '-1',
+        '-max_muxing_queue_size', '4096'
+    ];
+
+    if (audioTrack !== null && audioTrack !== undefined) {
+        outputOpts.push('-map', '0:v:0');
+        outputOpts.push('-map', `0:a:${audioTrack}`);
+    }
+
+    command.outputOptions(outputOpts);
     // Slow seeking after input if it's a pipe
     if (typeof input !== 'string') {
         command.outputOptions(['-ss', startTime.toString()]);
@@ -261,7 +291,8 @@ module.exports = {
     getOptimizedUploadStream, 
     getTranscodeStream, 
     getHLSSegmentStream, 
-    getVideoMetadata,  // Export new function
+    getVideoMetadata,
+    probeAudioTracks,
     QUALITY_PROFILES, 
     IS_SYSTEM_FFMPEG 
 };

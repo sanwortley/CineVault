@@ -278,7 +278,13 @@ const driveApi = {
                         console.log(`[DriveStream] Using stream pipe fallback for transcode: ${fileId}`);
                     }
 
-                    const transcodeStream = getTranscodeStream(transcodeSource, startTime, quality, headers);
+                    const transcodeStream = getTranscodeStream(
+                        transcodeSource, 
+                        startTime, 
+                        quality, 
+                        headers, 
+                        transcodeOptions.audioTrack
+                    );
                     transcodeStream.pipe(res);
 
                     res.on('close', () => {

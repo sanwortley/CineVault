@@ -90,7 +90,10 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     
     const [subtitles, setSubtitles] = useState([]);
     const [selectedSubtitle, setSelectedSubtitle] = useState(null);
+    const [audioTracks, setAudioTracks] = useState([]);
+    const [selectedAudioTrack, setSelectedAudioTrack] = useState(null);
     const [showSubtitleMenu, setShowSubtitleMenu ] = useState(false);
+    const [showAudioMenu, setShowAudioMenu] = useState(false);
     const [showDriveExplorer, setShowDriveExplorer] = useState(false);
     const [isSearchingSubtitles, setIsSearchingSubtitles] = useState(false);
     const [subtitleSearchText, setSubtitleSearchText] = useState('');
@@ -261,6 +264,16 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             if (!subQuotaReached) {
                 autoLoadSubtitles();
             }
+
+            // --- Fetch Audio Tracks ---
+            if (movie.id) {
+                api.getAudioTracks(movie.id).then(tracks => {
+                    if (tracks && tracks.length > 0) {
+                        setAudioTracks(tracks);
+                        console.log(`[VideoPlayer] Audio tracks loaded:`, tracks);
+                    }
+                }).catch(err => console.warn('[VideoPlayer] Error fetching audio tracks:', err));
+            }
         }
     }, [movie.id, subQuotaReached]);
 
@@ -289,6 +302,9 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         const audCodec = (movie.audio_codec || '').toLowerCase();
         const isMKV = movie.file_path?.toLowerCase().endsWith('.mkv') || 
                       movie.file_name?.toLowerCase().endsWith('.mkv');
+                      
+        // Force transcode if alternate audio track is selected
+        if (selectedAudioTrack && selectedAudioTrack.index > 0) return true;
         
         // Compatible codecs with browsers
         const isVideoCompatible = ['h264', 'avc1', 'avc2', 'vp8', 'vp9', 'av1'].some(c => vidCodec.includes(c));
@@ -308,7 +324,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         if (height > parseInt(quality)) return true; // Scale down
         
         return isMKV || !isVideoCompatible || !isAudioCompatible;
-    }, [quality, movie.video_codec, movie.audio_codec, movie.video_height, movie.file_path, movie.file_name]);
+    }, [quality, movie.video_codec, movie.audio_codec, movie.video_height, movie.file_path, movie.file_name, selectedAudioTrack]);
 
     // Build video URL - Smart transcoding based on compatibility
     const videoUrl = useMemo(() => {
@@ -332,23 +348,26 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             let url = api.getCloudStreamUrl(movie.id);
             if (needsTranscoding || useTranscoding) {
                 url += `?transcode=true&quality=${actualQuality}&t=${seekOffset}`;
+                if (selectedAudioTrack) url += `&audio=${selectedAudioTrack.index}`;
             }
             return url;
         } else if (streamSource === 'drive') {
             return api.getStreamUrl(movie.drive_file_id, movie.file_path, { 
                 transcode: needsTranscoding || useTranscoding,
                 quality: actualQuality,
-                startTime: seekOffset
+                startTime: seekOffset,
+                audioTrack: selectedAudioTrack ? selectedAudioTrack.index : null
             });
         } else if (streamSource === 'local') {
             return api.getStreamUrl(null, movie.file_path, { 
                 transcode: needsTranscoding, 
                 seekOffset,
-                quality: needsTranscoding ? actualQuality : null
+                quality: needsTranscoding ? actualQuality : null,
+                audioTrack: selectedAudioTrack ? selectedAudioTrack.index : null
             });
         }
         return '';
-    }, [movie.id, movie.drive_file_id, movie.file_path, movie.video_codec, movie.audio_codec, movie.video_height, streamSource, needsTranscoding, quality, seekOffset, movie.file_name]);
+    }, [movie.id, movie.drive_file_id, movie.file_path, movie.video_codec, movie.audio_codec, movie.video_height, streamSource, needsTranscoding, useTranscoding, quality, seekOffset, movie.file_name, selectedAudioTrack]);
 
     const isDisplayLoading = isInitializing || isLoading;
     
@@ -1260,10 +1279,10 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             )}
 
             {/* HBO/Max Style Settings Overlay */}
-            {(showSubtitleMenu || showVersionMenu || showQualityMenu) && (
+            {(showSubtitleMenu || showVersionMenu || showQualityMenu || showAudioMenu) && (
                 <div 
                     className="absolute inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 md:p-10 animate-in fade-in duration-300"
-                    onClick={() => { setShowSubtitleMenu(false); setShowVersionMenu(false); setShowQualityMenu(false); }}
+                    onClick={() => { setShowSubtitleMenu(false); setShowVersionMenu(false); setShowQualityMenu(false); setShowAudioMenu(false); }}
                 >
                     <div 
                         className="w-full max-w-4xl bg-black/40 border border-white/10 rounded-[40px] p-8 md:p-12 relative shadow-2xl overflow-hidden"
@@ -1272,7 +1291,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         {/* Header with Close */}
                         <div className="absolute top-8 right-8">
                             <button 
-                                onClick={() => { setShowSubtitleMenu(false); setShowVersionMenu(false); setShowQualityMenu(false); }} 
+                                onClick={() => { setShowSubtitleMenu(false); setShowVersionMenu(false); setShowQualityMenu(false); setShowAudioMenu(false); }} 
                                 className="p-3 hover:bg-white/10 rounded-full text-white/60 transition-colors"
                             >
                                 <X size={28} />
@@ -1291,16 +1310,26 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                     Subtítulos
                                 </button>
                                 <button
-                                    onClick={() => { setShowQualityMenu(true); setShowSubtitleMenu(false); setShowVersionMenu(false); }}
+                                    onClick={() => { setShowQualityMenu(true); setShowSubtitleMenu(false); setShowVersionMenu(false); setShowAudioMenu(false); }}
                                     className={`text-[10px] font-black uppercase tracking-widest transition-colors pb-1 ${
                                         showQualityMenu ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-white/40'
                                     }`}
                                 >
                                     Calidad
                                 </button>
+                                {audioTracks.length > 1 && (
+                                    <button
+                                        onClick={() => { setShowAudioMenu(true); setShowSubtitleMenu(false); setShowQualityMenu(false); setShowVersionMenu(false); }}
+                                        className={`text-[10px] font-black uppercase tracking-widest transition-colors pb-1 ${
+                                            showAudioMenu ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-white/40'
+                                        }`}
+                                    >
+                                        Audio
+                                    </button>
+                                )}
                                 {versions.length > 1 && (
                                     <button
-                                        onClick={() => { setShowVersionMenu(true); setShowSubtitleMenu(false); setShowQualityMenu(false); }}
+                                        onClick={() => { setShowVersionMenu(true); setShowSubtitleMenu(false); setShowQualityMenu(false); setShowAudioMenu(false); }}
                                         className={`text-[10px] font-black uppercase tracking-widest transition-colors pb-1 ${
                                             showVersionMenu ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-white/40'
                                         }`}
@@ -1370,13 +1399,30 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                 </div>
                             </div>
 
-                            {/* Column 2: Quality & Versions */}
-                            <div className={`space-y-8 ${isMobile && !showQualityMenu && !showVersionMenu ? 'hidden' : ''}`}>
+                            {/* Column 2: Quality, Audio & Versions */}
+                            <div className={`space-y-8 ${isMobile && !showQualityMenu && !showVersionMenu && !showAudioMenu ? 'hidden' : ''}`}>
                                 <h3 className="text-xl font-bold text-white/40 uppercase tracking-[0.2em] border-b border-white/10 pb-4">
-                                    {showVersionMenu ? 'Versión' : 'Calidad'}
+                                    {showVersionMenu ? 'Versión' : showAudioMenu ? 'Audio' : 'Calidad'}
                                 </h3>
                                 <div className="space-y-2 max-h-[40vh] overflow-y-auto custom-scrollbar pr-4">
-                                    {showQualityMenu ? (
+                                    {showAudioMenu ? (
+                                        audioTracks.map(track => (
+                                            <button
+                                                key={`audio-${track.index}`}
+                                                onClick={() => {
+                                                    setSelectedAudioTrack(track);
+                                                    setShowAudioMenu(false);
+                                                }}
+                                                className={`w-full text-left py-3 px-4 rounded-xl transition-all flex items-center gap-3 ${selectedAudioTrack?.index === track.index || (!selectedAudioTrack && track.index === 0) ? 'text-white font-bold' : 'text-white/40 hover:text-white'}`}
+                                            >
+                                                {(selectedAudioTrack?.index === track.index || (!selectedAudioTrack && track.index === 0)) && <Check size={18} className="text-cyan-400" />}
+                                                <div className="flex flex-col">
+                                                    <span className="text-lg">{track.title}</span>
+                                                    <span className="text-[10px] uppercase opacity-40">{track.language} ({track.codec})</span>
+                                                </div>
+                                            </button>
+                                        ))
+                                    ) : showQualityMenu ? (
                                         availableQualities.map(q => (
                                             <button
                                                 key={q.id}

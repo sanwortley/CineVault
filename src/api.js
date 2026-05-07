@@ -169,8 +169,8 @@ export const api = {
         return Promise.resolve(false);
     },
 
-    checkAudio: (filePath) => {
-        return Promise.resolve({ codec: 'unknown', needsTranscode: false, subtitles: [] });
+    getAudioTracks: (movieId) => {
+        return backendFetch(`/api/movies/${movieId}/audio-tracks`);
     },
 
     // ── Subtitles ─────────────────────────────────────────────────────
@@ -305,7 +305,12 @@ export const api = {
         if (fileId) {
             const sessionId = localStorage.getItem('cinevault_session_id');
             let url = `${BACKEND_URL}/api/drive/stream/${fileId}?sessionId=${sessionId || ''}`;
-            if (options.transcode) url += `&transcode=true&t=${options.seekOffset || 0}&q=${options.quality || '720'}`;
+            if (options.transcode) {
+                url += `&transcode=true&t=${options.seekOffset || 0}&q=${options.quality || '720'}`;
+            }
+            if (options.audioTrack !== undefined && options.audioTrack !== null) {
+                url += `&audio=${options.audioTrack}`;
+            }
             return url;
         }
         return null;
