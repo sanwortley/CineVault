@@ -119,8 +119,8 @@ const driveApi = {
         }
 
         const res = await drive.files.create({
-            requestBody: { name: options.optimize ? fileName.replace(/\.[^/.]+$/, "") + " (Optimized).mkv" : fileName, parents: [folderId] },
-            media: { mimeType: options.optimize ? 'video/x-matroska' : (mimeType || 'video/mp4'), body: body },
+            requestBody: { name: options.optimize ? fileName.replace(/\.[^/.]+$/, "") + " (Optimized).mp4" : fileName, parents: [folderId] },
+            media: { mimeType: options.optimize ? 'video/mp4' : (mimeType || 'video/mp4'), body: body },
             uploadType: 'resumable',
             supportsAllDrives: true,
             fields: 'id, webContentLink, webViewLink'
@@ -300,7 +300,11 @@ const driveApi = {
             }
 
             // 3. Direct/Range path
-            let headers = { 'Content-Type': contentType, 'Accept-Ranges': 'bytes', 'Access-Control-Allow-Origin': '*' };
+            let headers = { 
+                'Content-Type': contentType === 'video/x-matroska' ? 'video/mp4' : contentType, 
+                'Accept-Ranges': 'bytes', 
+                'Access-Control-Allow-Origin': '*' 
+            };
             if (rangeHeader) {
                 const parts = rangeHeader.replace(/bytes=/, "").split("-");
                 const start = parseInt(parts[0], 10);

@@ -718,7 +718,7 @@ app.post('/api/admin/retry-stuck/:movieId', sessionMiddleware, adminMiddleware, 
             movie.official_title || movie.detected_title, 
             movie.cloud_source_url, 
             'video/mp4', 
-            { isUrl: true, status: 'pending', options: { deleteAfter: true, optimize: true } }
+            { isUrl: true, status: 'pending', options: { deleteAfter: true, optimize: false } }
         );
 
         res.json({ success: true, message: 'Re-encolada correctamente' });

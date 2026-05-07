@@ -191,7 +191,7 @@ router.post('/download', adminMiddleware, async (req, res) => {
                     status: 'pending', 
                     filePath: debridResult.downloadUrl, // URL instead of local path
                     isUrl: true,
-                    options: { deleteAfter: true, optimize: true }
+                    options: { deleteAfter: true, optimize: false }
                 });
 
             } catch (err) {
