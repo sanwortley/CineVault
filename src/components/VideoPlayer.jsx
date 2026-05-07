@@ -45,6 +45,8 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const [isStuckAtZero, setIsStuckAtZero] = useState(false);
     const [isInitializing, setIsInitializing] = useState(true);
     const [lastTap, setLastTap] = useState(0);
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragTime, setDragTime] = useState(0);
     const [error, setError] = useState(null);
     const [debugInfo, setDebugInfo] = useState([]);
     const [delayedMount, setDelayedMount] = useState(false);
@@ -181,6 +183,22 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                 
                 if (hasDriveFile) {
                     if (movie.drive_file_id === 'pending_cloud') {
+                        try {
+                            const prog = await api.getDownloadProgress(movie.id);
+                            // 'converting' means Real-Debrid is still caching it
+                            if (prog && prog.status && prog.status.includes('converting')) {
+                                setStreamSource('error');
+                                setError('La película se está descargando en la nube. Por favor, espera un momento y vuelve a intentarlo.');
+                                return;
+                            }
+                        } catch (e) {
+                            // If not in queue (404) and no cloud URL, it's not ready or failed
+                            if (!movie.cloud_source_url) {
+                                setStreamSource('error');
+                                setError('La película aún no está lista para reproducción instantánea.');
+                                return;
+                            }
+                        }
                         setStreamSource('cloud');
                     } else {
                         setStreamSource('drive');
@@ -467,7 +485,18 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         }
     };
 
-    const handleSeek = (e) => {
+    const handleSeekStart = () => {
+        setIsDragging(true);
+    };
+
+    const handleSeekChange = (e) => {
+        const time = parseFloat(e.target.value);
+        setDragTime(time);
+        // Only update local time for the UI, don't trigger a video seek yet to prevent network spam
+    };
+
+    const handleSeekEnd = (e) => {
+        setIsDragging(false);
         const time = parseFloat(e.target.value);
         if (videoRef.current) {
             videoRef.current.currentTime = time;
@@ -824,6 +853,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         src={videoUrl}
                         onEnded={handleVideoEnded}
                         onTimeUpdate={(e) => {
+                            if (isDragging) return; // Don't snap thumb back while user is dragging
                             const time = e.target.currentTime;
                             setCurrentTime(time);
                             
@@ -1047,7 +1077,11 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
 
             {/* Bottom Controls */}
             {showControls && (
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 to-transparent p-4 pb-10 md:p-8 md:pb-12">
+                <div 
+                    className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 to-transparent p-4 pb-10 md:p-8 md:pb-12"
+                    onClick={(e) => e.stopPropagation()}
+                    onDoubleClick={(e) => e.stopPropagation()}
+                >
                     <div className="flex flex-col gap-4 w-full">
                         <div className="flex items-center justify-between text-white text-[10px] md:text-xs font-bold uppercase tracking-widest opacity-60 px-1">
                             <span>{formatTime(currentTime)}</span>
@@ -1073,15 +1107,23 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                             const effectiveDuration = (duration > 1 && duration !== Infinity && !isDurationSuspicious)
                                 ? duration
                                 : (metaRuntime > 0 ? metaRuntime : 0);
-                            const clampedTime = Math.min(currentTime, effectiveDuration || currentTime);
+                            
+                            // Use dragTime while dragging, else use currentTime
+                            const displayTime = isDragging ? dragTime : currentTime;
+                            const clampedTime = Math.min(displayTime, effectiveDuration || displayTime);
                             const progressPct = effectiveDuration > 0 ? (clampedTime / effectiveDuration) * 100 : 0;
+                            
                             return (
                                 <input
                                     type="range"
                                     min="0"
                                     max={effectiveDuration || 100}
                                     value={clampedTime}
-                                    onChange={handleSeek}
+                                    onMouseDown={handleSeekStart}
+                                    onTouchStart={handleSeekStart}
+                                    onChange={handleSeekChange}
+                                    onMouseUp={handleSeekEnd}
+                                    onTouchEnd={handleSeekEnd}
                                     style={{ background: `linear-gradient(to right, #06b6d4 ${progressPct}%, rgba(255,255,255,0.2) ${progressPct}%)` }}
                                     className="w-full h-1 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-500 [&::-webkit-slider-thumb]:shadow-lg"
                                 />

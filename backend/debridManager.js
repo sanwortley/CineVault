@@ -31,9 +31,9 @@ class DebridManager {
         return response.data;
     }
 
-    async selectAllFiles(id) {
+    async selectFile(id, fileId) {
         const params = new URLSearchParams();
-        params.append('files', 'all');
+        params.append('files', fileId);
         await getRD().post(`/torrents/selectFiles/${id}`, params);
     }
 
@@ -53,12 +53,28 @@ class DebridManager {
             const addResult = await this.addMagnet(magnet);
             const torrentId = addResult.id;
 
-            console.log('[Debrid] Seleccionando archivos...');
-            await this.selectAllFiles(torrentId);
+            console.log('[Debrid] Obteniendo información de archivos...');
+            let info = await this.getTorrentInfo(torrentId);
+
+            // Find the largest video file to avoid downloading samples or NFOs
+            const videoFiles = info.files.filter(f => f.path.match(/\.(mp4|mkv|avi|webm)$/i));
+            let selectedFileId = 'all';
+            
+            if (videoFiles.length > 0) {
+                const largestFile = videoFiles.sort((a, b) => b.bytes - a.bytes)[0];
+                selectedFileId = largestFile.id.toString();
+                console.log(`[Debrid] Seleccionando archivo de video principal: ${largestFile.path}`);
+            } else if (info.files.length > 0) {
+                // Fallback to the largest file if no video extension matches
+                const largestFile = info.files.sort((a, b) => b.bytes - a.bytes)[0];
+                selectedFileId = largestFile.id.toString();
+                console.log(`[Debrid] No se encontraron extensiones de video, seleccionando archivo más grande: ${largestFile.path}`);
+            }
+
+            await this.selectFile(torrentId, selectedFileId);
 
             // Polling for completion
             let isReady = false;
-            let info;
             let attempts = 0;
 
             while (!isReady && attempts < 120) { // Max 10 mins
