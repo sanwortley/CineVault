@@ -684,7 +684,8 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         try {
             const res = await api.searchSubtitles({ 
                 imdbId: subtitleSearchText ? null : movie.imdb_id,
-                title: movie.official_title || movie.file_name,
+                title: movie.official_title,
+                filename: movie.file_name,
                 query: subtitleSearchText || null
             });
             if (res.data && res.data.length > 0) {

@@ -832,7 +832,7 @@ app.get('/api/subtitles/cloud/check', sessionMiddleware, async (req, res) => {
 
 // ─── Subtitles ────────────────────────────────────────────────────────────────
 app.post('/api/subtitles/search', async (req, res) => {
-    const { imdbId, title, query: customQuery } = req.body;
+    const { imdbId, title, filename, query: customQuery } = req.body;
     const apiKey = process.env.OPENSUBTITLES_API_KEY;
     
     let queryStr = '';
@@ -857,11 +857,13 @@ app.post('/api/subtitles/search', async (req, res) => {
         
         const response = await fetch(url, { headers });
         const data = await response.json();
+        const movieFileNameLower = (filename || '').toLowerCase();
         const movieTitleLower = (title || '').toLowerCase();
+        const combinedContext = `${movieFileNameLower} ${movieTitleLower}`;
         
         // Key keywords to match versions (YTS, RARBG, WEBRip, 1080p, etc.)
-        const keywords = ['yts', 'rarbg', 'psa', 'webrip', 'web-rip', 'bluray', 'blu-ray', 'brrip', 'x264', 'x265', '1080p', '720p', 'amzn', 'nf'];
-        const activeKeywords = keywords.filter(k => movieTitleLower.includes(k));
+        const keywords = ['yts', 'rarbg', 'psa', 'webrip', 'web-rip', 'bluray', 'blu-ray', 'brrip', 'x264', 'x265', '1080p', '720p', 'amzn', 'nf', 'dual', 'latino', 'ac3', 'dts', 'tigole', 'qxr', 'utp'];
+        const activeKeywords = keywords.filter(k => combinedContext.includes(k));
 
         let results = (data.data || [])
             .filter(s => s.attributes?.files?.length > 0)
@@ -877,7 +879,11 @@ app.post('/api/subtitles/search', async (req, res) => {
                 
                 // version/release matching - Better scoring for release group
                 activeKeywords.forEach(k => {
-                    if (releaseLower.includes(k)) score += 100; // Increased weight
+                    if (releaseLower.includes(k)) {
+                        score += 150; // Increased weight
+                        // Double bonus for technical tags like 1080p, YTS, etc.
+                        if (['yts', 'rarbg', 'psa', '1080p', '720p', 'bluray'].includes(k)) score += 100;
+                    }
                 });
 
                 // Check for exact movie file name components in release string
