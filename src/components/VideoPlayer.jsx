@@ -690,6 +690,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                 imdbId: subtitleSearchText ? null : movie.imdb_id,
                 title: movie.official_title,
                 filename: movie.file_name,
+                year: movie.detected_year,
                 query: subtitleSearchText || null
             });
             if (res.data && res.data.length > 0) {

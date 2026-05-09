@@ -832,14 +832,17 @@ app.get('/api/subtitles/cloud/check', sessionMiddleware, async (req, res) => {
 
 // ─── Subtitles ────────────────────────────────────────────────────────────────
 app.post('/api/subtitles/search', async (req, res) => {
-    const { imdbId, title, filename, query: customQuery } = req.body;
+    const { imdbId, title, filename, year, query: customQuery } = req.body;
     const apiKey = process.env.OPENSUBTITLES_API_KEY;
     
     let queryStr = '';
     if (customQuery) {
         queryStr = `query=${encodeURIComponent(customQuery)}`;
+    } else if (imdbId) {
+        queryStr = `imdb_id=${imdbId.replace('tt', '')}`;
     } else {
-        queryStr = imdbId ? `imdb_id=${imdbId.replace('tt', '')}` : `query=${encodeURIComponent(title)}`;
+        queryStr = `query=${encodeURIComponent(title)}&type=movie`;
+        if (year) queryStr += `&year=${year}`;
     }
     
     const url = `https://api.opensubtitles.com/api/v1/subtitles?${queryStr}&languages=es,en`;
@@ -867,6 +870,13 @@ app.post('/api/subtitles/search', async (req, res) => {
 
         let results = (data.data || [])
             .filter(s => s.attributes?.files?.length > 0)
+            .filter(s => {
+                const ft = (s.attributes?.feature_type || '').toLowerCase();
+                if (ft === 'episode') return false;
+                if (s.attributes?.season_number != null) return false;
+                if (s.attributes?.episode_number != null) return false;
+                return true;
+            })
             .map(s => {
                 const attr = s.attributes;
                 const releaseLower = (attr.release || '').toLowerCase();
@@ -876,6 +886,9 @@ app.post('/api/subtitles/search', async (req, res) => {
                 // Language priority
                 if (lang === 'es') score += 1000;
                 if (lang === 'en') score += 100;
+
+                // Penalize episode-like releases (safety net)
+                if (/s\d{1,2}e\d{1,2}|season\s*\d+|episode\s*\d+/i.test(releaseLower)) score -= 5000;
                 
                 // version/release matching - Better scoring for release group
                 activeKeywords.forEach(k => {
@@ -905,6 +918,7 @@ app.post('/api/subtitles/search', async (req, res) => {
                     type: 'cloud'
                 };
             })
+            .filter(s => s.score > -1000) // Remove heavily penalized (episode) results
             .sort((a, b) => b.score - a.score) // Order by best score first
             .slice(0, 15); // Limit to top 15 results
         
