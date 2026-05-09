@@ -290,7 +290,10 @@ app.get('/api/movies/:id/audio-tracks', sessionMiddleware, async (req, res) => {
     const { id } = req.params;
     try {
         const cached = await db.getGlobalConfig(`AUDIO_TRACKS_${id}`);
-        if (cached) return res.json(cached);
+        if (cached && cached.length > 0) {
+            console.log(`[Server] Returning cached audio tracks for movie ${id} (${cached.length} tracks)`);
+            return res.json(cached);
+        }
 
         const movies = await db.findMovies({ id });
         if (!movies || movies.length === 0) return res.status(404).json({ error: 'Movie not found' });
@@ -304,7 +307,7 @@ app.get('/api/movies/:id/audio-tracks', sessionMiddleware, async (req, res) => {
         let headers = null;
 
         if (driveApi.isAuthenticated()) {
-            const token = driveApi.getOAuthClient().credentials.access_token;
+            const token = await driveApi.getAccessToken();
             headers = `Authorization: Bearer ${token}`;
         } else if (process.env.GOOGLE_API_KEY) {
             url += `&key=${process.env.GOOGLE_API_KEY}`;
@@ -314,6 +317,7 @@ app.get('/api/movies/:id/audio-tracks', sessionMiddleware, async (req, res) => {
         
         console.log(`[Server] Probing audio tracks for ${movie.official_title}...`);
         const tracks = await probeAudioTracks(url, headers);
+        console.log(`[Server] Found ${tracks.length} audio tracks for ${movie.official_title}`);
         
         await db.setGlobalConfig(`AUDIO_TRACKS_${id}`, tracks);
         res.json(tracks);

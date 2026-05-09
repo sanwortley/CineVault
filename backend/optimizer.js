@@ -75,20 +75,33 @@ function getVideoMetadata(input) {
  * Returns array: [{ index, codec, language, title }]
  */
 function probeAudioTracks(input, headers = null) {
-    const { exec } = require('child_process');
+    const { spawn } = require('child_process');
     return new Promise((resolve, reject) => {
-        let command = `ffprobe -v error -show_entries stream=index,codec_type,codec_name:stream_tags=language,title,LANGUAGE,TITLE -of json`;
+        const args = [
+            '-v', 'error',
+            '-show_entries', 'stream=index,codec_type,codec_name:stream_tags=language,title,LANGUAGE,TITLE',
+            '-of', 'json'
+        ];
+
         if (headers) {
             // Ensure headers end with \r\n for ffmpeg
             const h = headers.endsWith('\r\n') ? headers : headers + '\r\n';
-            command += ` -headers "${h.replace(/"/g, '\\"')}"`;
+            args.push('-headers', h);
         }
-        command += ` "${input}"`;
 
-        exec(command, { maxBuffer: 1024 * 1024 * 5 }, (err, stdout, stderr) => {
-            if (err) {
-                console.error('[Optimizer] ffprobe error:', stderr || err.message);
-                return reject(new Error(stderr || err.message));
+        args.push(input);
+
+        const ffprobe = spawn('ffprobe', args);
+        let stdout = '';
+        let stderr = '';
+
+        ffprobe.stdout.on('data', (data) => { stdout += data; });
+        ffprobe.stderr.on('data', (data) => { stderr += data; });
+
+        ffprobe.on('close', (code) => {
+            if (code !== 0) {
+                console.error('[Optimizer] ffprobe error:', stderr);
+                return reject(new Error(stderr || `ffprobe exited with code ${code}`));
             }
             
             try {

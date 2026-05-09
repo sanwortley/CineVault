@@ -60,6 +60,11 @@ const driveApi = {
         return tokens;
     },
 
+    getAccessToken: async () => {
+        const { token } = await oauth2Client.getAccessToken();
+        return token;
+    },
+
     getOAuthClient: () => oauth2Client,
 
     authenticate: async () => {
