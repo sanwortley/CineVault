@@ -735,7 +735,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             let url = '';
             let directContent = null;
             
-            if (subtitle.type === 'os') {
+            if (subtitle.type === 'os' || subtitle.type === 'cloud') {
                 // Use the cloud GET endpoint for streaming subtitles in the player
                 url = BACKEND_URL + '/api/subtitles/cloud?id=' + subtitle.id;
                 // Still notify backend to pair/cache it in the background
