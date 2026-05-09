@@ -771,8 +771,9 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                 }
                 
                 const cues = parseVTT(text);
+                console.log(`[VideoPlayer] Subtitles loaded: ${cues.length} cues found`);
                 if (cues.length === 0) {
-                    console.warn('[VideoPlayer] Parser returned 0 cues. Malformed VTT?');
+                    console.warn('[VideoPlayer] Parser returned 0 cues. Malformed VTT? Raw text starts with:', text.substring(0, 50));
                 }
                 setSubtitleCues(cues);
             }
@@ -826,8 +827,8 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         
         while (i < lines.length) {
             if (lines[i].includes('-->')) {
-                // Better regex: handles , and . and optional hours
-                const timeMatch = lines[i].match(/(?:(\d+):)?(\d{2}):(\d{2})[.,](\d{3})\s*-->\s*(?:(\d+):)?(\d{2}):(\d{2})[.,](\d{3})/);
+                // Lenient regex: handles single digit hours, dots or commas, and optional hours
+                const timeMatch = lines[i].match(/(?:(\d+):)?(\d+):(\d+)[.,](\d+)\s*-->\s*(?:(\d+):)?(\d+):(\d+)[.,](\d+)/);
                 if (timeMatch) {
                     const h1 = parseInt(timeMatch[1] || 0);
                     const m1 = parseInt(timeMatch[2]);
@@ -1006,8 +1007,9 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                      subtitleSettings.size === 'xl' ? '42px' : '22px',
                             color: subtitleSettings.color === 'yellow' ? '#FFD700' : 
                                      subtitleSettings.color === 'cyan' ? '#22D3EE' : 'white',
-                            textShadow: '0 2px 4px rgba(0,0,0,0.8)',
-                            lineHeight: '1.4'
+                            textShadow: '0 2px 10px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.5)',
+                            lineHeight: '1.4',
+                            whiteSpace: 'pre-wrap'
                         }}
                     >
                         {currentSubtitle.text}
