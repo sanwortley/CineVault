@@ -994,18 +994,20 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                     </div>
                 )}
                 
-                {/* Subtitle Display */}
                 {currentSubtitle && (
                     <div 
-                        className={`absolute bottom-[10%] left-1/2 -translate-x-1/2 bg-black/80 px-6 py-3 rounded-2xl max-w-[80%] text-center pointer-events-none transition-opacity duration-300 ${
-                            showControls ? 'opacity-0' : 'opacity-100'
+                        className={`absolute bottom-[12%] left-1/2 -translate-x-1/2 bg-black/80 px-6 py-3 rounded-2xl max-w-[80%] text-center pointer-events-none transition-all duration-300 z-[150] ${
+                            showControls ? 'translate-y-[-60px]' : 'translate-y-0'
                         }`}
                         style={{
-                            fontSize: subtitleSettings.size === 'small' ? '14px' : 
-                                     subtitleSettings.size === 'medium' ? '18px' : 
-                                     subtitleSettings.size === 'large' ? '24px' : '30px',
+                            fontSize: subtitleSettings.size === 'small' ? '16px' : 
+                                     subtitleSettings.size === 'medium' ? '22px' : 
+                                     subtitleSettings.size === 'large' ? '32px' : 
+                                     subtitleSettings.size === 'xl' ? '42px' : '22px',
                             color: subtitleSettings.color === 'yellow' ? '#FFD700' : 
-                                     subtitleSettings.color === 'cyan' ? '#22D3EE' : 'white'
+                                     subtitleSettings.color === 'cyan' ? '#22D3EE' : 'white',
+                            textShadow: '0 2px 4px rgba(0,0,0,0.8)',
+                            lineHeight: '1.4'
                         }}
                     >
                         {currentSubtitle.text}
@@ -1403,13 +1405,13 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                         </button>
                                     ))}
 
-                                    <div className="pt-6 mt-6 border-t border-white/5 space-y-4">
+                                    <div className="pt-4 mt-4 border-t border-white/5 grid grid-cols-2 gap-3">
                                         <button 
                                             onClick={handleSearchSubtitles}
-                                            className="w-full py-4 px-6 bg-white/5 hover:bg-white/10 rounded-2xl text-white font-bold transition-all flex items-center justify-center gap-3 border border-white/5"
+                                            className="py-3 px-4 bg-white/5 hover:bg-white/10 rounded-xl text-white text-xs font-bold transition-all flex items-center justify-center gap-2 border border-white/5"
                                         >
-                                            <Search size={20} />
-                                            <span>Buscar Más</span>
+                                            <Search size={16} />
+                                            <span>Buscar</span>
                                         </button>
                                         <div className="relative">
                                             <input 
@@ -1421,10 +1423,66 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                             />
                                             <button 
                                                 onClick={() => document.getElementById('sub-up-hbo').click()}
-                                                className="w-full py-4 px-6 bg-white/5 hover:bg-white/10 rounded-2xl text-white/60 text-sm transition-all border border-white/5"
+                                                className="w-full py-3 px-4 bg-white/5 hover:bg-white/10 rounded-xl text-white/60 text-xs transition-all border border-white/5"
                                             >
-                                                Cargar archivo local
+                                                Local
                                             </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Personalization Section */}
+                                    <div className="pt-6 mt-2 border-t border-white/5 space-y-6">
+                                        <div className="bg-white/5 rounded-2xl p-4 border border-white/5 text-center">
+                                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-3">Vista Previa</p>
+                                            <p 
+                                                style={{
+                                                    fontSize: subtitleSettings.size === 'small' ? '12px' : 
+                                                             subtitleSettings.size === 'medium' ? '16px' : 
+                                                             subtitleSettings.size === 'large' ? '20px' : '24px',
+                                                    color: subtitleSettings.color === 'yellow' ? '#FFD700' : 
+                                                             subtitleSettings.color === 'cyan' ? '#22D3EE' : 'white',
+                                                    fontWeight: 'bold'
+                                                }}
+                                            >
+                                                Así se verán tus subtítulos
+                                            </p>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div className="space-y-3">
+                                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Tamaño</span>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    {['small', 'medium', 'large', 'xl'].map(s => (
+                                                        <button
+                                                            key={s}
+                                                            onClick={() => updateSubtitleSettings({ size: s })}
+                                                            className={`py-2 text-[10px] font-bold uppercase rounded-lg border transition-all ${subtitleSettings.size === s ? 'bg-cyan-500 border-cyan-500 text-black' : 'bg-transparent border-white/10 text-white/40 hover:border-white/30'}`}
+                                                        >
+                                                            {s === 'xl' ? 'XL' : s === 'small' ? 'Peque' : s === 'medium' ? 'Medio' : 'Grande'}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Color</span>
+                                                <div className="flex flex-col gap-2">
+                                                    {[
+                                                        { id: 'white', bg: 'bg-white', label: 'Blanco' },
+                                                        { id: 'yellow', bg: 'bg-yellow-400', label: 'Oro' },
+                                                        { id: 'cyan', bg: 'bg-cyan-400', label: 'Cian' }
+                                                    ].map(c => (
+                                                        <button
+                                                            key={c.id}
+                                                            onClick={() => updateSubtitleSettings({ color: c.id })}
+                                                            className={`flex items-center gap-3 px-3 py-2 rounded-lg border transition-all ${subtitleSettings.color === c.id ? 'border-cyan-500 bg-cyan-500/10' : 'border-white/10 hover:border-white/30'}`}
+                                                        >
+                                                            <div className={`w-3 h-3 rounded-full ${c.bg} shadow-[0_0_10px_rgba(255,255,255,0.2)]`} />
+                                                            <span className={`text-[10px] font-bold uppercase ${subtitleSettings.color === c.id ? 'text-cyan-400' : 'text-white/40'}`}>{c.label}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
