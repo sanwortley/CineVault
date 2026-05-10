@@ -312,7 +312,7 @@ const driveApi = {
 
             // 3. Direct/Range path
             let headers = { 
-                'Content-Type': contentType === 'video/x-matroska' ? 'video/mp4' : contentType, 
+                'Content-Type': contentType, 
                 'Accept-Ranges': 'bytes', 
                 'Access-Control-Allow-Origin': '*' 
             };

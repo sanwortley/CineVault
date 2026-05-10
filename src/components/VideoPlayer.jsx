@@ -33,6 +33,11 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     // Use repaired data if available
     const activeMovie = fullMovieData || movie;
     const isMobile = typeof window !== 'undefined' && (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768);
+    const isSafari = typeof window !== 'undefined' && (
+        /^((?!chrome|android).)*safari/i.test(navigator.userAgent) ||
+        /iPhone|iPad|iPod/i.test(navigator.userAgent)
+    );
+    const isIOS = typeof window !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
     const [isPlaying, setIsPlaying] = useState(true);
     const [duration, setDuration] = useState(0);
     const [currentTime, setCurrentTime] = useState(0);
@@ -165,14 +170,15 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         }
     }, [isPlaying, seekOffset]);
 
-    // Stuck detection logic
+    // Stuck detection logic (8s on iOS where startup can be slower)
     useEffect(() => {
         let timer;
         if (isPlaying && currentTime === 0 && !isLoading && !isInitializing) {
+            const stuckTimeout = isIOS ? 8000 : 3000;
             timer = setTimeout(() => {
                 setIsStuckAtZero(true);
                 console.log('[VideoPlayer] Playback seems stuck at 0:00. Showing overlay.');
-            }, 3000);
+            }, stuckTimeout);
         } else {
             setIsStuckAtZero(false);
         }
@@ -321,12 +327,15 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         const isMKV = movie.file_path?.toLowerCase().endsWith('.mkv') || 
                       movie.file_name?.toLowerCase().endsWith('.mkv');
                       
+        // Safari/iOS must always transcode — only H.264/AAC in MP4 is reliable
+        if (isSafari) return true;
+
         // Force transcode if alternate audio track is selected
         if (selectedAudioTrack && selectedAudioTrack.index > 0) return true;
         
-        // Compatible codecs with browsers
-        const isVideoCompatible = ['h264', 'avc1', 'avc2', 'vp8', 'vp9', 'av1'].some(c => vidCodec.includes(c));
-        const isAudioCompatible = ['aac', 'mp3', 'opus', 'vorbis'].some(c => audCodec.includes(c));
+        // Compatible codecs with browsers (Safari-safe subset)
+        const isVideoCompatible = ['h264', 'avc1', 'avc2', 'hevc', 'h265'].some(c => vidCodec.includes(c));
+        const isAudioCompatible = ['aac', 'mp3'].some(c => audCodec.includes(c));
         
         // If codecs are unknown, assume compatible to avoid unnecessary transcoding overhead
         const isVidUnknown = !vidCodec;
@@ -624,8 +633,8 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             const videoEl = videoRef.current;
             const containerEl = playerRef.current;
             
-            // Priority 1: Native Video Fullscreen (Mandatory for iPhone)
-            if (isMobile && videoEl && videoEl.webkitEnterFullscreen) {
+            // Priority 1: Native Video Fullscreen (Mandatory for iPhone/iPad)
+            if (isIOS && videoEl && videoEl.webkitEnterFullscreen) {
                 try {
                     await videoEl.webkitEnterFullscreen();
                     return;
@@ -941,7 +950,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         playsInline
                         autoPlay
                         muted={isMuted}
-                        webkit-playsinline="true"
+                        webkitPlaysinline="true"
                         src={videoUrl}
                         onEnded={handleVideoEnded}
                         onTimeUpdate={(e) => {
