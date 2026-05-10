@@ -1,37 +1,8 @@
 const ffmpeg = require('fluent-ffmpeg');
 const { PassThrough } = require('stream');
 
-// Transcode concurrency limiter — max 2 concurrent transcodes to prevent OOM
-const MAX_CONCURRENT_TRANSCODES = 2;
+// Transcode concurrency monitoring (no hard limit — lets FFmpeg manage resources)
 let activeTranscodes = 0;
-const transcodeQueue = [];
-
-function runWithTranscodeLimit(fn) {
-    return new Promise((resolve, reject) => {
-        const execute = () => {
-            activeTranscodes++;
-            try {
-                fn(resolve, reject);
-            } catch (err) {
-                activeTranscodes--;
-                reject(err);
-            }
-        };
-        if (activeTranscodes < MAX_CONCURRENT_TRANSCODES) {
-            execute();
-        } else {
-            transcodeQueue.push(execute);
-        }
-    });
-}
-
-function releaseTranscodeSlot() {
-    activeTranscodes--;
-    if (transcodeQueue.length > 0) {
-        const next = transcodeQueue.shift();
-        next();
-    }
-}
 
 // Configure paths - prefer system ffmpeg/ffprobe (from nixpacks) over static binaries
 let CURRENT_FFMPEG_PATH = '';
@@ -200,112 +171,98 @@ function getOptimizedUploadStream(inputPath) {
  * Now accepts quality parameter for dynamic resolution.
  */
 function getTranscodeStream(input, startTime = 0, quality = '720', headers = null, audioTrack = null) {
-    console.log(`[Optimizer] Queuing transcode. Active: ${activeTranscodes}/${MAX_CONCURRENT_TRANSCODES}, Queue: ${transcodeQueue.length}. Start: ${startTime}s, Quality: ${quality}, AudioTrack: ${audioTrack}`);
-    
     const profile = QUALITY_PROFILES[quality] || QUALITY_PROFILES['720'];
     const passThrough = new PassThrough();
-    let command = null;
+    const command = ffmpeg(input);
 
-    const startTranscode = () => {
-        command = ffmpeg(input);
+    activeTranscodes++;
+    console.log(`[Optimizer] Starting transcode. Active: ${activeTranscodes}. Start: ${startTime}s, Quality: ${quality}, AudioTrack: ${audioTrack}`);
 
-        const inputOptions = [
-            '-threads', '0', 
-            '-probesize', '20M',
-            '-analyzeduration', '20M',
-            '-fflags', '+genpts+igndts',
-            '-err_detect', 'ignore_err',
-            '-reconnect', '1',
-            '-reconnect_at_eof', '1',
-            '-reconnect_streamed', '1',
-            '-reconnect_delay_max', '5'
-        ];
+    const inputOptions = [
+        '-threads', '0', 
+        '-probesize', '20M',
+        '-analyzeduration', '20M',
+        '-fflags', '+genpts+igndts',
+        '-err_detect', 'ignore_err',
+        '-reconnect', '1',
+        '-reconnect_at_eof', '1',
+        '-reconnect_streamed', '1',
+        '-reconnect_delay_max', '5'
+    ];
 
-        if (typeof input === 'string') {
-            if (headers) inputOptions.push('-headers', headers.trim() + '\r\n');
-            inputOptions.push('-ss', startTime.toString());
-        }
-
-        command.inputOptions(inputOptions);
-
-        if (quality === 'original') {
-            command.videoCodec('copy').audioCodec('aac');
-        } else {
-            command.videoCodec('libx264').audioCodec('aac');
-            command.audioChannels(2);
-        }
-
-        command.format('mp4');
-
-        const outputOpts = [
-            '-preset', 'ultrafast', 
-            '-tune', 'zerolatency',
-            '-profile:v', profile.height <= 480 ? 'baseline' : 'main', 
-            '-level', profile.height <= 480 ? '3.0' : '4.1',
-            '-pix_fmt', 'yuv420p',
-            '-movflags', 'frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset+frag_discont', 
-            '-crf', (parseInt(profile.crf) + 4).toString(),
-            '-threads', '0',
-            '-map_chapters', '-1',
-            '-max_muxing_queue_size', '4096'
-        ];
-
-        if (audioTrack !== null && audioTrack !== undefined) {
-            outputOpts.push('-map', '0:v:0');
-            outputOpts.push('-map', `0:a:${audioTrack}`);
-        }
-
-        command.outputOptions(outputOpts);
-        if (typeof input !== 'string') {
-            command.outputOptions(['-ss', startTime.toString()]);
-        }
-
-        if (profile.scale) {
-            command.videoFilter(`scale=${profile.scale}`);
-        }
-
-        if (profile.bitrate) {
-            command.outputOptions(['-b:v', profile.bitrate, '-bufsize', profile.bufsize]);
-        }
-
-        command
-            .on('start', (cmd) => {
-                console.log(`[Optimizer] FFmpeg Stream started. Active: ${activeTranscodes}/${MAX_CONCURRENT_TRANSCODES}: ${cmd}`);
-            })
-            .on('error', (err) => {
-                if (err.message.includes('SIGKILL') || err.message.includes('Output stream closed')) return;
-                console.error('[Optimizer] FFmpeg Stream Error:', err.message);
-                passThrough.destroy(err);
-            })
-            .on('end', () => {
-                console.log('[Optimizer] Stream finished');
-                passThrough.end();
-            });
-
-        command.pipe(passThrough);
-        passThrough.ffmpegCommand = command;
-    };
-
-    if (activeTranscodes < MAX_CONCURRENT_TRANSCODES) {
-        activeTranscodes++;
-        startTranscode();
-    } else {
-        transcodeQueue.push(() => {
-            activeTranscodes++;
-            startTranscode();
-        });
+    if (typeof input === 'string') {
+        if (headers) inputOptions.push('-headers', headers.trim() + '\r\n');
+        inputOptions.push('-ss', startTime.toString());
     }
 
-    const origPipeEnd = passThrough.end;
-    passThrough.end = function() {
-        if (command) releaseTranscodeSlot();
-        return origPipeEnd.apply(this, arguments);
-    };
-    passThrough.ffmpegCommand = null;
-    passThrough._releaseSlot = releaseTranscodeSlot;
+    command.inputOptions(inputOptions);
 
+    if (quality === 'original') {
+        command.videoCodec('copy').audioCodec('aac');
+    } else {
+        command.videoCodec('libx264').audioCodec('aac');
+        command.audioChannels(2);
+    }
+
+    command.format('mp4');
+
+    const outputOpts = [
+        '-preset', 'ultrafast', 
+        '-tune', 'zerolatency',
+        '-profile:v', profile.height <= 480 ? 'baseline' : 'main', 
+        '-level', profile.height <= 480 ? '3.0' : '4.1',
+        '-pix_fmt', 'yuv420p',
+        '-movflags', 'frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset+frag_discont', 
+        '-crf', (parseInt(profile.crf) + 4).toString(),
+        '-threads', '0',
+        '-map_chapters', '-1',
+        '-max_muxing_queue_size', '4096'
+    ];
+
+    if (audioTrack !== null && audioTrack !== undefined) {
+        outputOpts.push('-map', '0:v:0');
+        outputOpts.push('-map', `0:a:${audioTrack}`);
+    }
+
+    command.outputOptions(outputOpts);
+    if (typeof input !== 'string') {
+        command.outputOptions(['-ss', startTime.toString()]);
+    }
+
+    if (profile.scale) {
+        command.videoFilter(`scale=${profile.scale}`);
+    }
+
+    if (profile.bitrate) {
+        command.outputOptions(['-b:v', profile.bitrate, '-bufsize', profile.bufsize]);
+    }
+
+    command
+        .on('start', (cmd) => console.log(`[Optimizer] FFmpeg Stream: ${cmd}`))
+        .on('error', (err) => {
+            if (err.message.includes('SIGKILL') || err.message.includes('Output stream closed')) {
+                activeTranscodes--;
+                return;
+            }
+            console.error('[Optimizer] FFmpeg Stream Error:', err.message);
+            activeTranscodes--;
+            passThrough.destroy(err);
+        })
+        .on('end', () => {
+            console.log('[Optimizer] Stream finished');
+            activeTranscodes--;
+            passThrough.end();
+        });
+
+    command.pipe(passThrough);
+    passThrough.ffmpegCommand = command;
     return passThrough;
 }
+
+// Log active transcodes on exit
+process.on('exit', () => {
+    if (activeTranscodes > 0) console.log(`[Optimizer] ${activeTranscodes} transcodes still active on exit`);
+});
 
 // Clean up stuck transcodes when the process exits
 process.on('exit', () => {
