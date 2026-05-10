@@ -72,6 +72,18 @@ const { addMovie } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Validate critical environment variables on startup
+const REQUIRED_ENV_VARS = ['TMDB_API_KEY', 'SUPABASE_URL', 'SUPABASE_ANON_KEY'];
+REQUIRED_ENV_VARS.forEach(key => {
+    if (!process.env[key]) {
+        console.warn(`[Server] WARNING: Required env var "${key}" is not set. Related features will fail.`);
+    }
+});
+if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    console.warn('[Server] WARNING: Google OAuth credentials not configured. Drive features will be unavailable.');
+}
+
 const isAdmin = (email) => email === (process.env.ADMIN_EMAIL || 'admin@cinevault.local');
 const { sessionMiddleware, adminMiddleware } = require('./middleware');
 
@@ -148,8 +160,10 @@ const movieUpload = multer({
 
 // ─── Subtitles Serving ────────────────────────────────────────────────────────
 app.get('/api/subtitles/internal', async (req, res) => {
-    const { path: filePath, index } = req.query;
-    if (!filePath || index === undefined) return res.status(400).send('Missing params');
+    const { path: rawPath, index } = req.query;
+    if (!rawPath || index === undefined) return res.status(400).send('Missing params');
+    const filePath = path.resolve(rawPath);
+    if (filePath !== rawPath && rawPath.includes('..')) return res.status(403).send('Forbidden');
     
     res.setHeader('Content-Type', 'text/vtt');
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -164,8 +178,10 @@ app.get('/api/subtitles/internal', async (req, res) => {
 });
 
 app.get('/api/subtitles/external', (req, res) => {
-    const { path: filePath } = req.query;
-    if (!filePath) return res.status(400).send('Missing path');
+    const { path: rawPath } = req.query;
+    if (!rawPath) return res.status(400).send('Missing path');
+    const filePath = path.resolve(rawPath);
+    if (filePath !== rawPath && rawPath.includes('..')) return res.status(403).send('Forbidden');
     res.setHeader('Content-Type', 'text/vtt');
     res.setHeader('Access-Control-Allow-Origin', '*');
     if (fs.existsSync(filePath)) {
@@ -387,15 +403,22 @@ app.get('/api/debug/ffmpeg-logs', (req, res) => {
 });
 
 app.get('/api/stream/local', (req, res) => {
-    const filePath = req.query.path;
+    const rawPath = req.query.path;
     const transcode = req.query.transcode === 'true';
     const startTime = parseFloat(req.query.t || 0);
 
-    console.log(`[Stream] Request: ${filePath}, Transcode: ${transcode}, Start: ${startTime}`);
+    console.log(`[Stream] Request: ${rawPath}, Transcode: ${transcode}, Start: ${startTime}`);
 
-    if (!filePath) {
+    if (!rawPath) {
         console.error('[Stream] No path provided');
         return res.status(400).send('Path is required');
+    }
+
+    // Path traversal protection
+    const filePath = path.resolve(rawPath);
+    if (filePath !== rawPath && rawPath.includes('..')) {
+        console.error('[Stream] Path traversal detected:', rawPath);
+        return res.status(403).send('Forbidden');
     }
 
     if (!fs.existsSync(filePath)) {
@@ -545,7 +568,9 @@ app.post('/api/drive/upload', sessionMiddleware, adminMiddleware, upload.single(
         try {
             const movies = await db.findMovies({ id: movieId });
             if (movies && movies.length > 0) title = movies[0].official_title || movies[0].detected_title || title;
-        } catch (err) {}
+        } catch (err) {
+            console.warn('[Upload] Could not fetch movie title:', err.message);
+        }
 
         uploadManager.enqueue(movieId, title, tempPath, mimeType, { deleteAfter: true });
 
@@ -1110,7 +1135,9 @@ app.post('/api/subtitles/download', async (req, res) => {
                                     try {
                                         await driveApi.uploadBasicFile(vttPath, parentId, `${movieName}.vtt`);
                                         console.log(`[Subtitles] Persistencia VTT completada en Drive.`);
-                                    } catch (e) {}
+                                    } catch (e) {
+                                    console.warn('[Subtitles] Drive VTT upload failed:', e.message);
+                                }
                                 }).run();
                                 
                                 savedLocally = true; // Mark as saved so it doesn't just sit in temp
@@ -1137,7 +1164,9 @@ app.post('/api/subtitles/download', async (req, res) => {
                 .output(vttPath)
                 .on('error', (err) => console.error('[Subtitles] Automatic VTT conversion failed:', err.message))
                 .run();
-        } catch (vttErr) {}
+        } catch (vttErr) {
+            console.warn('[Subtitles] Failed to start VTT conversion:', vttErr.message);
+        }
 
         res.json({ localPath: finalPath, savedLocally, success: true });
     } catch (e) {
@@ -1801,7 +1830,9 @@ app.post('/api/admin/config/rd-token', sessionMiddleware, adminMiddleware, async
                 envContent += `\nREAL_DEBRID_API_TOKEN=${token}`;
             }
             fs.writeFileSync(envPath, envContent);
-        } catch (e) {}
+        } catch (e) {
+            console.warn('[Server] Could not persist RD token to .env file:', e.message);
+        }
     }
     res.json({ message: 'Token de Real-Debrid actualizado y persistido' });
 });
@@ -1993,6 +2024,11 @@ app.post('/api/admin/refresh-metadata', async (req, res) => {
 });
 
 app.use('/api/discover', discoverRouter);
+
+// Health check for Railway
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: Date.now() });
+});
 
 // Support SPA routing (must be AFTER static and API routes)
 app.get('*splat', (req, res) => {

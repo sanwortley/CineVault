@@ -36,7 +36,9 @@ oauth2Client.on('tokens', (tokens) => {
     let existing = {};
     try {
         if (fs.existsSync(tokenPath)) existing = JSON.parse(fs.readFileSync(tokenPath));
-    } catch (_) {}
+    } catch (_) {
+        console.warn('[Drive] Could not read existing token file, starting fresh');
+    }
     fs.writeFileSync(tokenPath, JSON.stringify({ ...existing, ...tokens }));
 });
 
@@ -144,7 +146,9 @@ const driveApi = {
 
         try {
             await drive.permissions.create({ fileId: res.data.id, requestBody: { role: 'reader', type: 'anyone' }, supportsAllDrives: true });
-        } catch (e) {}
+        } catch (e) {
+            console.warn('[Drive] Could not set file public permission:', e.message);
+        }
         return res.data;
     },
 
@@ -301,7 +305,9 @@ const driveApi = {
                         console.error('[DriveStream] Authentication expired. User needs to re-link Google Drive.');
                         try {
                             await driveApi.disconnect();
-                        } catch (e) {}
+                        } catch (e) {
+                            console.warn('[DriveStream] Disconnect failed:', e.message);
+                        }
                     }
                     if (!res.headersSent) {
                         res.status(500).json({ error: 'Error al obtener flujo de Drive', details: streamErr.message });
