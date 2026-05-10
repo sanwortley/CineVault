@@ -170,22 +170,6 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         }
     }, [isPlaying, seekOffset]);
 
-    // Stuck detection logic — disabled during transcoding (FFmpeg startup takes time)
-    useEffect(() => {
-        let timer;
-        const isTranscoding = needsTranscoding || useTranscoding;
-        if (!isTranscoding && isPlaying && currentTime === 0 && !isLoading && !isInitializing) {
-            const stuckTimeout = isIOS ? 8000 : 3000;
-            timer = setTimeout(() => {
-                setIsStuckAtZero(true);
-                console.log('[VideoPlayer] Playback seems stuck at 0:00. Showing overlay.');
-            }, stuckTimeout);
-        } else {
-            setIsStuckAtZero(false);
-        }
-        return () => clearTimeout(timer);
-    }, [isPlaying, currentTime, isLoading, isInitializing, needsTranscoding, useTranscoding]);
-
     useEffect(() => {
         const resolveSource = async () => {
             setIsInitializing(true);
@@ -403,6 +387,22 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
 
     const isDisplayLoading = isInitializing || isLoading;
     
+    // Stuck detection logic — disabled during transcoding (FFmpeg startup takes time)
+    useEffect(() => {
+        let timer;
+        const isTranscoding = needsTranscoding || useTranscoding;
+        if (!isTranscoding && isPlaying && currentTime === 0 && !isLoading && !isInitializing) {
+            const stuckTimeout = isIOS ? 8000 : 3000;
+            timer = setTimeout(() => {
+                setIsStuckAtZero(true);
+                console.log('[VideoPlayer] Playback seems stuck at 0:00. Showing overlay.');
+            }, stuckTimeout);
+        } else {
+            setIsStuckAtZero(false);
+        }
+        return () => clearTimeout(timer);
+    }, [isPlaying, currentTime, isLoading, isInitializing, needsTranscoding, useTranscoding]);
+
     // Fetch existing rating
     useEffect(() => {
         if (movie?.id && user?.id) {
