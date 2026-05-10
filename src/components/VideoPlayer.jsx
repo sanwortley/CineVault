@@ -170,10 +170,11 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         }
     }, [isPlaying, seekOffset]);
 
-    // Stuck detection logic (8s on iOS where startup can be slower)
+    // Stuck detection logic — disabled during transcoding (FFmpeg startup takes time)
     useEffect(() => {
         let timer;
-        if (isPlaying && currentTime === 0 && !isLoading && !isInitializing) {
+        const isTranscoding = needsTranscoding || useTranscoding;
+        if (!isTranscoding && isPlaying && currentTime === 0 && !isLoading && !isInitializing) {
             const stuckTimeout = isIOS ? 8000 : 3000;
             timer = setTimeout(() => {
                 setIsStuckAtZero(true);
@@ -183,7 +184,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             setIsStuckAtZero(false);
         }
         return () => clearTimeout(timer);
-    }, [isPlaying, currentTime, isLoading, isInitializing]);
+    }, [isPlaying, currentTime, isLoading, isInitializing, needsTranscoding, useTranscoding]);
 
     useEffect(() => {
         const resolveSource = async () => {
