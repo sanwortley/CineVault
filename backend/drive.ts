@@ -502,10 +502,66 @@ const driveApi = {
         })
       }
 
-      // Handle Range request from browser
+      // ── Moov detection (runs once per fileId, cached for subsequent Range requests) ──
+      const TAIL_SIZE = 10 * 1024 * 1024 // 10MB
+      const HEAD_SIZE = 100 * 1024 // 100KB
+      let ftypSize = 0
+      let moovSize = 0
+      let moovBuf: Buffer | null = null
+      let headBuf: Buffer | null = null
+
+      const cachedMoov = moovMetaCache.get(fileId)
+      if (cachedMoov) {
+        ftypSize = cachedMoov.ftypSize
+        moovSize = cachedMoov.moovSize
+      }
+
+      // Only fetch if not cached and file is large enough
+      if (!cachedMoov && fileSize > HEAD_SIZE + TAIL_SIZE) {
+        const accessToken = (oauth2Client.credentials as { access_token?: string }).access_token
+        const baseUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`
+        const authHeader = { Authorization: `Bearer ${accessToken}` }
+
+        const [headRes, tailRes] = await Promise.all([
+          fetch(baseUrl, { headers: { ...authHeader, Range: `bytes=0-${HEAD_SIZE - 1}` } }),
+          fetch(baseUrl, { headers: { ...authHeader, Range: `bytes=-${TAIL_SIZE}` } }),
+        ])
+        if (headRes.ok && tailRes.ok) {
+          headBuf = Buffer.from(await headRes.arrayBuffer())
+          const tailBuf = Buffer.from(await tailRes.arrayBuffer())
+
+          ftypSize = headBuf.readUInt32BE(0)
+          const moovAtStart = headBuf.length > ftypSize + 4 &&
+            headBuf.toString('ascii', ftypSize, ftypSize + 4) === 'moov'
+
+          if (!moovAtStart) {
+            for (let i = 0; i <= tailBuf.length - 8; i += 4) {
+              if (tailBuf.toString('ascii', i + 4, i + 8) === 'moov') {
+                const boxSize = tailBuf.readUInt32BE(i)
+                if (boxSize >= 8 && i + boxSize <= tailBuf.length) {
+                  moovBuf = tailBuf.subarray(i, i + boxSize)
+                  break
+                }
+              }
+            }
+            if (moovBuf) {
+              moovSize = moovBuf.length
+              adjustStco(moovBuf, moovSize)
+              console.log(`[DriveStream] Adjusted stco offsets by +${moovSize} (${Date.now() - tStart}ms)`)
+            }
+          }
+          moovMetaCache.set(fileId, { ftypSize, moovSize })
+          console.log(`[DriveStream] Moov detection: ftypSize=${ftypSize} moovSize=${moovSize} (${Date.now() - tStart}ms)`)
+        }
+      }
+
+      // ── Parse Range header ──
+      let rangeStart = 0
+      let rangeEnd = fileSize - 1
+      let isRange = false
       if (rangeHeader) {
+        isRange = true
         const rangeMatch = rangeHeader.replace(/bytes=/, '').split('-')
-        let rangeStart: number, rangeEnd: number
         if (rangeMatch[0] === '') {
           const suffixLen = parseInt(rangeMatch[1], 10)
           rangeStart = Math.max(0, fileSize - suffixLen)
@@ -515,124 +571,67 @@ const driveApi = {
           rangeEnd = rangeMatch[1] ? parseInt(rangeMatch[1], 10) : fileSize - 1
         }
         if (isNaN(rangeStart)) { res.status(416).end(); return }
-        // If moov was injected, translate from modified-stream coordinates
-        // back to original Google Drive coordinates
-        const browserStart = rangeStart
-        const browserEnd = rangeEnd
-        const moovMeta = moovMetaCache.get(fileId)
-        if (moovMeta && moovMeta.moovSize > 0) {
-          rangeStart = Math.max(0, rangeStart - moovMeta.moovSize)
-          rangeEnd = Math.max(0, rangeEnd - moovMeta.moovSize)
+      }
+
+      const isFullFile = !isRange || (rangeStart === 0 && rangeEnd >= fileSize - 1)
+
+      // ── Full-file request: serve with moov injection if non-faststart ──
+      if (isFullFile) {
+        if (moovBuf) {
+          console.log(`[DriveStream] Injecting moov (${moovSize} bytes) after ftyp (${ftypSize} bytes) (${Date.now() - tStart}ms)`)
+          res.writeHead(200, {
+            'Content-Type': contentType,
+            'Content-Length': fileSize,
+            'Accept-Ranges': 'bytes',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges',
+          })
+          res.write(headBuf!.subarray(0, ftypSize))
+          res.write(moovBuf)
+
+          const restEnd = Math.max(ftypSize, fileSize - moovSize - 1)
+          if (restEnd > ftypSize) {
+            const restRange = `bytes=${ftypSize}-${restEnd}`
+            const restOpts: Record<string, unknown> = { responseType: 'stream' }
+            restOpts.headers = { Range: restRange }
+            const restRes = await drive.files.get(
+              { fileId, alt: 'media', supportsAllDrives: true },
+              restOpts
+            )
+            const restStream = restRes.data as unknown as NodeJS.ReadableStream
+            restStream.pipe(res)
+            restStream.on('error', (e: Error) => {
+              console.error('[DriveStream] Rest stream error:', e.message)
+              if (!res.destroyed) res.destroy()
+            })
+            res.on('close', () => {
+              console.log(`[DriveStream] Client disconnected at ${Date.now() - tStart}ms`)
+              if (typeof (restStream as any).destroy === 'function') (restStream as any).destroy()
+            })
+          } else {
+            res.end()
+          }
+        } else {
+          console.log(`[DriveStream] Faststart/moov-not-found, serving from byte 0 (${Date.now() - tStart}ms)`)
+          respHeaders['Content-Length'] = fileSize
+          res.writeHead(200, respHeaders)
+          await pipeFromDrive()
         }
-        const googleRange = `bytes=${rangeStart}-${rangeEnd}`
-        respHeaders['Content-Range'] = `bytes ${browserStart}-${browserEnd}/${fileSize}`
-        respHeaders['Content-Length'] = browserEnd - browserStart + 1
-        res.writeHead(206, respHeaders)
-        console.log(`[DriveStream] Range: modified=${browserStart}-${browserEnd} gd=${rangeStart}-${rangeEnd} (${Date.now() - tStart}ms)`)
-        await pipeFromDrive(googleRange)
         return
       }
 
-      // ── Initial request (no Range) — inject moov for non-faststart files ──
-      const moovInjection = async () => {
-        const TAIL_SIZE = 10 * 1024 * 1024 // 10MB
-        const HEAD_SIZE = 100 * 1024 // 100KB
-
-        // Fetch head and tail in parallel
-        const accessToken = (oauth2Client.credentials as { access_token?: string }).access_token
-        const baseUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`
-        const authHeader = { 'Authorization': `Bearer ${accessToken}` }
-
-        const [headRes, tailRes] = await Promise.all([
-          fetch(baseUrl, { headers: { ...authHeader, Range: `bytes=0-${HEAD_SIZE - 1}` } }),
-          fetch(baseUrl, { headers: { ...authHeader, Range: `bytes=-${TAIL_SIZE}` } }),
-        ])
-        if (!headRes.ok || !tailRes.ok) throw new Error(`Drive fetch failed: head=${headRes.status} tail=${tailRes.status}`)
-
-        const headBuf = Buffer.from(await headRes.arrayBuffer())
-        const tailBuf = Buffer.from(await tailRes.arrayBuffer())
-
-        // Check if moov follows ftyp (faststart)
-        const ftypSize = headBuf.readUInt32BE(0)
-        const moovAtStart = headBuf.length > ftypSize + 4 &&
-          headBuf.toString('ascii', ftypSize, ftypSize + 4) === 'moov'
-
-        if (moovAtStart) {
-          // Faststart — serve normally from byte 0
-          console.log(`[DriveStream] Faststart detected, serving from byte 0 (${Date.now() - tStart}ms)`)
-          moovMetaCache.set(fileId, { ftypSize, moovSize: 0 })
-          respHeaders['Content-Length'] = fileSize
-          res.writeHead(200, respHeaders)
-          await pipeFromDrive()
-          return
-        }
-
-        // Non-faststart — find moov in tail and inject after ftyp
-        let moovBuf: Buffer | null = null
-        for (let i = 0; i <= tailBuf.length - 8; i += 4) {
-          if (tailBuf.toString('ascii', i + 4, i + 8) === 'moov') {
-            const boxSize = tailBuf.readUInt32BE(i)
-            if (boxSize >= 8 && i + boxSize <= tailBuf.length) {
-              moovBuf = tailBuf.subarray(i, i + boxSize)
-              break
-            }
-          }
-        }
-        if (!moovBuf) {
-          console.log(`[DriveStream] Moov not found in tail, serving normally (${Date.now() - tStart}ms)`)
-          moovMetaCache.set(fileId, { ftypSize, moovSize: 0 })
-          respHeaders['Content-Length'] = fileSize
-          res.writeHead(200, respHeaders)
-          await pipeFromDrive()
-          return
-        }
-
-        const moovSize = moovBuf.length
-        console.log(`[DriveStream] Injecting moov (${moovSize} bytes) after ftyp (${ftypSize} bytes) (${Date.now() - tStart}ms)`)
-        moovMetaCache.set(fileId, { ftypSize, moovSize })
-
-        // Modified stream: ftyp + moov + mdat (without original moov at end)
-        // Adjust stco offsets so chunk pointers match the modified stream layout
-        adjustStco(moovBuf, moovSize)
-        console.log(`[DriveStream] Adjusted stco offsets by +${moovSize} (${Date.now() - tStart}ms)`)
-
-        // Write ftyp from head buffer
-        res.writeHead(200, {
-          'Content-Type': contentType,
-          'Content-Length': fileSize,
-          'Accept-Ranges': 'bytes',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges',
-        })
-        res.write(headBuf.subarray(0, ftypSize))
-        res.write(moovBuf)
-
-        // Stream the rest: byte ftypSize to (fileSize - moovSize - 1)
-        const restEnd = Math.max(ftypSize, fileSize - moovSize - 1)
-        if (restEnd > ftypSize) {
-          const restRange = `bytes=${ftypSize}-${restEnd}`
-          const restOpts: Record<string, unknown> = { responseType: 'stream' }
-          restOpts.headers = { Range: restRange }
-          const restRes = await drive.files.get(
-            { fileId, alt: 'media', supportsAllDrives: true },
-            restOpts
-          )
-          const restStream = restRes.data as unknown as NodeJS.ReadableStream
-          restStream.pipe(res)
-          restStream.on('error', (e: Error) => {
-            console.error('[DriveStream] Rest stream error:', e.message)
-            if (!res.destroyed) res.destroy()
-          })
-          res.on('close', () => {
-            console.log(`[DriveStream] Client disconnected at ${Date.now() - tStart}ms`)
-            if (typeof (restStream as any).destroy === 'function') (restStream as any).destroy()
-          })
-        } else {
-          res.end()
-        }
+      // ── Partial Range request: adjust by moovSize and proxy to GD ──
+      const browserStart = rangeStart
+      const browserEnd = rangeEnd
+      if (moovSize > 0) {
+        rangeStart = Math.max(0, rangeStart - moovSize)
+        rangeEnd = Math.max(0, rangeEnd - moovSize)
       }
-
-      await moovInjection()
+      respHeaders['Content-Range'] = `bytes ${browserStart}-${browserEnd}/${fileSize}`
+      respHeaders['Content-Length'] = browserEnd - browserStart + 1
+      res.writeHead(206, respHeaders)
+      console.log(`[DriveStream] Range: modified=${browserStart}-${browserEnd} gd=${rangeStart}-${rangeEnd} (${Date.now() - tStart}ms)`)
+      await pipeFromDrive(`bytes=${rangeStart}-${rangeEnd}`)
     } catch (err) {
       const error = err as Error
       console.error(`[Drive Stream] Error at ${Date.now() - tStart}ms:`, error.message)
