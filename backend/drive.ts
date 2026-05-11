@@ -338,6 +338,20 @@ const driveApi = {
     return result
   },
 
+  getWebContentLink: async (fileId: string): Promise<string | null> => {
+    try {
+      const drive = driveApi.getClient()
+      const res = await drive.files.get({
+        fileId,
+        fields: 'webContentLink',
+        supportsAllDrives: true,
+      })
+      return res.data.webContentLink || null
+    } catch {
+      return null
+    }
+  },
+
   streamVideo: async (
     fileId: string,
     rangeHeader: string | undefined,
@@ -347,6 +361,18 @@ const driveApi = {
     const drive = driveApi.getClient()
     const hasToken = driveApi.isAuthenticated()
     const apiKey = process.env.GOOGLE_API_KEY
+
+    // Try direct webContentLink redirect (CORS-compatible Google URL)
+    if (!transcodeOptions.transcode && !rangeHeader) {
+      const webLink = await driveApi.getWebContentLink(fileId)
+      if (webLink) {
+        console.log(`[DriveStream] Redirecting to webContentLink for ${fileId}`)
+        res.set('Access-Control-Allow-Origin', '*')
+        res.redirect(302, webLink)
+        return
+      }
+      console.log(`[DriveStream] webContentLink unavailable, falling back to proxy`)
+    }
 
     try {
       let fileSize: number

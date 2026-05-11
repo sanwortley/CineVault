@@ -111,12 +111,20 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const [dragTime, setDragTime] = useState(0);
     const [error, setError] = useState<{ message: string; stack?: string } | null>(null);
     const [debugInfo, setDebugInfo] = useState<DebugEntry[]>([]);
-    const [delayedMount, setDelayedMount] = useState(false);
+    const [delayedMount] = useState(true);
+    const loadingStart = useRef(Date.now());
+    const [loadingElapsed, setLoadingElapsed] = useState(0);
+    const [loadingStage, setLoadingStage] = useState('');
 
     useEffect(() => {
-        const timer = setTimeout(() => setDelayedMount(true), 500);
-        return () => clearTimeout(timer);
-    }, []);
+        if (!isLoading && !isInitializing) return;
+        loadingStart.current = Date.now();
+        setLoadingElapsed(0);
+        const interval = setInterval(() => {
+            setLoadingElapsed(Math.floor((Date.now() - loadingStart.current) / 1000));
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [isLoading, isInitializing]);
 
     const addDebug = (msg: string) => {
         console.log(`[DEBUG] ${msg}`);
@@ -470,6 +478,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
 
     const handleLoadedData = () => {
         setIsLoading(false);
+        setLoadingStage('Metadatos cargados, iniciando...');
         console.log('[VideoPlayer] Video loaded, isLoading=false');
     };
 
@@ -477,6 +486,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         if (!videoUrl || streamingMode !== 'classic') return;
 
         setIsLoading(true);
+        setLoadingStage('Conectando al servidor...');
         console.log('[VideoPlayer] Source changed:', videoUrl);
 
         if (videoRef.current && videoRef.current.src !== videoUrl) {
@@ -536,11 +546,13 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
 
     const handleCanPlay = () => {
         setIsLoading(false);
+        setLoadingStage('Video listo');
         const video = videoRef.current;
         if (!video) return;
 
         const isTranscoded = needsTranscoding || useTranscoding;
         if (!isTranscoded && !initialSeekPerformed.current && seekOffset > 0) {
+            setLoadingStage(`Buscando posición ${Math.floor(seekOffset / 60)}:${String(Math.floor(seekOffset % 60)).padStart(2, '0')}...`);
             console.log(`[VideoPlayer] Initial seek to: ${seekOffset}s`);
             video.currentTime = seekOffset;
             initialSeekPerformed.current = true;
@@ -1109,7 +1121,10 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         <Loader2 className="w-16 h-16 text-cyan-500 mx-auto mb-6 animate-spin" />
                         <p className="text-white font-bold uppercase tracking-[0.3em]">Cargando Video</p>
                         <p className="text-[10px] font-medium text-slate-400 mt-2 leading-relaxed">
-                            Esto puede tardar unos segundos...
+                            {loadingStage || 'Esto puede tardar unos segundos...'}
+                        </p>
+                        <p className="text-[28px] font-bold text-cyan-400 mt-4 tabular-nums">
+                            {loadingElapsed}s
                         </p>
                     </div>
                 </div>
