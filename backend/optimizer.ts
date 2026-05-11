@@ -321,7 +321,8 @@ process.on('exit', () => {
 function getFmp4Stream(
   input: string,
   startTime: number = 0,
-  headers: string | null = null
+  headers: string | null = null,
+  audioTrack: number | null = null
 ): PassThroughWithCommand {
   const passThrough = new PassThrough() as PassThroughWithCommand
   const command = ffmpeg(input)
@@ -349,11 +350,19 @@ function getFmp4Stream(
   command.videoCodec('copy')
   command.audioCodec('copy')
   command.format('mp4')
-  command.outputOptions([
+
+  const outputOpts = [
     '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
     '-threads', '0',
     '-map_chapters', '-1',
-  ])
+  ]
+
+  if (audioTrack !== null && audioTrack !== undefined) {
+    outputOpts.push('-map', '0:v:0')
+    outputOpts.push('-map', `0:a:${audioTrack}`)
+  }
+
+  command.outputOptions(outputOpts)
   command
     .on('start', (cmd) => console.log(`[Optimizer] FMP4 stream: ${cmd}`))
     .on('error', (err) => {

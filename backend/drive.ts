@@ -506,7 +506,7 @@ const driveApi = {
           } else {
             throw new Error('No authentication method available')
           }
-          const fmp4Stream = getFmp4Stream(sourceUrl, startTime, headers)
+          const fmp4Stream = getFmp4Stream(sourceUrl, startTime, headers, transcodeOptions.audioTrack ? Number(transcodeOptions.audioTrack) : null)
           fmp4Stream.pipe(res)
           res.on('close', () => {
             console.log(`[DriveStream] FMP4 client disconnected at ${Date.now() - fmp4Start}ms`)

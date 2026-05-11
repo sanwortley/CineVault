@@ -353,9 +353,9 @@ app.get('/api/drive/stream/:fileId', sessionMiddleware, async (req, res) => {
     }
     const fileId = req.params.fileId as string;
     const range = req.headers.range as string;
-    const transcode = req.query.transcode === 'true';
-    const fmp4 = req.query.fmp4 === 'true' || 
-      (!transcode && /^((?!chrome|android).)*safari/i.test(req.headers['user-agent'] || ''));
+    const isSafariUA = /^((?!chrome|android).)*safari/i.test(req.headers['user-agent'] || '');
+    const fmp4 = req.query.fmp4 === 'true' || isSafariUA;
+    const transcode = fmp4 ? false : (req.query.transcode === 'true');
     const startTime = req.query.t || 0;
     const audioTrack = req.query.audio || null;
     
