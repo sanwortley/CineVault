@@ -78,6 +78,40 @@ interface TranscodeOptions {
 
 // In-memory metadata cache for Drive files
 const fileMetaCache = new Map<string, { size: number; mimeType: string }>()
+const moovMetaCache = new Map<string, { ftypSize: number; moovSize: number }>()
+
+// Recursively adjusts stco/co64 chunk offsets within a moov box by the given adjustment.
+// stco entries point to absolute byte positions in the original file; after moov injection,
+// all mdat content shifts right by moovSize, so every entry must be incremented.
+function adjustStco(data: Buffer, adjustment: number): void {
+  let offset = 0
+  while (offset + 8 <= data.length) {
+    const boxSize = data.readUInt32BE(offset)
+    const boxType = data.toString('ascii', offset + 4, offset + 8)
+    if (boxSize < 8 || offset + boxSize > data.length) break
+    if (boxType === 'stco') {
+      const count = data.readUInt32BE(offset + 12)
+      for (let i = 0; i < count; i++) {
+        const off = offset + 16 + i * 4
+        if (off + 4 <= data.length)
+          data.writeUInt32BE(data.readUInt32BE(off) + adjustment, off)
+      }
+    } else if (boxType === 'co64') {
+      const count = data.readUInt32BE(offset + 12)
+      for (let i = 0; i < count; i++) {
+        const off = offset + 16 + i * 8
+        if (off + 8 <= data.length) {
+          const val = data.readBigUInt64BE(off)
+          data.writeBigUInt64BE(val + BigInt(adjustment), off)
+        }
+      }
+    } else if (['moov','trak','mdia','minf','stbl','dinf','edts','udta','mvex','moof','traf'].includes(boxType)) {
+      if (boxSize > 8) adjustStco(data.subarray(offset + 8, offset + boxSize), adjustment)
+    }
+    if (boxSize === 0) break
+    offset += boxSize
+  }
+}
 
 const driveApi = {
   isAuthenticated: (): boolean =>
@@ -481,11 +515,20 @@ const driveApi = {
           rangeEnd = rangeMatch[1] ? parseInt(rangeMatch[1], 10) : fileSize - 1
         }
         if (isNaN(rangeStart)) { res.status(416).end(); return }
+        // If moov was injected, translate from modified-stream coordinates
+        // back to original Google Drive coordinates
+        const browserStart = rangeStart
+        const browserEnd = rangeEnd
+        const moovMeta = moovMetaCache.get(fileId)
+        if (moovMeta && moovMeta.moovSize > 0) {
+          rangeStart = Math.max(0, rangeStart - moovMeta.moovSize)
+          rangeEnd = Math.max(0, rangeEnd - moovMeta.moovSize)
+        }
         const googleRange = `bytes=${rangeStart}-${rangeEnd}`
-        respHeaders['Content-Range'] = `bytes ${rangeStart}-${rangeEnd}/${fileSize}`
-        respHeaders['Content-Length'] = rangeEnd - rangeStart + 1
+        respHeaders['Content-Range'] = `bytes ${browserStart}-${browserEnd}/${fileSize}`
+        respHeaders['Content-Length'] = browserEnd - browserStart + 1
         res.writeHead(206, respHeaders)
-        console.log(`[DriveStream] Range: bytes=${rangeStart}-${rangeEnd} (${Date.now() - tStart}ms)`)
+        console.log(`[DriveStream] Range: modified=${browserStart}-${browserEnd} gd=${rangeStart}-${rangeEnd} (${Date.now() - tStart}ms)`)
         await pipeFromDrive(googleRange)
         return
       }
@@ -517,6 +560,7 @@ const driveApi = {
         if (moovAtStart) {
           // Faststart — serve normally from byte 0
           console.log(`[DriveStream] Faststart detected, serving from byte 0 (${Date.now() - tStart}ms)`)
+          moovMetaCache.set(fileId, { ftypSize, moovSize: 0 })
           respHeaders['Content-Length'] = fileSize
           res.writeHead(200, respHeaders)
           await pipeFromDrive()
@@ -536,6 +580,7 @@ const driveApi = {
         }
         if (!moovBuf) {
           console.log(`[DriveStream] Moov not found in tail, serving normally (${Date.now() - tStart}ms)`)
+          moovMetaCache.set(fileId, { ftypSize, moovSize: 0 })
           respHeaders['Content-Length'] = fileSize
           res.writeHead(200, respHeaders)
           await pipeFromDrive()
@@ -544,8 +589,13 @@ const driveApi = {
 
         const moovSize = moovBuf.length
         console.log(`[DriveStream] Injecting moov (${moovSize} bytes) after ftyp (${ftypSize} bytes) (${Date.now() - tStart}ms)`)
+        moovMetaCache.set(fileId, { ftypSize, moovSize })
 
         // Modified stream: ftyp + moov + mdat (without original moov at end)
+        // Adjust stco offsets so chunk pointers match the modified stream layout
+        adjustStco(moovBuf, moovSize)
+        console.log(`[DriveStream] Adjusted stco offsets by +${moovSize} (${Date.now() - tStart}ms)`)
+
         // Write ftyp from head buffer
         res.writeHead(200, {
           'Content-Type': contentType,
