@@ -417,6 +417,10 @@ const driveApi = {
       } else {
         throw new Error('No authentication method available')
       }
+      // Force video MIME type for known video extensions (Drive may store generic types)
+      if (!contentType.startsWith('video/') && (fileId.endsWith('.mp4') || contentType === 'application/octet-stream')) {
+        contentType = 'video/mp4'
+      }
       console.log(`[DriveStream] Meta fetched for ${fileId} in ${Date.now() - tStart}ms (size=${fileSize})`)
 
       // ── Transcode path (FFmpeg) ──────────────────────────────────────────

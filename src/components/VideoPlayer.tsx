@@ -110,7 +110,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const [lastTap, setLastTap] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
     const [dragTime, setDragTime] = useState(0);
-    const [error, setError] = useState<{ message: string; stack?: string } | null>(null);
+    const [error, setError] = useState<{ message: string; stack?: string; code?: string | number; mediaError?: string; mimeCheck?: string } | null>(null);
     const [debugInfo, setDebugInfo] = useState<DebugEntry[]>([]);
     const [delayedMount] = useState(true);
 
@@ -510,10 +510,20 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         const errorMsg = videoElement.error?.message || '';
         addDebug(`VIDEO ERROR: Code ${errorCode} - ${errorMsg}`);
 
+        let mimeCheck = ''
+        try {
+            mimeCheck = videoElement.canPlayType('video/mp4; codecs="avc1.42E01E, mp4a.40.2"')
+        } catch {}
+
         console.error('[VideoPlayer] Video Error:', {
             errorCode,
             errorMessage: errorMsg,
-            src: videoElement.currentSrc?.substring(0, 100)
+            mediaError: videoElement.error,
+            src: videoElement.currentSrc?.substring(0, 100),
+            networkState: videoElement.networkState,
+            readyState: videoElement.readyState,
+            canPlayH264AAC: mimeCheck,
+            userAgent: navigator.userAgent.substring(0, 120),
         });
 
         if (!useTranscoding && (errorCode === 3 || errorCode === 4)) {
@@ -530,7 +540,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         if (errorCode === 3) msg = 'Error al decodificar el video (Formato incompatible).';
         if (errorCode === 4) msg = 'Formato de video no soportado por este dispositivo.';
 
-        setError({ message: msg });
+        setError({ message: msg, code: errorCode, mediaError: errorMsg, mimeCheck });
     };
 
     const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLVideoElement>) => {
@@ -1170,9 +1180,14 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                             })()}
                         </div>
 
-                        <p className="text-[9px] font-bold text-slate-500 italic text-center">
-                            Busca en Subdivx o YTS estas etiquetas junto al título.
-                        </p>
+                        {error.code != null && (
+                            <div className="pt-1 border-t border-white/5">
+                                <p className="text-[8px] font-mono text-slate-600 leading-relaxed">
+                                    Code: {error.code}{error.mediaError ? ` — ${error.mediaError}` : ''}
+                                    {error.mimeCheck ? ` — canPlay: ${error.mimeCheck}` : ''}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
