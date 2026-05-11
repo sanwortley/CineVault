@@ -472,8 +472,10 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const handleProgress = () => {
         const video = videoRef.current;
         if (video && video.buffered.length > 0 && video.duration > 0 && video.duration !== Infinity) {
-            const loaded = video.buffered.end(video.buffered.length - 1);
-            setLoadingProgress(Math.min(99, Math.round((loaded / video.duration) * 100)));
+            const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+            // Scale 0-30s of buffered video to 0-99% for visible early progress
+            const pct = Math.min(99, Math.round((bufferedEnd / 30) * 100));
+            setLoadingProgress(pct);
         }
     };
 
