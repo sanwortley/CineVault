@@ -453,7 +453,8 @@ app.get('/api/stream/local', (req, res) => {
             'Cache-Control': 'no-cache'
         });    
         
-        const transcodeStream = getTranscodeStream(filePath, startTime);
+        const quality = req.query.quality || '720';
+        const transcodeStream = getTranscodeStream(filePath, startTime, quality);
         transcodeStream.pipe(res);
 
         res.on('close', () => {

@@ -322,6 +322,18 @@ export const api = {
             }
             return url;
         }
+        if (filePath) {
+            const startTime = options.startTime !== undefined ? options.startTime : (options.seekOffset || 0);
+            const quality = options.quality || options.q || '720';
+            let url = `${BACKEND_URL}/api/stream/local?path=${encodeURIComponent(filePath)}`;
+            if (options.transcode) {
+                url += `&transcode=true&t=${startTime}&quality=${quality}`;
+            }
+            if (options.audioTrack !== undefined && options.audioTrack !== null) {
+                url += `&audio=${options.audioTrack}`;
+            }
+            return url;
+        }
         return null;
     },
 
