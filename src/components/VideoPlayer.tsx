@@ -112,19 +112,6 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const [error, setError] = useState<{ message: string; stack?: string } | null>(null);
     const [debugInfo, setDebugInfo] = useState<DebugEntry[]>([]);
     const [delayedMount] = useState(true);
-    const loadingStart = useRef(Date.now());
-    const [loadingElapsed, setLoadingElapsed] = useState(0);
-    const [loadingStage, setLoadingStage] = useState('');
-
-    useEffect(() => {
-        if (!isLoading && !isInitializing) return;
-        loadingStart.current = Date.now();
-        setLoadingElapsed(0);
-        const interval = setInterval(() => {
-            setLoadingElapsed(Math.floor((Date.now() - loadingStart.current) / 1000));
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [isLoading, isInitializing]);
 
     const addDebug = (msg: string) => {
         console.log(`[DEBUG] ${msg}`);
@@ -478,7 +465,6 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
 
     const handleLoadedData = () => {
         setIsLoading(false);
-        setLoadingStage('Metadatos cargados, iniciando...');
         console.log('[VideoPlayer] Video loaded, isLoading=false');
     };
 
@@ -486,7 +472,6 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         if (!videoUrl || streamingMode !== 'classic') return;
 
         setIsLoading(true);
-        setLoadingStage('Conectando al servidor...');
         console.log('[VideoPlayer] Source changed:', videoUrl);
 
         if (videoRef.current && videoRef.current.src !== videoUrl) {
@@ -546,13 +531,11 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
 
     const handleCanPlay = () => {
         setIsLoading(false);
-        setLoadingStage('Video listo');
         const video = videoRef.current;
         if (!video) return;
 
         const isTranscoded = needsTranscoding || useTranscoding;
         if (!isTranscoded && !initialSeekPerformed.current && seekOffset > 0) {
-            setLoadingStage(`Buscando posición ${Math.floor(seekOffset / 60)}:${String(Math.floor(seekOffset % 60)).padStart(2, '0')}...`);
             console.log(`[VideoPlayer] Initial seek to: ${seekOffset}s`);
             video.currentTime = seekOffset;
             initialSeekPerformed.current = true;
@@ -1118,14 +1101,17 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             {isDisplayLoading && !isInitializing && !showSubtitleMenu && !showQualityMenu && !showAudioMenu && !showVersionMenu && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-[40]">
                     <div className="text-center p-6">
-                        <Loader2 className="w-16 h-16 text-cyan-500 mx-auto mb-6 animate-spin" />
+                        <div className="relative w-28 h-28 mx-auto mb-6">
+                            <div className="absolute inset-0 border-[3px] border-cyan-500/20 rounded-full"></div>
+                            <div className="absolute inset-0 border-[3px] border-t-cyan-500 rounded-full animate-spin"></div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="w-2 h-2 bg-cyan-400 rounded-full animate-ping"></div>
+                            </div>
+                        </div>
                         <p className="text-white font-bold uppercase tracking-[0.3em]">Cargando Video</p>
-                        <p className="text-[10px] font-medium text-slate-400 mt-2 leading-relaxed">
-                            {loadingStage || 'Esto puede tardar unos segundos...'}
-                        </p>
-                        <p className="text-[28px] font-bold text-cyan-400 mt-4 tabular-nums">
-                            {loadingElapsed}s
-                        </p>
+                        <div className="w-48 h-1 bg-white/10 rounded-full mx-auto mt-6 overflow-hidden">
+                            <div className="h-full w-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full animate-loading-bar"></div>
+                        </div>
                     </div>
                 </div>
             )}

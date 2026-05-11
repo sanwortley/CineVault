@@ -136,6 +136,16 @@ video::cue {
   100% { opacity: 1; }
 }
 
+@keyframes loading-bar {
+  0% { transform: translateX(-100%); width: 40%; }
+  50% { width: 60%; }
+  100% { transform: translateX(200%); width: 40%; }
+}
+
+.animate-loading-bar {
+  animation: loading-bar 1.5s ease-in-out infinite;
+}
+
 .animate-ken-burns {
   animation: ken-burns 10s ease-out forwards;
 }
