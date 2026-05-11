@@ -380,16 +380,20 @@ app.get('/api/drive/hls/:fileId/playlist.m3u8', sessionMiddleware, async (req, r
         return res.status(401).json({ error: 'Drive no conectado.' });
     }
     const fileId = req.params.fileId as string;
+    const t = parseFloat(String(req.query.t || 0));
 
     try {
-        const startTs = Date.now();
-        await driveApi.ensureHlsSegments(fileId, 0);
+        driveApi.ensureHlsLive(fileId, t);
         const playlistPath = driveApi.getHlsPlaylistPath(fileId);
-        if (!playlistPath) {
-            return res.status(500).json({ error: 'HLS generation failed' });
+        if (!playlistPath || !fs.existsSync(playlistPath)) {
+            res.writeHead(200, {
+                'Content-Type': 'application/vnd.apple.mpegurl',
+                'Access-Control-Allow-Origin': '*',
+            });
+            return res.end('#EXTM3U\n#EXT-X-TARGETDURATION:10\n');
         }
         const playlist = fs.readFileSync(playlistPath, 'utf-8');
-        console.log(`[HLS] Playlist served for ${fileId} in ${Date.now() - startTs}ms`);
+        console.log(`[HLS] Playlist served for ${fileId} (${playlist.split('#EXTINF').length - 1} segments)`);
         res.writeHead(200, {
             'Content-Type': 'application/vnd.apple.mpegurl',
             'Access-Control-Allow-Origin': '*',

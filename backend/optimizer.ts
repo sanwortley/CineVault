@@ -467,70 +467,123 @@ function getHLSSegmentStream(
   return stream
 }
 
-function segmentToHls(
+// Active HLS sessions for LIVE background segmentation
+const hlsSessions = new Map<string, { process: FfmpegCommand; started: number }>()
+const hlsFirstSegmentReady = new Map<string, () => void>()
+
+function startHlsLive(
+  fileId: string,
   input: string,
   outputDir: string,
   headers: string | null = null,
   startTime: number = 0
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const playlistPath = path.join(outputDir, 'playlist.m3u8')
-    fs.mkdirSync(outputDir, { recursive: true })
+): boolean {
+  if (hlsSessions.has(fileId)) return false
 
-    const command = ffmpeg(input)
-    const inputOptions = [
-      '-threads', '0',
-      '-probesize', '20M',
-      '-analyzeduration', '20M',
-      '-fflags', '+genpts',
-      '-reconnect', '1',
-      '-reconnect_at_eof', '1',
-      '-reconnect_streamed', '1',
-      '-reconnect_delay_max', '5',
-    ]
+  fs.mkdirSync(outputDir, { recursive: true })
 
-    if (headers) {
-      inputOptions.push('-headers', headers.trim() + '\r\n')
+  const command = ffmpeg(input)
+  const inputOptions = [
+    '-threads', '0',
+    '-probesize', '10M',
+    '-analyzeduration', '20M',
+    '-fflags', '+genpts',
+    '-reconnect', '1',
+    '-reconnect_at_eof', '1',
+    '-reconnect_streamed', '1',
+    '-reconnect_delay_max', '5',
+  ]
+
+  if (headers) {
+    inputOptions.push('-headers', headers.trim() + '\r\n')
+  }
+
+  if (startTime > 0) {
+    inputOptions.push('-ss', startTime.toString())
+  }
+
+  command.inputOptions(inputOptions)
+  command.videoCodec('copy')
+  command.audioCodec('copy')
+  command.outputOptions([
+    '-f', 'hls',
+    '-hls_time', '10',
+    '-hls_list_size', '0',
+    '-hls_segment_filename', path.join(outputDir, 'seg_%05d.ts'),
+    '-map_chapters', '-1',
+  ])
+  command.output(path.join(outputDir, 'playlist.m3u8'))
+
+  command
+    .on('start', (cmd) => console.log(`[HLS] Live started for ${fileId}: ${cmd}`))
+    .on('error', (err) => {
+      if (!err.message.includes('SIGKILL') && !err.message.includes('Output stream closed')) {
+        console.error(`[HLS] Live error for ${fileId}:`, err.message)
+      }
+      hlsSessions.delete(fileId)
+    })
+    .on('end', () => {
+      console.log(`[HLS] Live complete for ${fileId}`)
+      hlsSessions.delete(fileId)
+    })
+
+  command.run()
+  hlsSessions.set(fileId, { process: command, started: Date.now() })
+
+  // Poll for first segment
+  let attempts = 0
+  const poll = setInterval(() => {
+    attempts++
+    if (fs.existsSync(path.join(outputDir, 'playlist.m3u8')) &&
+        fs.readFileSync(path.join(outputDir, 'playlist.m3u8'), 'utf-8').includes('#EXTINF')) {
+      clearInterval(poll)
+      const resolve = hlsFirstSegmentReady.get(fileId)
+      if (resolve) resolve()
+      hlsFirstSegmentReady.delete(fileId)
+    } else if (attempts > 300) {
+      clearInterval(poll)
+      hlsFirstSegmentReady.delete(fileId)
     }
+  }, 500)
 
-    if (startTime > 0) {
-      inputOptions.push('-ss', startTime.toString())
-    }
+  return true
+}
 
-    command.inputOptions(inputOptions)
-    command.videoCodec('copy')
-    command.audioCodec('copy')
-    command.outputOptions([
-      '-f', 'hls',
-      '-hls_time', '10',
-      '-hls_list_size', '0',
-      '-hls_playlist_type', 'vod',
-      '-hls_segment_filename', path.join(outputDir, 'seg_%05d.ts'),
-      '-map_chapters', '-1',
-    ])
-    command.output(playlistPath)
-
-    command
-      .on('start', (cmd) => console.log(`[Optimizer] HLS VOD: ${cmd}`))
-      .on('error', (err) => {
-        console.error('[Optimizer] HLS VOD error:', err.message)
-        reject(err)
-      })
-      .on('end', () => {
-        console.log(`[Optimizer] HLS VOD complete: ${outputDir}`)
-        resolve(playlistPath)
-      })
-
-    command.run()
+function waitForHlsSegment(fileId: string): Promise<void> {
+  return new Promise((resolve) => {
+    hlsFirstSegmentReady.set(fileId, resolve)
   })
 }
+
+function isHlsActive(fileId: string): boolean {
+  return hlsSessions.has(fileId)
+}
+
+function killHlsSession(fileId: string): void {
+  const session = hlsSessions.get(fileId)
+  if (session) {
+    session.process.kill('SIGKILL')
+    hlsSessions.delete(fileId)
+  }
+}
+
+// Cleanup on exit
+process.on('exit', () => {
+  for (const [fileId, session] of hlsSessions) {
+    console.log(`[HLS] Killing session for ${fileId}`)
+    session.process.kill('SIGKILL')
+  }
+})
 
 export {
   getOptimizedUploadStream,
   getTranscodeStream,
   getFmp4Stream,
   getHLSSegmentStream,
-  segmentToHls,
+  startHlsLive,
+  waitForHlsSegment,
+  isHlsActive,
+  killHlsSession,
   getVideoMetadata,
   probeAudioTracks,
   QUALITY_PROFILES,
