@@ -3,6 +3,7 @@ import http from 'http'
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
+import { Readable } from 'stream'
 import type { Response } from 'express'
 
 const getTokenPath = (): string => {
@@ -67,6 +68,16 @@ interface TranscodeOptions {
 interface StreamOptions {
   headers?: Record<string, string>
 }
+
+interface TranscodeOptions {
+  transcode?: boolean
+  t?: string | number
+  quality?: string
+  audioTrack?: string | number
+}
+
+// In-memory metadata cache for Drive files
+const fileMetaCache = new Map<string, { size: number; mimeType: string }>()
 
 const driveApi = {
   isAuthenticated: (): boolean =>
@@ -292,6 +303,41 @@ const driveApi = {
     throw new Error('No authentication method available')
   },
 
+  getDirectStreamUrl: async (fileId: string): Promise<string | null> => {
+    const hasToken = driveApi.isAuthenticated()
+    const apiKey = process.env.GOOGLE_API_KEY
+    if (hasToken) {
+      try {
+        const accessToken = (oauth2Client.credentials as { access_token?: string }).access_token
+        if (accessToken) {
+          return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true&access_token=${accessToken}`
+        }
+      } catch { }
+    }
+    if (apiKey) {
+      return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${apiKey}&supportsAllDrives=true`
+    }
+    return null
+  },
+
+  getFileMeta: async (fileId: string): Promise<{ size: number; mimeType: string }> => {
+    const cached = fileMetaCache.get(fileId)
+    if (cached) return cached
+
+    const drive = driveApi.getClient()
+    const meta = await drive.files.get({
+      fileId,
+      fields: 'size, mimeType',
+      supportsAllDrives: true,
+    })
+    const result = {
+      size: parseInt(meta.data.size as string, 10),
+      mimeType: meta.data.mimeType!,
+    }
+    fileMetaCache.set(fileId, result)
+    return result
+  },
+
   streamVideo: async (
     fileId: string,
     rangeHeader: string | undefined,
@@ -302,17 +348,54 @@ const driveApi = {
     const hasToken = driveApi.isAuthenticated()
     const apiKey = process.env.GOOGLE_API_KEY
 
-    try {
-      let fileSize: number, contentType: string
-      if (hasToken) {
-        const meta = await drive.files.get({
-          fileId,
-          fields: 'size, mimeType',
-          supportsAllDrives: true,
+    // Fast path: redirect to direct Google Drive URL (no server-side proxy)
+    if (!transcodeOptions.transcode) {
+      const directUrl = await driveApi.getDirectStreamUrl(fileId)
+      if (directUrl) {
+        const meta = await driveApi.getFileMeta(fileId)
+        if (rangeHeader) {
+          const parts = rangeHeader.replace(/bytes=/, '').split('-')
+          const start = parseInt(parts[0], 10)
+          const end = parts[1] ? parseInt(parts[1], 10) : meta.size - 1
+          res.writeHead(206, {
+            'Content-Type': meta.mimeType,
+            'Content-Range': `bytes ${start}-${end}/${meta.size}`,
+            'Content-Length': end - start + 1,
+            'Accept-Ranges': 'bytes',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges',
+          })
+        } else {
+          res.writeHead(200, {
+            'Content-Type': meta.mimeType,
+            'Content-Length': meta.size,
+            'Accept-Ranges': 'bytes',
+            'Access-Control-Allow-Origin': '*',
+          })
+        }
+        const response = await fetch(directUrl, {
+          headers: rangeHeader ? { Range: rangeHeader } : undefined,
         })
-        fileSize = parseInt(meta.data.size as string, 10)
-        contentType = meta.data.mimeType!
-      } else {
+        if (response.body) {
+          const nodeStream = Readable.fromWeb(response.body as any)
+          nodeStream.pipe(res)
+          res.on('close', () => nodeStream.destroy?.())
+        } else {
+          res.end()
+        }
+        return
+      }
+    }
+
+    // Fallback: proxy through server
+    try {
+      let fileSize: number
+      let contentType: string
+      if (hasToken) {
+        const meta = await driveApi.getFileMeta(fileId)
+        fileSize = meta.size
+        contentType = meta.mimeType
+      } else if (apiKey) {
         const axios = require('axios')
         const metaRes = await axios.get(
           `https://www.googleapis.com/drive/v3/files/${fileId}`,
@@ -322,6 +405,8 @@ const driveApi = {
         )
         fileSize = parseInt(metaRes.data.size, 10)
         contentType = metaRes.data.mimeType
+      } else {
+        throw new Error('No authentication method available')
       }
 
       if (transcodeOptions.transcode) {
