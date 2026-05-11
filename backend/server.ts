@@ -380,11 +380,10 @@ app.get('/api/drive/hls/:fileId/playlist.m3u8', sessionMiddleware, async (req, r
         return res.status(401).json({ error: 'Drive no conectado.' });
     }
     const fileId = req.params.fileId as string;
-    const startTime = parseFloat(String(req.query.t || 0));
 
     try {
         const startTs = Date.now();
-        await driveApi.ensureHlsSegments(fileId, startTime);
+        await driveApi.ensureHlsSegments(fileId, 0);
         const playlistPath = driveApi.getHlsPlaylistPath(fileId);
         if (!playlistPath) {
             return res.status(500).json({ error: 'HLS generation failed' });
