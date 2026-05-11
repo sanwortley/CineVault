@@ -198,11 +198,15 @@ app.get('/api/subtitles/external', (req, res) => {
 
 
 // ─── Auth Routes ──────────────────────────────────────────────────────────────
-const REDIRECT_PORT = 19999;
-const WEB_OAUTH_REDIRECT = `${process.env.BACKEND_URL || `http://localhost:${PORT}`}/api/auth/callback`;
+
+const getCallbackUrl = (req: any): string => {
+  const origin = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`
+  return `${origin}/api/auth/callback`
+}
 
 app.get('/api/auth/google', (req, res) => {
-    const authUrl = driveApi.getAuthUrl();
+    const redirectUri = getCallbackUrl(req)
+    const authUrl = driveApi.getAuthUrl(redirectUri)
     res.redirect(authUrl);
 });
 
@@ -216,12 +220,13 @@ app.get('/api/auth/me', sessionMiddleware, (req, res) => {
 app.get('/api/auth/callback', async (req, res) => {
     const { code } = req.query;
     try {
-        const tokens = await driveApi.getTokens(code as string);
+        const redirectUri = getCallbackUrl(req)
+        const tokens = await driveApi.getTokens(code as string, redirectUri);
         driveApi.getOAuthClient().setCredentials(tokens);
         res.send('<h1>CineVault conectado con éxito</h1><script>setTimeout(window.close, 1000)</script>');
     } catch (error) {
-        console.error('[Auth Callback] Error:', error.message);
-        res.status(500).send(`Error al conectar con Drive: ${error.message}`);
+        console.error('[Auth Callback] Error:', (error as any).message);
+        res.status(500).send(`Error al conectar con Drive: ${(error as any).message}`);
     }
 });
 

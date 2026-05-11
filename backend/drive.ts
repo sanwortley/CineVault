@@ -14,12 +14,11 @@ const getTokenPath = (): string => {
 
 const PORT = process.env.PORT || '3001'
 const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`
-const REDIRECT_URI = `${BACKEND_URL}/api/auth/callback`
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
-  REDIRECT_URI
+  `${BACKEND_URL}/api/auth/callback`
 )
 
 try {
@@ -74,7 +73,7 @@ const driveApi = {
     !!oauth2Client.credentials &&
     !!(oauth2Client.credentials as { access_token?: string }).access_token,
 
-  getAuthUrl: (): string => {
+  getAuthUrl: (redirectUri?: string): string => {
     return oauth2Client.generateAuthUrl({
       access_type: 'offline',
       prompt: 'consent',
@@ -83,11 +82,12 @@ const driveApi = {
         'https://www.googleapis.com/auth/drive.file',
         'https://www.googleapis.com/auth/drive.readonly',
       ],
+      redirect_uri: redirectUri,
     })
   },
 
-  getTokens: async (code: string) => {
-    const { tokens } = await oauth2Client.getToken(code)
+  getTokens: async (code: string, redirectUri?: string) => {
+    const { tokens } = await oauth2Client.getToken({ code, redirect_uri: redirectUri })
     return tokens
   },
 
