@@ -353,7 +353,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         const isMKV = movie.file_path?.toLowerCase().endsWith('.mkv') ||
             movie.file_name?.toLowerCase().endsWith('.mkv');
 
-        if (isSafari) return true;
+        if (isSafari && isMKV) return true;
 
         if (selectedAudioTrack && selectedAudioTrack.index > 0) return true;
 
