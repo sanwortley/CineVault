@@ -240,19 +240,10 @@ const driveApi = {
             // 2. Transcode path
             if (transcodeOptions.transcode) {
                 const startTime = parseFloat(transcodeOptions.t || 0);
-                const range = rangeHeader;
                 
-                // Safari Probe handling (0-1 bytes) - MANDATORY for iOS Safari
-                if (range === 'bytes=0-1') {
-                    res.writeHead(206, {
-                        'Content-Type': 'video/mp4',
-                        'Content-Range': 'bytes 0-1/2000000000', 
-                        'Content-Length': '2',
-                        'Accept-Ranges': 'bytes',
-                        'Access-Control-Allow-Origin': '*'
-                    });
-                    return res.end(Buffer.from([0, 0]));
-                }
+                // No special Safari probe handling here — the Range header is ignored
+                // and Safari receives 200 OK with streaming transcoded data (progressive download).
+                // Range-based requests are incompatible with live transcoding.
 
                 res.writeHead(200, { 
                     'Content-Type': 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"', 

@@ -433,16 +433,24 @@ app.get('/api/stream/local', (req, res) => {
         
         const range = req.headers.range;
         
-        // Safari Probe handling (0-1 bytes) - MANDATORY for iOS Safari
+        // Safari Probe handling (bytes=0-1) - respond with progressive download (200), not ranged (206)
+        // Safari's range-based requests are incompatible with transcoding (each Range request starts
+        // a new FFmpeg process, byte offsets never align). 200 OK tells Safari to use progressive download.
         if (range === 'bytes=0-1') {
-            res.writeHead(206, {
-                'Content-Type': 'video/mp4',
-                'Content-Range': 'bytes 0-1/2000000000', // Report large size to avoid demuxer errors
-                'Content-Length': '2',
-                'Accept-Ranges': 'bytes',
-                'Access-Control-Allow-Origin': '*'
+            res.writeHead(200, { 
+                'Content-Type': 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"', 
+                'Access-Control-Allow-Origin': '*',
+                'X-Accel-Buffering': 'no',
+                'Connection': 'keep-alive',
+                'Cache-Control': 'no-cache'
             });
-            return res.end(Buffer.from([0, 0]));
+            const quality = req.query.quality || '720';
+            const transcodeStream = getTranscodeStream(filePath, startTime, quality);
+            transcodeStream.pipe(res);
+            res.on('close', () => {
+                if (transcodeStream.ffmpegCommand) transcodeStream.ffmpegCommand.kill();
+            });
+            return;
         }
 
         res.writeHead(200, { 
@@ -692,16 +700,21 @@ app.get('/api/drive/stream-cloud/:movieId', async (req, res) => {
             console.log(`[InstantPlay] Transcodificando cloud source para movie ${movieId}: ${cloudUrl}`);
             const { getTranscodeStream } = require('./optimizer');
             
-            // Safari Probe handling (0-1 bytes)
+            // Safari Probe handling (bytes=0-1) - respond with progressive download (200)
             if (req.headers.range === 'bytes=0-1') {
-                res.writeHead(206, {
-                    'Content-Type': 'video/mp4',
-                    'Content-Range': 'bytes 0-1/2000000000',
-                    'Content-Length': '2',
-                    'Accept-Ranges': 'bytes',
-                    'Access-Control-Allow-Origin': '*'
+                res.writeHead(200, { 
+                    'Content-Type': 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"', 
+                    'Access-Control-Allow-Origin': '*',
+                    'X-Accel-Buffering': 'no',
+                    'Connection': 'keep-alive',
+                    'Cache-Control': 'no-cache'
                 });
-                return res.end(Buffer.from([0, 0]));
+                const transcodeStream = getTranscodeStream(cloudUrl, startTime, quality);
+                transcodeStream.pipe(res);
+                res.on('close', () => {
+                    if (transcodeStream.ffmpegCommand) transcodeStream.ffmpegCommand.kill();
+                });
+                return;
             }
 
             res.writeHead(200, { 
