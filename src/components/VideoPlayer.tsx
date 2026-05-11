@@ -104,6 +104,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const [isLocked, setIsLocked] = useState(false);
     const [isUnlocking, setIsUnlocking] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [loadingProgress, setLoadingProgress] = useState(0);
     const [isStuckAtZero, setIsStuckAtZero] = useState(false);
     const [isInitializing, setIsInitializing] = useState(true);
     const [lastTap, setLastTap] = useState(0);
@@ -466,6 +467,14 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const handleLoadedData = () => {
         setIsLoading(false);
         console.log('[VideoPlayer] Video loaded, isLoading=false');
+    };
+
+    const handleProgress = () => {
+        const video = videoRef.current;
+        if (video && video.buffered.length > 0 && video.duration > 0 && video.duration !== Infinity) {
+            const loaded = video.buffered.end(video.buffered.length - 1);
+            setLoadingProgress(Math.min(99, Math.round((loaded / video.duration) * 100)));
+        }
     };
 
     useEffect(() => {
@@ -993,6 +1002,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                             setDuration(trueDuration);
                         }}
                         onLoadedData={handleLoadedData}
+                        onProgress={handleProgress}
                         onCanPlay={handleCanPlay}
                         onPause={(e: React.SyntheticEvent<HTMLVideoElement>) => {
                             setIsPlaying(false);
@@ -1105,13 +1115,10 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                             <div className="absolute inset-0 border-[3px] border-cyan-500/20 rounded-full"></div>
                             <div className="absolute inset-0 border-[3px] border-t-cyan-500 rounded-full animate-spin"></div>
                             <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-2 h-2 bg-cyan-400 rounded-full animate-ping"></div>
+                                <span className="text-2xl font-bold text-cyan-400 select-none">{loadingProgress}%</span>
                             </div>
                         </div>
                         <p className="text-white font-bold uppercase tracking-[0.3em]">Cargando Video</p>
-                        <div className="w-48 h-1 bg-white/10 rounded-full mx-auto mt-6 overflow-hidden">
-                            <div className="h-full w-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full animate-loading-bar"></div>
-                        </div>
                     </div>
                 </div>
             )}
