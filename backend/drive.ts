@@ -358,21 +358,10 @@ const driveApi = {
     res: Response,
     transcodeOptions: TranscodeOptions = {}
   ): Promise<void> => {
+    const tStart = Date.now()
     const drive = driveApi.getClient()
     const hasToken = driveApi.isAuthenticated()
     const apiKey = process.env.GOOGLE_API_KEY
-
-    // Try direct webContentLink redirect (CORS-compatible Google URL)
-    if (!transcodeOptions.transcode && !rangeHeader) {
-      const webLink = await driveApi.getWebContentLink(fileId)
-      if (webLink) {
-        console.log(`[DriveStream] Redirecting to webContentLink for ${fileId}`)
-        res.set('Access-Control-Allow-Origin', '*')
-        res.redirect(302, webLink)
-        return
-      }
-      console.log(`[DriveStream] webContentLink unavailable, falling back to proxy`)
-    }
 
     try {
       let fileSize: number
@@ -394,6 +383,7 @@ const driveApi = {
       } else {
         throw new Error('No authentication method available')
       }
+      console.log(`[DriveStream] Meta fetched for ${fileId} in ${Date.now() - tStart}ms (size=${fileSize})`)
 
       // ── Transcode path (FFmpeg) ──────────────────────────────────────────
       if (transcodeOptions.transcode) {
@@ -459,7 +449,6 @@ const driveApi = {
         'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges',
       }
 
-      // Helper: pipe stream from Google Drive to response
       const pipeFromDrive = async (range?: string) => {
         const opts: Record<string, unknown> = { responseType: 'stream' }
         if (range) opts.headers = { Range: range }
@@ -470,35 +459,36 @@ const driveApi = {
         const driveStream = response.data as unknown as NodeJS.ReadableStream
         driveStream.pipe(res)
         driveStream.on('error', (streamErr: Error) => {
-          console.error('[DriveStream] Stream error:', streamErr.message)
+          console.error('[DriveStream] Pipe error at ${Date.now() - tStart}ms:', streamErr.message)
           if (!res.destroyed) res.destroy()
         })
-        res.on('close', () => { if (typeof (driveStream as any).destroy === 'function') (driveStream as any).destroy() })
+        res.on('close', () => {
+          console.log(`[DriveStream] Client disconnected at ${Date.now() - tStart}ms`)
+          if (typeof (driveStream as any).destroy === 'function') (driveStream as any).destroy()
+        })
       }
 
-      // If browser sent Range, use it; otherwise serve first 2MB for metadata
-      let effectiveRange = rangeHeader
-      if (!effectiveRange) {
-        const META_CHUNK = 2 * 1024 * 1024
-        const metaEnd = Math.min(META_CHUNK, fileSize) - 1
-        effectiveRange = `bytes=0-${metaEnd}`
-        console.log(`[DriveStream] Serving first ${metaEnd + 1} bytes for metadata (fileSize=${fileSize})`)
+      // Full-file streaming from byte 0 — browser handles seeking via Range
+      if (rangeHeader) {
+        const parts = rangeHeader.replace(/bytes=/, '').split('-')
+        const start = parseInt(parts[0], 10)
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1
+        respHeaders['Content-Range'] = `bytes ${start}-${end}/${fileSize}`
+        respHeaders['Content-Length'] = end - start + 1
+        res.writeHead(206, respHeaders)
+        console.log(`[DriveStream] Range request: bytes=${start}- (${Date.now() - tStart}ms)`)
+        await pipeFromDrive(rangeHeader)
+      } else {
+        respHeaders['Content-Length'] = fileSize
+        res.writeHead(200, respHeaders)
+        console.log(`[DriveStream] Full file start: ${fileSize} bytes (${Date.now() - tStart}ms)`)
+        await pipeFromDrive()
       }
-
-      const parts = effectiveRange.replace(/bytes=/, '').split('-')
-      const start = parseInt(parts[0], 10)
-      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1
-      respHeaders['Content-Range'] = `bytes ${start}-${end}/${fileSize}`
-      respHeaders['Content-Length'] = end - start + 1
-      res.writeHead(206, respHeaders)
-      await pipeFromDrive(effectiveRange)
     } catch (err) {
       const error = err as Error
-      console.error('[Drive Stream] Error:', error.message)
+      console.error(`[Drive Stream] Error at ${Date.now() - tStart}ms:`, error.message)
       if (!res.headersSent) {
         res.status(500).json({ error: 'Streaming Error', message: error.message })
-      } else {
-        res.destroy()
       }
     }
   },
