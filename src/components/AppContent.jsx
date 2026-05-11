@@ -82,16 +82,6 @@ export default function AppContent() {
         };
     }, [detailMovie, playingMovie]);
 
-    // ─── SW Auto-Update Detection ───────────────────────────────────────────
-    useEffect(() => {
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.addEventListener('controllerchange', () => {
-                console.log('[SW] Nueva versión detectada. Recargando para aplicar cambios...');
-                window.location.reload();
-            });
-        }
-    }, []);
-
     const loadData = async (silent = false) => {
         if (!user) return;
         if (!silent) setIsLoadingData(true);
