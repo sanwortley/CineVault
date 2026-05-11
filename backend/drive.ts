@@ -450,14 +450,27 @@ const driveApi = {
         res.on('close', () => { if (typeof (driveStream as any).destroy === 'function') (driveStream as any).destroy() })
       }
 
-      if (rangeHeader) {
-        const parts = rangeHeader.replace(/bytes=/, '').split('-')
+      // If frontend sends startTime (t) but no Range header, compute byte offset
+      let effectiveRange = rangeHeader
+      if (!effectiveRange && transcodeOptions.t) {
+        const startTime = parseFloat(String(transcodeOptions.t))
+        if (startTime > 0) {
+          const BYTES_PER_SECOND = 375_000 // ~3 Mbps average
+          const startByte = Math.floor(startTime * BYTES_PER_SECOND)
+          const clampedStart = Math.min(startByte, fileSize - 1)
+          effectiveRange = `bytes=${clampedStart}-`
+          console.log(`[DriveStream] Computed Range from t=${startTime}s: bytes=${clampedStart}- (fileSize=${fileSize})`)
+        }
+      }
+
+      if (effectiveRange) {
+        const parts = effectiveRange.replace(/bytes=/, '').split('-')
         const start = parseInt(parts[0], 10)
         const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1
         respHeaders['Content-Range'] = `bytes ${start}-${end}/${fileSize}`
         respHeaders['Content-Length'] = end - start + 1
         res.writeHead(206, respHeaders)
-        await pipeFromDrive(rangeHeader)
+        await pipeFromDrive(effectiveRange)
       } else {
         respHeaders['Content-Length'] = fileSize
         res.writeHead(200, respHeaders)

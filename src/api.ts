@@ -380,6 +380,8 @@ export const api = {
 
       if (options.transcode) {
         url += `&transcode=true&t=${startTime}&q=${quality}`
+      } else if (startTime > 0) {
+        url += `&t=${startTime}`
       }
 
       if (options.audioTrack !== undefined && options.audioTrack !== null) {
