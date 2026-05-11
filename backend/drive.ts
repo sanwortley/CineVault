@@ -348,19 +348,6 @@ const driveApi = {
     const hasToken = driveApi.isAuthenticated()
     const apiKey = process.env.GOOGLE_API_KEY
 
-    // Fast path: redirect browser directly to Google Drive CDN
-    if (!transcodeOptions.transcode) {
-      const directUrl = await driveApi.getDirectStreamUrl(fileId)
-      if (directUrl) {
-        const meta = await driveApi.getFileMeta(fileId)
-        console.log(`[DriveStream] Redirecting to direct URL for file ${fileId} (${meta.mimeType}, ${meta.size} bytes)`)
-        res.set('Access-Control-Allow-Origin', '*')
-        res.redirect(directUrl)
-        return
-      }
-    }
-
-    // Fallback: proxy through server
     try {
       let fileSize: number
       let contentType: string
@@ -382,9 +369,9 @@ const driveApi = {
         throw new Error('No authentication method available')
       }
 
+      // ── Transcode path (FFmpeg) ──────────────────────────────────────────
       if (transcodeOptions.transcode) {
         const startTime = parseFloat(String(transcodeOptions.t || 0))
-
         res.writeHead(200, {
           'Content-Type': 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"',
           'Access-Control-Allow-Origin': '*',
@@ -392,13 +379,11 @@ const driveApi = {
           Connection: 'keep-alive',
           'Cache-Control': 'no-cache',
         })
-
         try {
           const { getTranscodeStream } = require('./optimizer')
           const quality = transcodeOptions.quality || '720'
           let transcodeSource: string | NodeJS.ReadableStream
           let headers: string | null = null
-
           if (hasToken) {
             const accessToken = (
               oauth2Client.credentials as { access_token?: string }
@@ -418,57 +403,51 @@ const driveApi = {
             )
             transcodeSource = driveRes.data
           }
-
           const transcodeStream = getTranscodeStream(
-            transcodeSource,
-            startTime,
-            quality,
-            headers,
+            transcodeSource, startTime, quality, headers,
             transcodeOptions.audioTrack ? Number(transcodeOptions.audioTrack) : null
           )
           transcodeStream.pipe(res)
-
           res.on('close', () => {
-            if (transcodeStream.ffmpegCommand)
-              transcodeStream.ffmpegCommand.kill()
+            if (transcodeStream.ffmpegCommand) transcodeStream.ffmpegCommand.kill()
           })
         } catch (streamErr) {
           const err = streamErr as Error
-          console.error(
-            '[DriveStream] Critical error during stream initialization:',
-            err.message
-          )
-          if (
-            err.message &&
-            err.message.toLowerCase().includes('invalid_grant')
-          ) {
-            console.error(
-              '[DriveStream] Authentication expired. User needs to re-link Google Drive.'
-            )
-            try {
-              await driveApi.disconnect()
-            } catch (e) {
-              const disconnectErr = e as Error
-              console.warn('[DriveStream] Disconnect failed:', disconnectErr.message)
-            }
+          console.error('[DriveStream] Critical error during stream initialization:', err.message)
+          if (err.message && err.message.toLowerCase().includes('invalid_grant')) {
+            console.error('[DriveStream] Authentication expired. User needs to re-link Google Drive.')
+            try { await driveApi.disconnect() } catch { /* ignore */ }
           }
           if (!res.headersSent) {
-            res
-              .status(500)
-              .json({
-                error: 'Error al obtener flujo de Drive',
-                details: err.message,
-              })
+            res.status(500).json({ error: 'Error al obtener flujo de Drive', details: err.message })
           }
         }
         return
       }
 
-      // Direct/Range path
+      // ── Direct proxy path (server-side, no CORS issues) ─────────────────
       const respHeaders: Record<string, string | number> = {
         'Content-Type': contentType,
         'Accept-Ranges': 'bytes',
         'Access-Control-Allow-Origin': '*',
+        'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges',
+      }
+
+      // Helper: pipe stream from Google Drive to response
+      const pipeFromDrive = async (range?: string) => {
+        const opts: Record<string, unknown> = { responseType: 'stream' }
+        if (range) opts.headers = { Range: range }
+        const response = await drive.files.get(
+          { fileId, alt: 'media', supportsAllDrives: true },
+          opts
+        )
+        const driveStream = response.data as unknown as NodeJS.ReadableStream
+        driveStream.pipe(res)
+        driveStream.on('error', (streamErr: Error) => {
+          console.error('[DriveStream] Stream error:', streamErr.message)
+          if (!res.destroyed) res.destroy()
+        })
+        res.on('close', () => { if (typeof (driveStream as any).destroy === 'function') (driveStream as any).destroy() })
       }
 
       if (rangeHeader) {
@@ -478,58 +457,19 @@ const driveApi = {
         respHeaders['Content-Range'] = `bytes ${start}-${end}/${fileSize}`
         respHeaders['Content-Length'] = end - start + 1
         res.writeHead(206, respHeaders)
-        if (hasToken) {
-          const response = await drive.files.get(
-            { fileId, alt: 'media', supportsAllDrives: true },
-            {
-              responseType: 'stream',
-              headers: { Range: rangeHeader },
-            }
-          )
-          ;(response.data as unknown as NodeJS.ReadableStream).pipe(res)
-        } else {
-          const axios = require('axios')
-          const response = await axios.get(
-            `https://www.googleapis.com/drive/v3/files/${fileId}`,
-            {
-              params: { alt: 'media', key: apiKey, supportsAllDrives: true },
-              headers: { Range: rangeHeader },
-              responseType: 'stream',
-            }
-          )
-          ;(response.data as NodeJS.ReadableStream).pipe(res)
-        }
+        await pipeFromDrive(rangeHeader)
       } else {
         respHeaders['Content-Length'] = fileSize
         res.writeHead(200, respHeaders)
-        if (hasToken) {
-          const response = await drive.files.get(
-            { fileId, alt: 'media', supportsAllDrives: true },
-            { responseType: 'stream' }
-          )
-          ;(response.data as unknown as NodeJS.ReadableStream).pipe(res)
-        } else {
-          const axios = require('axios')
-          const response = await axios.get(
-            `https://www.googleapis.com/drive/v3/files/${fileId}`,
-            {
-              params: { alt: 'media', key: apiKey, supportsAllDrives: true },
-              responseType: 'stream',
-            }
-          )
-          ;(response.data as NodeJS.ReadableStream).pipe(res)
-        }
+        await pipeFromDrive()
       }
     } catch (err) {
       const error = err as Error
       console.error('[Drive Stream] Error:', error.message)
       if (!res.headersSent) {
-        res.status(500).json({
-          error: 'Streaming Error',
-          message: error.message,
-          stack:
-            process.env.NODE_ENV === 'development' ? error.stack : undefined,
-        })
+        res.status(500).json({ error: 'Streaming Error', message: error.message })
+      } else {
+        res.destroy()
       }
     }
   },
