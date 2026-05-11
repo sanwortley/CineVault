@@ -318,6 +318,59 @@ process.on('exit', () => {
     console.log(`[Optimizer] ${activeTranscodes} transcodes still active on exit`)
 })
 
+function getFmp4Stream(
+  input: string,
+  startTime: number = 0,
+  headers: string | null = null
+): PassThroughWithCommand {
+  const passThrough = new PassThrough() as PassThroughWithCommand
+  const command = ffmpeg(input)
+
+  const inputOptions = [
+    '-threads', '0',
+    '-probesize', '10M',
+    '-analyzeduration', '20M',
+    '-fflags', '+genpts',
+    '-reconnect', '1',
+    '-reconnect_at_eof', '1',
+    '-reconnect_streamed', '1',
+    '-reconnect_delay_max', '5',
+  ]
+
+  if (headers) {
+    inputOptions.push('-headers', headers.trim() + '\r\n')
+  }
+
+  if (startTime > 0) {
+    inputOptions.push('-ss', startTime.toString())
+  }
+
+  command.inputOptions(inputOptions)
+  command.videoCodec('copy')
+  command.audioCodec('copy')
+  command.format('mp4')
+  command.outputOptions([
+    '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
+    '-threads', '0',
+    '-map_chapters', '-1',
+  ])
+  command
+    .on('start', (cmd) => console.log(`[Optimizer] FMP4 stream: ${cmd}`))
+    .on('error', (err) => {
+      if (err.message.includes('SIGKILL') || err.message.includes('Output stream closed')) return
+      console.error('[Optimizer] FMP4 stream Error:', err.message)
+      passThrough.destroy(err)
+    })
+    .on('end', () => {
+      console.log('[Optimizer] FMP4 stream finished')
+      passThrough.end()
+    })
+
+  command.pipe(passThrough as Writable)
+  passThrough.ffmpegCommand = command
+  return passThrough
+}
+
 function getHLSSegmentStream(
   input: string | PassThrough,
   startTime: number,
@@ -407,6 +460,7 @@ function getHLSSegmentStream(
 export {
   getOptimizedUploadStream,
   getTranscodeStream,
+  getFmp4Stream,
   getHLSSegmentStream,
   getVideoMetadata,
   probeAudioTracks,

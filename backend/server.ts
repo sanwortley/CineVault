@@ -354,6 +354,8 @@ app.get('/api/drive/stream/:fileId', sessionMiddleware, async (req, res) => {
     const fileId = req.params.fileId as string;
     const range = req.headers.range as string;
     const transcode = req.query.transcode === 'true';
+    const fmp4 = req.query.fmp4 === 'true' || 
+      (!transcode && /^((?!chrome|android).)*safari/i.test(req.headers['user-agent'] || ''));
     const startTime = req.query.t || 0;
     const audioTrack = req.query.audio || null;
     
@@ -364,7 +366,7 @@ app.get('/api/drive/stream/:fileId', sessionMiddleware, async (req, res) => {
                 message: 'La película de la Bóveda Global todavía se está procesando. Reintenta en unos minutos.' 
             });
         }
-        await driveApi.streamVideo(fileId, range, res, { transcode, t: startTime as any, audioTrack: audioTrack as any });
+        await driveApi.streamVideo(fileId, range, res, { transcode, fmp4, t: startTime as any, audioTrack: audioTrack as any });
     } catch (err) {
         console.error('[Server] Drive streaming route error:', err.message);
         if (!res.headersSent) {

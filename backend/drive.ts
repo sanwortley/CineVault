@@ -60,6 +60,7 @@ interface UploadOptions {
 
 interface TranscodeOptions {
   transcode?: boolean
+  fmp4?: boolean
   t?: string | number
   quality?: string
   audioTrack?: string | number
@@ -71,6 +72,7 @@ interface StreamOptions {
 
 interface TranscodeOptions {
   transcode?: boolean
+  fmp4?: boolean
   t?: string | number
   quality?: string
   audioTrack?: string | number
@@ -474,6 +476,47 @@ const driveApi = {
           }
           if (!res.headersSent) {
             res.status(500).json({ error: 'Error al obtener flujo de Drive', details: err.message })
+          }
+        }
+        return
+      }
+
+      // ── FMP4 path (FFmpeg -c copy, no re-encode, for Safari) ─────────────
+      if (transcodeOptions.fmp4) {
+        const fmp4Start = Date.now()
+        res.writeHead(200, {
+          'Content-Type': 'video/mp4',
+          'Access-Control-Allow-Origin': '*',
+          'X-Accel-Buffering': 'no',
+          'Cache-Control': 'no-cache',
+        })
+        const startTime = parseFloat(String(transcodeOptions.t || 0))
+        try {
+          const { getFmp4Stream } = require('./optimizer')
+          let sourceUrl: string
+          let headers: string | null = null
+          if (hasToken) {
+            const accessToken = (
+              oauth2Client.credentials as { access_token?: string }
+            ).access_token
+            headers = `Authorization: Bearer ${accessToken}`
+            sourceUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`
+          } else if (apiKey) {
+            sourceUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${apiKey}&supportsAllDrives=true`
+          } else {
+            throw new Error('No authentication method available')
+          }
+          const fmp4Stream = getFmp4Stream(sourceUrl, startTime, headers)
+          fmp4Stream.pipe(res)
+          res.on('close', () => {
+            console.log(`[DriveStream] FMP4 client disconnected at ${Date.now() - fmp4Start}ms`)
+            if (fmp4Stream.ffmpegCommand) fmp4Stream.ffmpegCommand.kill()
+          })
+        } catch (fmp4Err) {
+          const err = fmp4Err as Error
+          console.error('[DriveStream] FMP4 error:', err.message)
+          if (!res.headersSent) {
+            res.status(500).json({ error: 'FMP4 streaming error', details: err.message })
           }
         }
         return

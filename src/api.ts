@@ -93,6 +93,7 @@ interface GetStreamUrlOptions {
   quality?: string
   q?: string
   transcode?: boolean
+  fmp4?: boolean
   audioTrack?: number | null
 }
 
@@ -378,13 +379,19 @@ export const api = {
 
       let url = `${BACKEND_URL}/api/drive/stream/${fileId}?sessionId=${sessionId || ''}`
 
-      if (options.transcode) {
+      if (options.fmp4) {
+        url += `&fmp4=true`
+        if (startTime > 0) url += `&t=${startTime}`
+        if (options.audioTrack !== undefined && options.audioTrack !== null) {
+          url += `&audio=${options.audioTrack}`
+        }
+      } else if (options.transcode) {
         url += `&transcode=true&t=${startTime}&q=${quality}`
       } else if (startTime > 0) {
         url += `&t=${startTime}`
       }
 
-      if (options.audioTrack !== undefined && options.audioTrack !== null) {
+      if (!options.fmp4 && options.audioTrack !== undefined && options.audioTrack !== null) {
         url += `&audio=${options.audioTrack}`
         if (options.audioTrack > 0 && !url.includes('transcode=true')) {
           url += `&transcode=true&t=${startTime}&q=${quality}`
