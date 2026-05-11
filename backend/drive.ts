@@ -3,7 +3,7 @@ import http from 'http'
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
-import { Readable } from 'stream'
+
 import type { Response } from 'express'
 
 const getTokenPath = (): string => {
@@ -348,41 +348,14 @@ const driveApi = {
     const hasToken = driveApi.isAuthenticated()
     const apiKey = process.env.GOOGLE_API_KEY
 
-    // Fast path: redirect to direct Google Drive URL (no server-side proxy)
+    // Fast path: redirect browser directly to Google Drive CDN
     if (!transcodeOptions.transcode) {
       const directUrl = await driveApi.getDirectStreamUrl(fileId)
       if (directUrl) {
         const meta = await driveApi.getFileMeta(fileId)
-        if (rangeHeader) {
-          const parts = rangeHeader.replace(/bytes=/, '').split('-')
-          const start = parseInt(parts[0], 10)
-          const end = parts[1] ? parseInt(parts[1], 10) : meta.size - 1
-          res.writeHead(206, {
-            'Content-Type': meta.mimeType,
-            'Content-Range': `bytes ${start}-${end}/${meta.size}`,
-            'Content-Length': end - start + 1,
-            'Accept-Ranges': 'bytes',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges',
-          })
-        } else {
-          res.writeHead(200, {
-            'Content-Type': meta.mimeType,
-            'Content-Length': meta.size,
-            'Accept-Ranges': 'bytes',
-            'Access-Control-Allow-Origin': '*',
-          })
-        }
-        const response = await fetch(directUrl, {
-          headers: rangeHeader ? { Range: rangeHeader } : undefined,
-        })
-        if (response.body) {
-          const nodeStream = Readable.fromWeb(response.body as any)
-          nodeStream.pipe(res)
-          res.on('close', () => nodeStream.destroy?.())
-        } else {
-          res.end()
-        }
+        console.log(`[DriveStream] Redirecting to direct URL for file ${fileId} (${meta.mimeType}, ${meta.size} bytes)`)
+        res.set('Access-Control-Allow-Origin', '*')
+        res.redirect(directUrl)
         return
       }
     }
