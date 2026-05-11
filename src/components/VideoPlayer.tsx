@@ -971,6 +971,8 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         playsInline
                         autoPlay
                         muted={isMuted}
+                        preload="auto"
+                        poster={activeMovie.poster_url ?? undefined}
                         {...({ webkitPlaysinline: 'true' } as React.HTMLAttributes<HTMLVideoElement>)}
                         src={videoUrl}
                         onEnded={handleVideoEnded}
@@ -994,9 +996,6 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                 ? seekOffset + (e.target as HTMLVideoElement).duration
                                 : (e.target as HTMLVideoElement).duration;
                             setDuration(trueDuration);
-                            if (videoRef.current) {
-                                videoRef.current.preload = 'auto';
-                            }
                         }}
                         onLoadedData={handleLoadedData}
                         onCanPlay={handleCanPlay}
