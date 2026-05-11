@@ -417,8 +417,11 @@ export const api = {
     return null
   },
 
-  getHLSUrl: (_fileId: string, _quality = '480') => {
-    return null
+  getHLSUrl: (fileId: string, startTime = 0) => {
+    const sessionId = localStorage.getItem('cinevault_session_id')
+    let url = `${BACKEND_URL}/api/drive/hls/${fileId}/playlist.m3u8?sessionId=${sessionId || ''}`
+    if (startTime > 0) url += `&t=${startTime}`
+    return url
   },
 
   uploadMovieToDrive: (

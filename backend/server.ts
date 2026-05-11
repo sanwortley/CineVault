@@ -376,22 +376,53 @@ app.get('/api/drive/stream/:fileId', sessionMiddleware, async (req, res) => {
 });
 
 app.get('/api/drive/hls/:fileId/playlist.m3u8', sessionMiddleware, async (req, res) => {
-    // HLS disabled due to FFmpeg crashes on Railway
-    // Use direct streaming instead: /api/drive/stream/:fileId
-    res.status(501).json({ 
-        error: 'HLS no disponible', 
-        message: 'Use /api/drive/stream/:fileId para reproducción directa',
-        fallback: `/api/drive/stream/${req.params.fileId}`
-    });
+    if (!driveApi.isAuthenticated()) {
+        return res.status(401).json({ error: 'Drive no conectado.' });
+    }
+    const fileId = req.params.fileId as string;
+    const startTime = parseFloat(String(req.query.t || 0));
+
+    try {
+        const startTs = Date.now();
+        await driveApi.ensureHlsSegments(fileId, startTime);
+        const playlistPath = driveApi.getHlsPlaylistPath(fileId);
+        if (!playlistPath) {
+            return res.status(500).json({ error: 'HLS generation failed' });
+        }
+        const playlist = fs.readFileSync(playlistPath, 'utf-8');
+        console.log(`[HLS] Playlist served for ${fileId} in ${Date.now() - startTs}ms`);
+        res.writeHead(200, {
+            'Content-Type': 'application/vnd.apple.mpegurl',
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'max-age=3600',
+        });
+        res.end(playlist);
+    } catch (err) {
+        console.error('[HLS] Playlist error:', err.message);
+        if (!res.headersSent) res.status(500).json({ error: 'HLS error', message: err.message });
+    }
 });
 
-app.get('/api/drive/hls/:fileId/segment/:index.ts', async (req, res) => {
-    // HLS disabled due to FFmpeg crashes on Railway
-    res.status(501).json({ 
-        error: 'HLS no disponible', 
-        message: 'Use /api/drive/stream/:fileId para reproducción directa',
-        fallback: `/api/drive/stream/${req.params.fileId}`
+app.get('/api/drive/hls/:fileId/segments/:segment', sessionMiddleware, async (req, res) => {
+    if (!driveApi.isAuthenticated()) {
+        return res.status(401).json({ error: 'Drive no conectado.' });
+    }
+    const fileId = req.params.fileId as string;
+    const segment = req.params.segment as string;
+
+    const segPath = driveApi.getHlsSegmentPath(fileId, segment);
+    if (!segPath) {
+        return res.status(404).json({ error: 'Segmento no encontrado' });
+    }
+
+    const stat = fs.statSync(segPath);
+    res.writeHead(200, {
+        'Content-Type': 'video/MP2T',
+        'Content-Length': stat.size,
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'max-age=86400',
     });
+    fs.createReadStream(segPath).pipe(res);
 });
 
 // ─── Local Streaming ──────────────────────────────────────────────────────────

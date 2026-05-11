@@ -2,6 +2,7 @@ import ffmpeg, { FfmpegCommand } from 'fluent-ffmpeg'
 import { PassThrough, type Writable } from 'stream'
 import { execSync } from 'child_process'
 import fs from 'fs'
+import path from 'path'
 
 interface PassThroughWithCommand extends PassThrough {
   ffmpegCommand?: FfmpegCommand
@@ -466,11 +467,70 @@ function getHLSSegmentStream(
   return stream
 }
 
+function segmentToHls(
+  input: string,
+  outputDir: string,
+  headers: string | null = null,
+  startTime: number = 0
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const playlistPath = path.join(outputDir, 'playlist.m3u8')
+    fs.mkdirSync(outputDir, { recursive: true })
+
+    const command = ffmpeg(input)
+    const inputOptions = [
+      '-threads', '0',
+      '-probesize', '20M',
+      '-analyzeduration', '20M',
+      '-fflags', '+genpts',
+      '-reconnect', '1',
+      '-reconnect_at_eof', '1',
+      '-reconnect_streamed', '1',
+      '-reconnect_delay_max', '5',
+    ]
+
+    if (headers) {
+      inputOptions.push('-headers', headers.trim() + '\r\n')
+    }
+
+    if (startTime > 0) {
+      inputOptions.push('-ss', startTime.toString())
+    }
+
+    command.inputOptions(inputOptions)
+    command.videoCodec('copy')
+    command.audioCodec('copy')
+    command.outputOptions([
+      '-f', 'hls',
+      '-hls_time', '10',
+      '-hls_list_size', '0',
+      '-hls_playlist_type', 'vod',
+      '-hls_segment_filename', path.join(outputDir, 'seg_%05d.ts'),
+      '-map_chapters', '-1',
+    ])
+    command.output(playlistPath)
+
+    command
+      .on('start', (cmd) => console.log(`[Optimizer] HLS VOD: ${cmd}`))
+      .on('error', (err) => {
+        console.error('[Optimizer] HLS VOD error:', err.message)
+        reject(err)
+      })
+      .on('end', () => {
+        console.log(`[Optimizer] HLS VOD complete: ${outputDir}`)
+        resolve(playlistPath)
+      })
+
+    command.run()
+  })
+}
+
 export {
   getOptimizedUploadStream,
   getTranscodeStream,
   getFmp4Stream,
   getHLSSegmentStream,
+  segmentToHls,
   getVideoMetadata,
   probeAudioTracks,
   QUALITY_PROFILES,

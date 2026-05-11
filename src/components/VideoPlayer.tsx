@@ -402,10 +402,12 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             }
             return url;
         } else if (streamSource === 'drive') {
-            const shouldFmp4 = isSafari && !needsTranscoding && !useTranscoding;
+            const shouldHls = isSafari && !needsTranscoding && !useTranscoding;
+            if (shouldHls && movie.drive_file_id) {
+                return api.getHLSUrl(movie.drive_file_id, seekOffset);
+            }
             return api.getStreamUrl(movie.drive_file_id, movie.file_path, {
                 transcode: needsTranscoding || useTranscoding,
-                fmp4: shouldFmp4,
                 quality: actualQuality,
                 startTime: seekOffset,
                 audioTrack: selectedAudioTrack ? selectedAudioTrack.index : null

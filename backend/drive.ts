@@ -81,6 +81,8 @@ interface TranscodeOptions {
 // In-memory metadata cache for Drive files
 const fileMetaCache = new Map<string, { size: number; mimeType: string }>()
 const moovMetaCache = new Map<string, { ftypSize: number; moovSize: number }>()
+const hlsCacheDir = new Map<string, string>()
+const hlsInProgress = new Map<string, Promise<string>>()
 
 // Recursively adjusts stco/co64 chunk offsets within a moov box by the given adjustment.
 // stco entries point to absolute byte positions in the original file; after moov injection,
@@ -710,6 +712,50 @@ const driveApi = {
     } catch (e) {
       return null
     }
+  },
+
+  ensureHlsSegments: async (fileId: string, startTime: number = 0): Promise<string> => {
+    const outputDir = path.join(os.tmpdir(), 'cinevault-hls', fileId)
+
+    if (hlsCacheDir.has(fileId) && fs.existsSync(path.join(outputDir, 'playlist.m3u8'))) {
+      return hlsCacheDir.get(fileId)!
+    }
+
+    if (hlsInProgress.has(fileId)) {
+      return hlsInProgress.get(fileId)!
+    }
+
+    const promise = (async () => {
+      try {
+        const { segmentToHls } = require('./optimizer')
+        const accessToken = (oauth2Client.credentials as { access_token?: string }).access_token
+        const sourceUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`
+        const headers = `Authorization: Bearer ${accessToken}`
+        await segmentToHls(sourceUrl, outputDir, headers, startTime)
+        hlsCacheDir.set(fileId, outputDir)
+        return outputDir
+      } finally {
+        hlsInProgress.delete(fileId)
+      }
+    })()
+
+    hlsInProgress.set(fileId, promise)
+    return promise
+  },
+
+  getHlsPlaylistPath: (fileId: string): string | null => {
+    const dir = hlsCacheDir.get(fileId)
+    if (!dir) return null
+    const playlist = path.join(dir, 'playlist.m3u8')
+    return fs.existsSync(playlist) ? playlist : null
+  },
+
+  getHlsSegmentPath: (fileId: string, segment: string): string | null => {
+    const dir = hlsCacheDir.get(fileId)
+    if (!dir) return null
+    const segPath = path.join(dir, segment)
+    if (!segPath.startsWith(dir)) return null
+    return fs.existsSync(segPath) ? segPath : null
   },
 
   disconnect: async (): Promise<void> => {
