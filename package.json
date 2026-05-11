@@ -5,11 +5,14 @@
   "scripts": {
     "vite": "vite",
     "web": "vite",
-    "backend": "node backend/server.js",
+    "backend": "tsx backend/server.ts",
     "web:dev": "node kill_ports.js && concurrently \"npm run backend\" \"npm run vite\"",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "node backend/server.js"
+    "start": "tsx backend/server.ts",
+    "tsc:check": "tsc --noEmit",
+    "tsc:check:backend": "tsc --noEmit --project backend/tsconfig.json",
+    "typecheck": "npm run tsc:check && npm run tsc:check:backend"
   },
   "keywords": [],
   "author": "",
@@ -37,11 +40,23 @@
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {
+    "@types/cheerio": "^0.22.35",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/fluent-ffmpeg": "^2.1.28",
+    "@types/mime-types": "^3.0.1",
+    "@types/multer": "^2.1.0",
+    "@types/node": "^25.6.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.0.0",
     "autoprefixer": "^10.4.0",
     "concurrently": "^9.2.1",
     "postcss": "^8.4.0",
     "tailwindcss": "^3.3.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3",
     "vite": "^4.4.0"
   }
 }

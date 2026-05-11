@@ -1,0 +1,177 @@
+import { useState, useEffect } from 'react'
+import { useAuth } from '../context/AuthContext'
+import { Film, Mail, Lock, Loader, Eye, EyeOff, ArrowRight, X } from 'lucide-react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+
+function LoginPage() {
+  const { login, loading: authLoading } = useAuth()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+
+  const [showDisclaimer, setShowDisclaimer] = useState(false)
+
+  useEffect(() => {
+    if (searchParams.get('expired') === 'true') {
+      setError('Tu sesión expiró. Por favor, iniciá sesión nuevamente.')
+    }
+  }, [searchParams])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setIsLoading(true)
+
+    try {
+      await login(email, password)
+      setShowDisclaimer(true)
+    } catch (err) {
+      const error = err as Error
+      setError(error.message || 'Error al iniciar sesión')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleAcceptDisclaimer = () => {
+    setShowDisclaimer(false)
+    navigate('/')
+  }
+
+  return (
+    <div className="min-h-screen bg-black text-white flex items-center justify-center p-4 md:p-8 relative overflow-hidden">
+      <div className="fixed top-0 right-0 w-[600px] h-[600px] bg-netflix-red/10 blur-[180px] rounded-full translate-x-1/3 -translate-y-1/3 pointer-events-none"></div>
+      <div className="fixed bottom-0 left-0 w-[500px] h-[500px] bg-cyan-500/5 blur-[150px] rounded-full -translate-x-1/3 translate-y-1/3 pointer-events-none"></div>
+
+      {showDisclaimer && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 md:p-8 animate-fade-in">
+          <div className="absolute inset-0 bg-black/95 backdrop-blur-md"></div>
+          <div className="glass max-w-xl w-full p-6 md:p-12 rounded-[2rem] border border-white/10 relative z-10 shadow-[0_0_100px_rgba(229,9,20,0.2)] animate-scale-in max-h-[90vh] overflow-y-auto">
+            <div className="flex flex-col items-center text-center">
+              <div className="p-3 bg-netflix-red/10 rounded-xl mb-4">
+                <Film className="text-netflix-red" size={24} />
+              </div>
+              <h3 className="text-xl md:text-3xl font-black text-white tracking-tighter mb-4 uppercase italic">Términos de Uso</h3>
+              <div className="space-y-3 text-slate-300 text-[10px] md:text-sm font-medium leading-relaxed mb-6 text-left">
+                <p>
+                  CineVault es un proyecto exclusivo para fines de <span className="text-white font-bold">investigación tecnológica y aprendizaje personal</span>.
+                </p>
+                <p>
+                  El software ha sido diseñado para estudiar protocolos de streaming y optimización de recursos.
+                </p>
+                <p className="p-3 bg-white/5 rounded-xl border border-white/5 italic text-[9px] md:text-xs">
+                  "No se permite el uso comercial. CineVault no aloja ni facilita contenido protegido de forma pública."
+                </p>
+                <p>
+                  Usted es el único responsable del uso que le dé a esta herramienta y declara poseer los derechos legales de cualquier archivo al que acceda.
+                </p>
+              </div>
+              <button
+                onClick={handleAcceptDisclaimer}
+                className="w-full py-4 bg-netflix-red text-white font-black rounded-xl hover:bg-red-600 transition-all shadow-[0_10px_30px_rgba(229,9,20,0.3)] text-[10px] uppercase tracking-[0.2em]"
+              >
+                Aceptar y Continuar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="w-full max-w-md relative z-10">
+        <div className="text-center mb-10 animate-fade-in">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-netflix-red to-red-900 rounded-[2rem] mb-6 shadow-[0_20px_60px_-15px_rgba(229,9,20,0.5)]">
+            <Film size={40} className="text-white" strokeWidth={1.5} />
+          </div>
+          <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-white mb-3">
+            <span className="bg-clip-text text-transparent bg-gradient-to-br from-white via-slate-200 to-netflix-red">CineVault</span>
+          </h1>
+          <p className="text-slate-500 text-sm font-bold tracking-widest uppercase opacity-60">Tu experiencia cinematográfica</p>
+        </div>
+
+        <div className="glass rounded-[3rem] p-8 md:p-12 shadow-2xl animate-fade-in-up" style={{ animationDelay: '100ms' }}>
+          <h2 className="text-2xl font-black text-white tracking-tight mb-8 text-center">Iniciar Sesión</h2>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="relative group">
+              <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-netflix-red transition-colors" size={20} strokeWidth={2} />
+              <label htmlFor="email" className="sr-only">Correo electrónico</label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                value={email}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+                placeholder="Correo electrónico"
+                required
+                autoComplete="email"
+                className="w-full bg-black/40 border border-white/10 rounded-[1.5rem] pl-14 pr-5 py-5 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-netflix-red/10 focus:border-netflix-red/30 transition-all duration-700 placeholder:text-slate-600 text-white"
+              />
+            </div>
+
+            <div className="relative group">
+              <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-netflix-red transition-colors" size={20} strokeWidth={2} />
+              <label htmlFor="password" className="sr-only">Contraseña</label>
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                placeholder="Contraseña"
+                required
+                autoComplete="current-password"
+                className="w-full bg-black/40 border border-white/10 rounded-[1.5rem] pl-14 pr-14 py-5 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-netflix-red/10 focus:border-netflix-red/30 transition-all duration-700 placeholder:text-slate-600 text-white"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+              >
+                {showPassword ? <EyeOff size={20} strokeWidth={2} /> : <Eye size={20} strokeWidth={2} />}
+              </button>
+            </div>
+
+            {error && (
+              <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-[1rem]">
+                <p className="text-red-400 text-xs font-bold text-center">{error}</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isLoading || authLoading}
+              className="w-full py-5 bg-gradient-to-r from-netflix-red to-red-700 text-white font-black rounded-[1.5rem] hover:from-red-600 hover:to-red-800 active:scale-[0.98] transition-all duration-500 shadow-[0_10px_30px_-5px_rgba(229,9,20,0.4)] flex items-center justify-center gap-3 text-sm uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <Loader size={20} className="animate-spin" />
+              ) : (
+                <>
+                  <span>Ingresar</span>
+                  <ArrowRight size={18} />
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="mt-8 text-center">
+            <p className="text-slate-600 text-xs font-bold">
+              ¿Necesitas ayuda? Contacta al administrador
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-8 flex justify-center gap-2">
+          <div className="w-2 h-2 bg-netflix-red/30 rounded-full"></div>
+          <div className="w-2 h-2 bg-slate-800 rounded-full"></div>
+          <div className="w-2 h-2 bg-slate-800 rounded-full"></div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default LoginPage
