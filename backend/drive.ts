@@ -789,39 +789,39 @@ const driveApi = {
 
     const promise = (async () => {
       fs.mkdirSync(localDir, { recursive: true })
-      console.log(`[Drive] Downloading ${fileId} to ${localPath}...`)
+      const tmpPath = localPath + '.tmp'
+      console.log(`[Drive] Downloading ${fileId} to ${tmpPath}...`)
 
       const hasToken = driveApi.isAuthenticated()
       const apiKey = process.env.GOOGLE_API_KEY
 
-      const runFaststart = (downloadPath: string): Promise<void> => {
+      const runFaststart = (fromPath: string, toPath: string): Promise<void> => {
         return new Promise<void>((resolve) => {
-          const faststartPath = downloadPath + '.faststart'
           const proc = spawn('ffmpeg', [
-            '-i', downloadPath,
+            '-i', fromPath,
             '-c', 'copy',
             '-movflags', 'faststart',
             '-y',
-            faststartPath,
-          ], { stdio: 'ignore' })
+            toPath,
+          ], { stdio: ['ignore', 'ignore', 'pipe'] })
+          let stderrBuf = ''
+          proc.stderr!.on('data', (chunk: Buffer) => { stderrBuf += chunk.toString() })
           proc.on('close', (code) => {
             if (code === 0) {
-              try {
-                fs.renameSync(faststartPath, downloadPath)
-                console.log(`[Drive] Faststart complete: ${fileId}`)
-              } catch (e) {
-                console.error(`[Drive] Faststart rename error:`, (e as Error).message)
-                if (fs.existsSync(faststartPath)) fs.unlinkSync(faststartPath)
-              }
+              console.log(`[Drive] Faststart complete: ${fileId}`)
             } else {
-              console.error(`[Drive] Faststart failed (code ${code}), serving original`)
-              if (fs.existsSync(faststartPath)) fs.unlinkSync(faststartPath)
+              console.error(`[Drive] Faststart failed (code ${code}): ${stderrBuf.slice(0, 500)}`)
+              if (fs.existsSync(toPath)) {
+                try { fs.unlinkSync(toPath) } catch {}
+              }
             }
             resolve()
           })
           proc.on('error', (err) => {
-            console.error(`[Drive] Faststart not available (${err.message}), serving original`)
-            if (fs.existsSync(faststartPath)) fs.unlinkSync(faststartPath)
+            console.error(`[Drive] Faststart binary error: ${err.message}`)
+            if (fs.existsSync(toPath)) {
+              try { fs.unlinkSync(toPath) } catch {}
+            }
             resolve()
           })
         })
@@ -829,21 +829,21 @@ const driveApi = {
 
       const afterDownload = async (): Promise<string> => {
         console.log(`[Drive] Download complete: ${fileId}`)
-        await runFaststart(localPath)
+        await runFaststart(tmpPath, localPath)
+        if (fs.existsSync(tmpPath)) {
+          try { fs.unlinkSync(tmpPath) } catch {}
+        }
+        if (!fs.existsSync(localPath)) {
+          console.log(`[Drive] Faststart produced no output, renaming tmp as-is`)
+          try { fs.renameSync(tmpPath, localPath) } catch {}
+        }
         driveApi.localDownloadsInProgress.delete(fileId)
         try { ensureDiskSpace(fileId, fs.statSync(localPath).size) } catch {}
         return localPath
       }
 
-      if (hasToken) {
-        const drive = driveApi.getClient()
-        const res = await drive.files.get(
-          { fileId, alt: 'media', supportsAllDrives: true },
-          { responseType: 'stream' }
-        )
-        const stream = res.data as unknown as NodeJS.ReadableStream
-        const writer = fs.createWriteStream(localPath)
-
+      const pipeDownload = (stream: NodeJS.ReadableStream): Promise<string> => {
+        const writer = fs.createWriteStream(tmpPath)
         return new Promise<string>((resolve, reject) => {
           stream.pipe(writer)
           writer.on('finish', () => afterDownload().then(resolve).catch(reject))
@@ -856,6 +856,15 @@ const driveApi = {
             reject(err)
           })
         })
+      }
+
+      if (hasToken) {
+        const drive = driveApi.getClient()
+        const res = await drive.files.get(
+          { fileId, alt: 'media', supportsAllDrives: true },
+          { responseType: 'stream' }
+        )
+        return pipeDownload(res.data as unknown as NodeJS.ReadableStream)
       } else if (apiKey) {
         const axios = require('axios')
         const res = await axios.get(
@@ -865,21 +874,7 @@ const driveApi = {
             responseType: 'stream',
           }
         )
-        const stream = res.data as NodeJS.ReadableStream
-        const writer = fs.createWriteStream(localPath)
-
-        return new Promise<string>((resolve, reject) => {
-          stream.pipe(writer)
-          writer.on('finish', () => afterDownload().then(resolve).catch(reject))
-          writer.on('error', (err) => {
-            driveApi.localDownloadsInProgress.delete(fileId)
-            reject(err)
-          })
-          stream.on('error', (err) => {
-            driveApi.localDownloadsInProgress.delete(fileId)
-            reject(err)
-          })
-        })
+        return pipeDownload(res.data as NodeJS.ReadableStream)
       } else {
         throw new Error('No authentication method available')
       }
