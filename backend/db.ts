@@ -509,7 +509,7 @@ const database = {
     return (await supabaseFetch(endpoint)) || []
   },
 
-  updateRequest: async (id: number, data: Record<string, unknown>) => {
+  updateRequest: async (id: string, data: Record<string, unknown>) => {
     return await supabaseFetch(`movie_requests?id=eq.${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),

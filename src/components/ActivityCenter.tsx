@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { api } from '../api'
 
 interface RequestItem {
-  id: number
+  id: string
   title: string
   user_id: string
   poster_path?: string
@@ -21,7 +21,7 @@ export default function ActivityCenter({ onNavigate }: ActivityCenterProps) {
   const { queue, removeFromQueue, retryQueueItem } = useUploadQueue()
   const { isAdmin } = useAuth()
   const [requests, setRequests] = useState<RequestItem[]>([])
-  const [isProcessingRequest, setIsProcessingRequest] = useState<number | null>(null)
+  const [isProcessingRequest, setIsProcessingRequest] = useState<string | null>(null)
 
   const fetchRequests = async () => {
     if (!isAdmin()) return

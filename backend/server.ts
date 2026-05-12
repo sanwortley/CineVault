@@ -2091,7 +2091,7 @@ app.patch('/api/admin/requests/:id', sessionMiddleware, adminMiddleware, async (
     const { status } = req.body;
 
     try {
-        await db.updateRequest(parseInt(id, 10), { status });
+        await db.updateRequest(id, { status });
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });

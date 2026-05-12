@@ -762,7 +762,7 @@ export const api = {
     return backendFetch('/api/admin/requests')
   },
 
-  updateRequestStatus: (id: number, status: string) =>
+  updateRequestStatus: (id: string, status: string) =>
     backendFetch(`/api/admin/requests/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
