@@ -806,11 +806,12 @@ const driveApi = {
           ], { stdio: ['ignore', 'ignore', 'pipe'] })
           let stderrBuf = ''
           proc.stderr!.on('data', (chunk: Buffer) => { stderrBuf += chunk.toString() })
+          proc.stderr!.setEncoding('utf8')
           proc.on('close', (code) => {
             if (code === 0) {
               console.log(`[Drive] Faststart complete: ${fileId}`)
             } else {
-              console.error(`[Drive] Faststart failed (code ${code}): ${stderrBuf.slice(0, 500)}`)
+              console.error(`[Drive] Faststart failed (code ${code})\n  stderr tail: ${stderrBuf.slice(-800)}`)
               if (fs.existsSync(toPath)) {
                 try { fs.unlinkSync(toPath) } catch {}
               }
