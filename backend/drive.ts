@@ -829,6 +829,8 @@ const driveApi = {
 
       const afterDownload = async (): Promise<string> => {
         console.log(`[Drive] Download complete: ${fileId}`)
+        // Liberar espacio ANTES de faststart (necesita 2x espacio temporal)
+        try { ensureDiskSpace(fileId, fs.statSync(tmpPath).size) } catch {}
         await runFaststart(tmpPath, localPath)
         if (fs.existsSync(tmpPath)) {
           try { fs.unlinkSync(tmpPath) } catch {}
@@ -838,7 +840,6 @@ const driveApi = {
           try { fs.renameSync(tmpPath, localPath) } catch {}
         }
         driveApi.localDownloadsInProgress.delete(fileId)
-        try { ensureDiskSpace(fileId, fs.statSync(localPath).size) } catch {}
         return localPath
       }
 
