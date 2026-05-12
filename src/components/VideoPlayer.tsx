@@ -1053,6 +1053,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         playsInline
                         autoPlay
                         muted={isMuted}
+                        controls={isIOS}
                         preload="auto"
                         poster={activeMovie.poster_url ?? undefined}
                         {...({ webkitPlaysinline: 'true' } as React.HTMLAttributes<HTMLVideoElement>)}
@@ -1229,6 +1230,15 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                 </div>
             )}
 
+            {isIOS && selectedSubtitle && !showSubtitleMenu && !showQualityMenu && !showAudioMenu && !showVersionMenu && !localFileDownloading && !isDisplayLoading && (
+                <button
+                    onClick={() => setShowSubtitleMenu(true)}
+                    className="absolute top-4 right-4 z-[50] p-3 bg-black/50 backdrop-blur-sm rounded-full text-white/80 hover:text-white border border-white/10 transition-all active:scale-90"
+                >
+                    <MessageSquare size={20} />
+                </button>
+            )}
+
             {error && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-[1010] animate-in fade-in duration-500">
                     <div className="glass-card px-6 py-5 rounded-3xl border border-netflix-red/30 bg-netflix-red/10 flex flex-col gap-4 shadow-2xl backdrop-blur-xl">
@@ -1331,7 +1341,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                 </div>
             )}
 
-            {showControls && (
+            {showControls && !isIOS && (
                 <div
                     className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 to-transparent p-4 pb-10 md:p-8 md:pb-12"
                     onClick={(e: React.MouseEvent) => e.stopPropagation()}
