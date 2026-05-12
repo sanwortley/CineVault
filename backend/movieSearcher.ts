@@ -62,11 +62,9 @@ interface SubtitleFallbackResult {
 
 async function searchYTS(query: string): Promise<TorrentResult[]> {
   const mirrors = [
-    'https://yts.mx/api/v2',
-    'https://yts.pm/api/v2',
     'https://yts.lt/api/v2',
-    'https://yts.rs/api/v2',
-    'https://yify-backend.onrender.com/api/v2',
+    'https://yts.bz/api/v2',
+    'https://movies-api.accel.li/api/v2',
   ]
 
   for (const mirror of mirrors) {
@@ -75,7 +73,7 @@ async function searchYTS(query: string): Promise<TorrentResult[]> {
       const response = await axios.get<YTSResponse>(`${mirror}/list_movies.json`, {
         params: { query_term: query, limit: 10, sort_by: 'seeds' },
         headers: COMMON_HEADERS,
-        timeout: 5000,
+        timeout: 10000,
       })
 
       if (response.data?.data?.movies) {
@@ -121,7 +119,7 @@ async function searchTPB(query: string): Promise<TorrentResult[]> {
 
       const response = await axios.get(url, {
         headers: COMMON_HEADERS,
-        timeout: 5000,
+        timeout: 10000,
       })
 
       if (isApi) {
@@ -184,7 +182,7 @@ async function searchSolid(query: string): Promise<TorrentResult[]> {
       const response = await axios.get<SolidResponse>(`${mirror}/search`, {
         params: { q: query, category: 'Video', sort: 'seeders' },
         headers: COMMON_HEADERS,
-        timeout: 5000,
+        timeout: 10000,
       })
 
       if (response.data?.results) {

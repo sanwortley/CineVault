@@ -232,8 +232,8 @@ router.post('/download', adminMiddleware, async (req: Request, res: Response) =>
         })
       } catch (err) {
         const error = err as Error
-        console.error('[Discover] Debrid process failed:', error.message)
-        uploadManager.updateJob(movie!.id, { status: 'error' as const, error: error.message })
+        console.error('[Discover] Debrid process failed:', error.message, error.stack?.slice(0, 500))
+        uploadManager.updateJob(movie!.id, { status: 'error' as const, error: error.message || 'Error desconocido en Real-Debrid' })
       }
     })()
 

@@ -1687,11 +1687,14 @@ app.delete('/api/movies/:id', sessionMiddleware, adminMiddleware, async (req, re
         // 2. If it has a Drive ID, delete it (trash it)
         if (movie.drive_file_id) {
             try {
-                await (driveApi as any).deleteFile(movie.drive_file_id);
-                console.log(`[Server] Archivo de Drive ${movie.drive_file_id} movido a la papelera`);
+                if (typeof (driveApi as any).deleteFile === 'function') {
+                    await (driveApi as any).deleteFile(movie.drive_file_id);
+                    console.log(`[Server] Archivo de Drive ${movie.drive_file_id} movido a la papelera`);
+                } else {
+                    console.warn(`[Server] deleteFile no está disponible en driveApi, se omite borrado de Drive`);
+                }
             } catch (err) {
-                console.warn(`[Server] No se pudo borrar de Drive (quizás ya no existe):`, err.message);
-                // We continue anyway to at least remove it from the DB
+                console.warn(`[Server] No se pudo borrar de Drive (quizás ya no existe):`, (err as Error).message || err);
             }
         }
 
