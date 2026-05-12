@@ -378,7 +378,9 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     }, [quality, movie.video_codec, movie.audio_codec, movie.video_height, movie.file_path, movie.file_name, selectedAudioTrack]);
 
     useEffect(() => {
-        if (streamSource === 'drive' && isSafari && !needsTranscoding && !useTranscoding && movie.drive_file_id && !localFileReady) {
+        const isMkv = movie.file_path?.toLowerCase().endsWith('.mkv') ||
+            movie.file_name?.toLowerCase().endsWith('.mkv');
+        if (streamSource === 'drive' && isSafari && movie.drive_file_id && !isMkv && !localFileReady) {
             setLocalFileDownloading(true);
             const fileUrl = api.getLocalFileUrl(movie.drive_file_id);
             let pollId: ReturnType<typeof setInterval> | null = null;
@@ -403,7 +405,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             }).catch(() => setLocalFileDownloading(false));
             return () => { if (pollId) clearInterval(pollId); };
         }
-    }, [streamSource, isSafari, movie.drive_file_id, needsTranscoding, useTranscoding, localFileReady]);
+    }, [streamSource, isSafari, movie.drive_file_id, movie.file_path, movie.file_name, localFileReady]);
 
     const videoUrl = useMemo(() => {
         if (streamSource === 'checking' || streamSource === 'error') return '';
@@ -432,7 +434,9 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             }
             return url;
         } else if (streamSource === 'drive') {
-            if (isSafari && !needsTranscoding && !useTranscoding && movie.drive_file_id) {
+            const isMkv = movie.file_path?.toLowerCase().endsWith('.mkv') ||
+                movie.file_name?.toLowerCase().endsWith('.mkv');
+            if (isSafari && movie.drive_file_id && !isMkv) {
                 if (localFileReady) {
                     return api.getLocalFileUrl(movie.drive_file_id);
                 }
