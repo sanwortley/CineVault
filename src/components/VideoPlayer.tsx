@@ -138,6 +138,8 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     }, []);
 
     const [useTranscoding, setUseTranscoding] = useState(false);
+    const [localFileReady, setLocalFileReady] = useState(false);
+    const [localFileDownloading, setLocalFileDownloading] = useState(false);
     const [streamingMode, setStreamingMode] = useState('classic');
     const [streamSource, setStreamSource] = useState<'checking' | 'drive' | 'local' | 'cloud' | 'error'>('checking');
     const [unlockProgress, setUnlockProgress] = useState(0);
@@ -375,6 +377,34 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         return result;
     }, [quality, movie.video_codec, movie.audio_codec, movie.video_height, movie.file_path, movie.file_name, selectedAudioTrack]);
 
+    useEffect(() => {
+        if (streamSource === 'drive' && isSafari && !needsTranscoding && !useTranscoding && movie.drive_file_id && !localFileReady) {
+            setLocalFileDownloading(true);
+            const fileUrl = api.getLocalFileUrl(movie.drive_file_id);
+            let pollId: ReturnType<typeof setInterval> | null = null;
+            fetch(fileUrl).then(async (res) => {
+                if (res.status === 200) {
+                    setLocalFileReady(true);
+                    setLocalFileDownloading(false);
+                } else if (res.status === 202) {
+                    pollId = setInterval(async () => {
+                        try {
+                            const r = await fetch(fileUrl);
+                            if (r.status === 200) {
+                                setLocalFileReady(true);
+                                setLocalFileDownloading(false);
+                                if (pollId) clearInterval(pollId);
+                            }
+                        } catch {}
+                    }, 5000);
+                } else {
+                    setLocalFileDownloading(false);
+                }
+            }).catch(() => setLocalFileDownloading(false));
+            return () => { if (pollId) clearInterval(pollId); };
+        }
+    }, [streamSource, isSafari, movie.drive_file_id, needsTranscoding, useTranscoding, localFileReady]);
+
     const videoUrl = useMemo(() => {
         if (streamSource === 'checking' || streamSource === 'error') return '';
 
@@ -402,9 +432,11 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             }
             return url;
         } else if (streamSource === 'drive') {
-            const shouldHls = isSafari && !needsTranscoding && !useTranscoding;
-            if (shouldHls && movie.drive_file_id) {
-                return api.getHLSUrl(movie.drive_file_id, seekOffset);
+            if (isSafari && !needsTranscoding && !useTranscoding && movie.drive_file_id) {
+                if (localFileReady) {
+                    return api.getLocalFileUrl(movie.drive_file_id);
+                }
+                return '';
             }
             return api.getStreamUrl(movie.drive_file_id, movie.file_path, {
                 transcode: needsTranscoding || useTranscoding,
@@ -1124,7 +1156,25 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                 </div>
             )}
 
-            {isDisplayLoading && !isInitializing && !showSubtitleMenu && !showQualityMenu && !showAudioMenu && !showVersionMenu && (
+            {localFileDownloading && !localFileReady && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-[1010]">
+                    <div className="text-center p-6">
+                        <div className="relative w-20 h-20 mx-auto mb-4">
+                            <div className="absolute inset-0 border-4 border-cyan-500/10 rounded-full"></div>
+                            <div className="absolute inset-0 border-4 border-t-cyan-500 rounded-full animate-spin"></div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <svg className="w-8 h-8 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                            </div>
+                        </div>
+                        <p className="text-white font-bold uppercase tracking-[0.3em]">Preparando archivo</p>
+                        <p className="text-[10px] font-medium text-slate-400 mt-2 leading-relaxed italic">
+                            Descargando película al servidor. Esto puede tomar unos segundos...
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {isDisplayLoading && !isInitializing && !localFileDownloading && !showSubtitleMenu && !showQualityMenu && !showAudioMenu && !showVersionMenu && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-[40]">
                     <div className="text-center p-6">
                         <div className="relative w-28 h-28 mx-auto mb-6">

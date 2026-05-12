@@ -428,6 +428,58 @@ app.get('/api/drive/hls/:fileId/segments/:segment', sessionMiddleware, async (re
     fs.createReadStream(segPath).pipe(res);
 });
 
+// ─── Local file download + serve (for Safari) ───────────────────────────
+app.get('/api/drive/file/:fileId', sessionMiddleware, async (req, res) => {
+    if (!driveApi.isAuthenticated()) {
+        return res.status(401).json({ error: 'Drive no conectado.' });
+    }
+    const fileId = req.params.fileId as string;
+
+    try {
+        const localPath = driveApi.getLocalFilePath(fileId);
+        if (!localPath) {
+            res.writeHead(202, {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+            });
+            driveApi.ensureLocalFile(fileId).catch((err: Error) => console.error('[Drive] Download failed:', err.message));
+            return res.end(JSON.stringify({ status: 'downloading', message: 'Descargando archivo...' }));
+        }
+
+        const stat = fs.statSync(localPath);
+        const range = req.headers.range as string;
+
+        if (range) {
+            const parts = range.replace(/bytes=/, '').split('-');
+            const start = parseInt(parts[0], 10);
+            const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
+            const chunkSize = end - start + 1;
+
+            res.writeHead(206, {
+                'Content-Range': `bytes ${start}-${end}/${stat.size}`,
+                'Accept-Ranges': 'bytes',
+                'Content-Length': chunkSize,
+                'Content-Type': 'video/mp4',
+                'Access-Control-Allow-Origin': '*',
+                'Cache-Control': 'max-age=86400',
+            });
+            fs.createReadStream(localPath, { start, end }).pipe(res);
+        } else {
+            res.writeHead(200, {
+                'Content-Length': stat.size,
+                'Content-Type': 'video/mp4',
+                'Accept-Ranges': 'bytes',
+                'Access-Control-Allow-Origin': '*',
+                'Cache-Control': 'max-age=86400',
+            });
+            fs.createReadStream(localPath).pipe(res);
+        }
+    } catch (err) {
+        console.error('[Drive] File serve error:', err.message);
+        if (!res.headersSent) res.status(500).json({ error: 'Error al servir archivo' });
+    }
+});
+
 // ─── Local Streaming ──────────────────────────────────────────────────────────
 app.get('/api/debug/ffmpeg-logs', (req, res) => {
     const logFile = path.join(__dirname, '../scratch/ffmpeg.log');

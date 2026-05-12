@@ -740,6 +740,92 @@ const driveApi = {
     return fs.existsSync(segPath) ? segPath : null
   },
 
+  localDownloadsInProgress: new Map<string, Promise<string>>(),
+
+  ensureLocalFile: async (fileId: string): Promise<string> => {
+    const localDir = path.join(os.tmpdir(), 'cinevault-files')
+    const localPath = path.join(localDir, fileId)
+
+    if (fs.existsSync(localPath)) return localPath
+
+    if (driveApi.localDownloadsInProgress.has(fileId)) {
+      return driveApi.localDownloadsInProgress.get(fileId)!
+    }
+
+    const promise = (async () => {
+      fs.mkdirSync(localDir, { recursive: true })
+      console.log(`[Drive] Downloading ${fileId} to ${localPath}...`)
+
+      const hasToken = driveApi.isAuthenticated()
+      const apiKey = process.env.GOOGLE_API_KEY
+
+      if (hasToken) {
+        const drive = driveApi.getClient()
+        const res = await drive.files.get(
+          { fileId, alt: 'media', supportsAllDrives: true },
+          { responseType: 'stream' }
+        )
+        const stream = res.data as unknown as NodeJS.ReadableStream
+        const writer = fs.createWriteStream(localPath)
+
+        return new Promise<string>((resolve, reject) => {
+          stream.pipe(writer)
+          writer.on('finish', () => {
+            console.log(`[Drive] Download complete: ${fileId}`)
+            driveApi.localDownloadsInProgress.delete(fileId)
+            resolve(localPath)
+          })
+          writer.on('error', (err) => {
+            driveApi.localDownloadsInProgress.delete(fileId)
+            reject(err)
+          })
+          stream.on('error', (err) => {
+            driveApi.localDownloadsInProgress.delete(fileId)
+            reject(err)
+          })
+        })
+      } else if (apiKey) {
+        const axios = require('axios')
+        const res = await axios.get(
+          `https://www.googleapis.com/drive/v3/files/${fileId}`,
+          {
+            params: { alt: 'media', key: apiKey, supportsAllDrives: true },
+            responseType: 'stream',
+          }
+        )
+        const stream = res.data as NodeJS.ReadableStream
+        const writer = fs.createWriteStream(localPath)
+
+        return new Promise<string>((resolve, reject) => {
+          stream.pipe(writer)
+          writer.on('finish', () => {
+            console.log(`[Drive] Download complete: ${fileId}`)
+            driveApi.localDownloadsInProgress.delete(fileId)
+            resolve(localPath)
+          })
+          writer.on('error', (err) => {
+            driveApi.localDownloadsInProgress.delete(fileId)
+            reject(err)
+          })
+          stream.on('error', (err) => {
+            driveApi.localDownloadsInProgress.delete(fileId)
+            reject(err)
+          })
+        })
+      } else {
+        throw new Error('No authentication method available')
+      }
+    })()
+
+    driveApi.localDownloadsInProgress.set(fileId, promise)
+    return promise
+  },
+
+  getLocalFilePath: (fileId: string): string | null => {
+    const localPath = path.join(os.tmpdir(), 'cinevault-files', fileId)
+    return fs.existsSync(localPath) ? localPath : null
+  },
+
   disconnect: async (): Promise<void> => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     oauth2Client.setCredentials({} as any)
