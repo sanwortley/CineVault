@@ -96,7 +96,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     );
     const isIOS = typeof window !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
     const isAndroid = typeof window !== 'undefined' && /Android/i.test(navigator.userAgent);
-    const useNativeControls = isIOS || isAndroid;
+    const useNativeControls = isIOS;
     const [isPlaying, setIsPlaying] = useState(true);
     const [duration, setDuration] = useState(0);
     const [currentTime, setCurrentTime] = useState(0);
