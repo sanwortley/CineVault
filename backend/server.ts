@@ -448,6 +448,8 @@ app.get('/api/drive/file/:fileId', sessionMiddleware, async (req, res) => {
 
         const stat = fs.statSync(localPath);
         const range = req.headers.range as string;
+        const ua = (req.headers['user-agent'] || '').substring(0, 100);
+        console.log(`[DriveFile] ${req.method} /api/drive/file/${fileId} range=${range || 'NONE'} size=${stat.size} ua=${ua}`);
 
         if (range) {
             const parts = range.replace(/bytes=/, '').split('-');
@@ -455,6 +457,7 @@ app.get('/api/drive/file/:fileId', sessionMiddleware, async (req, res) => {
             const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
             const chunkSize = end - start + 1;
 
+            console.log(`[DriveFile] → 206 bytes ${start}-${end}/${stat.size} (${chunkSize} bytes)`);
             res.writeHead(206, {
                 'Content-Range': `bytes ${start}-${end}/${stat.size}`,
                 'Accept-Ranges': 'bytes',
@@ -465,8 +468,8 @@ app.get('/api/drive/file/:fileId', sessionMiddleware, async (req, res) => {
             });
             fs.createReadStream(localPath, { start, end }).pipe(res);
         } else {
+            console.log(`[DriveFile] → 200 streaming (chunked, no Content-Length)`);
             res.writeHead(200, {
-                'Content-Length': stat.size,
                 'Content-Type': 'video/mp4',
                 'Accept-Ranges': 'bytes',
                 'Access-Control-Allow-Origin': '*',
@@ -475,7 +478,7 @@ app.get('/api/drive/file/:fileId', sessionMiddleware, async (req, res) => {
             fs.createReadStream(localPath).pipe(res);
         }
     } catch (err) {
-        console.error('[Drive] File serve error:', err.message);
+        console.error('[DriveFile] Error:', err.message);
         if (!res.headersSent) res.status(500).json({ error: 'Error al servir archivo' });
     }
 });

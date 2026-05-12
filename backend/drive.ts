@@ -3,6 +3,7 @@ import http from 'http'
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
+import { spawn } from 'child_process'
 
 import type { Response } from 'express'
 
@@ -793,6 +794,47 @@ const driveApi = {
       const hasToken = driveApi.isAuthenticated()
       const apiKey = process.env.GOOGLE_API_KEY
 
+      const runFaststart = (downloadPath: string): Promise<void> => {
+        return new Promise<void>((resolve) => {
+          const faststartPath = downloadPath + '.faststart'
+          const proc = spawn('ffmpeg', [
+            '-i', downloadPath,
+            '-c', 'copy',
+            '-movflags', 'faststart',
+            '-y',
+            faststartPath,
+          ], { stdio: 'ignore' })
+          proc.on('close', (code) => {
+            if (code === 0) {
+              try {
+                fs.renameSync(faststartPath, downloadPath)
+                console.log(`[Drive] Faststart complete: ${fileId}`)
+              } catch (e) {
+                console.error(`[Drive] Faststart rename error:`, (e as Error).message)
+                if (fs.existsSync(faststartPath)) fs.unlinkSync(faststartPath)
+              }
+            } else {
+              console.error(`[Drive] Faststart failed (code ${code}), serving original`)
+              if (fs.existsSync(faststartPath)) fs.unlinkSync(faststartPath)
+            }
+            resolve()
+          })
+          proc.on('error', (err) => {
+            console.error(`[Drive] Faststart not available (${err.message}), serving original`)
+            if (fs.existsSync(faststartPath)) fs.unlinkSync(faststartPath)
+            resolve()
+          })
+        })
+      }
+
+      const afterDownload = async (): Promise<string> => {
+        console.log(`[Drive] Download complete: ${fileId}`)
+        await runFaststart(localPath)
+        driveApi.localDownloadsInProgress.delete(fileId)
+        try { ensureDiskSpace(fileId, fs.statSync(localPath).size) } catch {}
+        return localPath
+      }
+
       if (hasToken) {
         const drive = driveApi.getClient()
         const res = await drive.files.get(
@@ -804,12 +846,7 @@ const driveApi = {
 
         return new Promise<string>((resolve, reject) => {
           stream.pipe(writer)
-          writer.on('finish', () => {
-            console.log(`[Drive] Download complete: ${fileId}`)
-            driveApi.localDownloadsInProgress.delete(fileId)
-            try { ensureDiskSpace(fileId, fs.statSync(localPath).size) } catch {}
-            resolve(localPath)
-          })
+          writer.on('finish', () => afterDownload().then(resolve).catch(reject))
           writer.on('error', (err) => {
             driveApi.localDownloadsInProgress.delete(fileId)
             reject(err)
@@ -833,12 +870,7 @@ const driveApi = {
 
         return new Promise<string>((resolve, reject) => {
           stream.pipe(writer)
-          writer.on('finish', () => {
-            console.log(`[Drive] Download complete: ${fileId}`)
-            driveApi.localDownloadsInProgress.delete(fileId)
-            try { ensureDiskSpace(fileId, fs.statSync(localPath).size) } catch {}
-            resolve(localPath)
-          })
+          writer.on('finish', () => afterDownload().then(resolve).catch(reject))
           writer.on('error', (err) => {
             driveApi.localDownloadsInProgress.delete(fileId)
             reject(err)
