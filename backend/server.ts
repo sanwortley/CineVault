@@ -460,10 +460,11 @@ app.get('/api/drive/file/:fileId', sessionMiddleware, async (req, res) => {
         const ua = (req.headers['user-agent'] || '').substring(0, 100);
         console.log(`[DriveFile] ${req.method} /api/drive/file/${fileId} range=${range || 'NONE'} size=${stat.size} ua=${ua}`);
 
-        const sendFile = (statusCode: number, extraHeaders: Record<string, string | number>, streamOpts?: { start?: number; end?: number }) => {
-            const stream = streamOpts ? fs.createReadStream(localPath, streamOpts) : fs.createReadStream(localPath);
-            res.writeHead(statusCode, {
-                ...extraHeaders,
+        const sendFile = (startByte: number, endByte: number, chunkSize: number) => {
+            const stream = fs.createReadStream(localPath, { start: startByte, end: endByte });
+            res.writeHead(206, {
+                'Content-Range': `bytes ${startByte}-${endByte}/${stat.size}`,
+                'Content-Length': chunkSize,
                 'Accept-Ranges': 'bytes',
                 'Content-Type': 'video/mp4',
                 'Access-Control-Allow-Origin': '*',
@@ -474,7 +475,7 @@ app.get('/api/drive/file/:fileId', sessionMiddleware, async (req, res) => {
             let bytesSent = 0;
             stream.on('data', (chunk: Buffer) => { bytesSent += chunk.length; });
             stream.on('end', () => {
-                console.log(`[DriveFile] ✓ ${statusCode} complete (${bytesSent} bytes sent)`);
+                console.log(`[DriveFile] ✓ 206 complete (${bytesSent} bytes sent)`);
             });
             res.on('close', () => {
                 console.log(`[DriveFile] ✗ client disconnected after ${bytesSent} bytes`);
@@ -489,15 +490,10 @@ app.get('/api/drive/file/:fileId', sessionMiddleware, async (req, res) => {
             const chunkSize = end - start + 1;
 
             console.log(`[DriveFile] → 206 bytes ${start}-${end}/${stat.size} (${chunkSize} bytes)`);
-            sendFile(206, {
-                'Content-Range': `bytes ${start}-${end}/${stat.size}`,
-                'Content-Length': chunkSize,
-            }, { start, end });
+            sendFile(start, end, chunkSize);
         } else {
-            console.log(`[DriveFile] → 200 (size=${stat.size})`);
-            sendFile(200, {
-                'Content-Length': stat.size,
-            });
+            console.log(`[DriveFile] → 206 full file (0-${stat.size - 1})`);
+            sendFile(0, stat.size - 1, stat.size);
         }
     } catch (err) {
         console.error('[DriveFile] Error:', err.message);
