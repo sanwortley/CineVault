@@ -432,6 +432,9 @@ app.get('/api/drive/hls/:fileId/segments/:segment', sessionMiddleware, async (re
 app.get('/api/drive/file-status/:fileId', sessionMiddleware, async (req, res) => {
     const fileId = req.params.fileId as string;
     const localPath = driveApi.getLocalFilePath(fileId);
+    if (!localPath) {
+        driveApi.ensureLocalFile(fileId).catch((err: Error) => console.error('[Drive] Download failed:', err.message));
+    }
     res.json({ ready: !!localPath });
 });
 
