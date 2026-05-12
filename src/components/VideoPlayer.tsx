@@ -455,12 +455,12 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         return '';
     }, [movie.id, movie.drive_file_id, movie.file_path, movie.video_codec, movie.audio_codec, movie.video_height, streamSource, needsTranscoding, useTranscoding, quality, seekOffset, movie.file_name, selectedAudioTrack]);
 
-    const isDisplayLoading = isInitializing || isLoading;
+    const isDisplayLoading = isInitializing || isLoading || localFileDownloading;
 
     useEffect(() => {
         let timer: ReturnType<typeof setTimeout>;
         const isTranscoding = needsTranscoding || useTranscoding;
-        if (!isTranscoding && isPlaying && currentTime === 0 && !isLoading && !isInitializing) {
+        if (!isTranscoding && isPlaying && currentTime === 0 && !isLoading && !isInitializing && !localFileDownloading) {
             const stuckTimeout = isIOS ? 8000 : 3000;
             timer = setTimeout(() => {
                 setIsStuckAtZero(true);
@@ -531,14 +531,14 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         }
 
         const timer = setTimeout(() => {
-            if (isLoading) {
+            if (isLoading && !localFileDownloading) {
                 console.warn('[VideoPlayer] Timeout (45s): forcing isLoading=false');
                 setIsLoading(false);
             }
         }, 45000);
 
         return () => clearTimeout(timer);
-    }, [videoUrl, streamingMode]);
+    }, [videoUrl, streamingMode, localFileDownloading]);
 
     const handleVideoError = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
         const videoElement = e.target as HTMLVideoElement;
@@ -562,7 +562,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             userAgent: navigator.userAgent.substring(0, 120),
         });
 
-        if (!useTranscoding && (errorCode === 3 || errorCode === 4)) {
+        if (!useTranscoding && !localFileDownloading && (errorCode === 3 || errorCode === 4)) {
             console.log('[VideoPlayer] Fallback to transcoding...');
             setUseTranscoding(true);
             setError(null);
