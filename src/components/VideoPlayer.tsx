@@ -1050,13 +1050,13 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         ref={videoRef}
                         className="w-full h-full object-contain md:object-contain"
                         style={{ backgroundColor: '#000', height: '100%', width: '100%' }}
-                        playsInline
+                        playsInline={!isIOS}
                         autoPlay
                         muted={isMuted}
                         controls={isIOS}
                         preload="auto"
                         poster={activeMovie.poster_url ?? undefined}
-                        {...({ webkitPlaysinline: 'true' } as React.HTMLAttributes<HTMLVideoElement>)}
+                        {...(!isIOS ? { webkitPlaysinline: 'true' } : {})}
                         src={videoUrl}
                         onEnded={handleVideoEnded}
                         onTimeUpdate={(e: React.SyntheticEvent<HTMLVideoElement>) => {
