@@ -448,7 +448,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             }) || '';
         }
         return '';
-    }, [movie.id, movie.drive_file_id, movie.file_path, movie.video_codec, movie.audio_codec, movie.video_height, streamSource, needsTranscoding, useTranscoding, quality, seekOffset, movie.file_name, selectedAudioTrack]);
+    }, [movie.id, movie.drive_file_id, movie.file_path, movie.video_codec, movie.audio_codec, movie.video_height, streamSource, needsTranscoding, useTranscoding, quality, seekOffset, movie.file_name, selectedAudioTrack, localFileReady]);
 
     const isDisplayLoading = isInitializing || isLoading || localFileDownloading;
 
