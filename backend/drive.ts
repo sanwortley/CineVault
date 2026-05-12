@@ -801,6 +801,7 @@ const driveApi = {
             '-i', fromPath,
             '-c', 'copy',
             '-movflags', 'faststart',
+            '-f', 'mp4',
             '-y',
             toPath,
           ], { stdio: ['ignore', 'ignore', 'pipe'] })

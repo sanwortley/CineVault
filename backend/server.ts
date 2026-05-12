@@ -468,8 +468,9 @@ app.get('/api/drive/file/:fileId', sessionMiddleware, async (req, res) => {
             });
             fs.createReadStream(localPath, { start, end }).pipe(res);
         } else {
-            console.log(`[DriveFile] → 200 streaming (chunked, no Content-Length)`);
+            console.log(`[DriveFile] → 200 (size=${stat.size})`);
             res.writeHead(200, {
+                'Content-Length': stat.size,
                 'Content-Type': 'video/mp4',
                 'Accept-Ranges': 'bytes',
                 'Access-Control-Allow-Origin': '*',
