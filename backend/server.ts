@@ -429,6 +429,12 @@ app.get('/api/drive/hls/:fileId/segments/:segment', sessionMiddleware, async (re
 });
 
 // ─── Local file download + serve (for Safari) ───────────────────────────
+app.get('/api/drive/file-status/:fileId', sessionMiddleware, async (req, res) => {
+    const fileId = req.params.fileId as string;
+    const localPath = driveApi.getLocalFilePath(fileId);
+    res.json({ ready: !!localPath });
+});
+
 app.get('/api/drive/file/:fileId', sessionMiddleware, async (req, res) => {
     if (!driveApi.isAuthenticated()) {
         return res.status(401).json({ error: 'Drive no conectado.' });
@@ -451,6 +457,28 @@ app.get('/api/drive/file/:fileId', sessionMiddleware, async (req, res) => {
         const ua = (req.headers['user-agent'] || '').substring(0, 100);
         console.log(`[DriveFile] ${req.method} /api/drive/file/${fileId} range=${range || 'NONE'} size=${stat.size} ua=${ua}`);
 
+        const sendFile = (statusCode: number, extraHeaders: Record<string, string | number>, streamOpts?: { start?: number; end?: number }) => {
+            const stream = streamOpts ? fs.createReadStream(localPath, streamOpts) : fs.createReadStream(localPath);
+            res.writeHead(statusCode, {
+                ...extraHeaders,
+                'Accept-Ranges': 'bytes',
+                'Content-Type': 'video/mp4',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges, Content-Length',
+                'Cache-Control': 'max-age=86400',
+            });
+            stream.pipe(res);
+            let bytesSent = 0;
+            stream.on('data', (chunk: Buffer) => { bytesSent += chunk.length; });
+            stream.on('end', () => {
+                console.log(`[DriveFile] ✓ ${statusCode} complete (${bytesSent} bytes sent)`);
+            });
+            res.on('close', () => {
+                console.log(`[DriveFile] ✗ client disconnected after ${bytesSent} bytes`);
+                stream.destroy();
+            });
+        };
+
         if (range) {
             const parts = range.replace(/bytes=/, '').split('-');
             const start = parseInt(parts[0], 10);
@@ -458,25 +486,15 @@ app.get('/api/drive/file/:fileId', sessionMiddleware, async (req, res) => {
             const chunkSize = end - start + 1;
 
             console.log(`[DriveFile] → 206 bytes ${start}-${end}/${stat.size} (${chunkSize} bytes)`);
-            res.writeHead(206, {
+            sendFile(206, {
                 'Content-Range': `bytes ${start}-${end}/${stat.size}`,
-                'Accept-Ranges': 'bytes',
                 'Content-Length': chunkSize,
-                'Content-Type': 'video/mp4',
-                'Access-Control-Allow-Origin': '*',
-                'Cache-Control': 'max-age=86400',
-            });
-            fs.createReadStream(localPath, { start, end }).pipe(res);
+            }, { start, end });
         } else {
             console.log(`[DriveFile] → 200 (size=${stat.size})`);
-            res.writeHead(200, {
+            sendFile(200, {
                 'Content-Length': stat.size,
-                'Content-Type': 'video/mp4',
-                'Accept-Ranges': 'bytes',
-                'Access-Control-Allow-Origin': '*',
-                'Cache-Control': 'max-age=86400',
             });
-            fs.createReadStream(localPath).pipe(res);
         }
     } catch (err) {
         console.error('[DriveFile] Error:', err.message);

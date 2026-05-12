@@ -382,28 +382,19 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             movie.file_name?.toLowerCase().endsWith('.mkv');
         if (streamSource === 'drive' && isSafari && movie.drive_file_id && !isMkv && !localFileReady) {
             setLocalFileDownloading(true);
-            const fileUrl = api.getLocalFileUrl(movie.drive_file_id);
-            let pollId: ReturnType<typeof setInterval> | null = null;
-            fetch(fileUrl).then(async (res) => {
-                if (res.status === 200) {
-                    setLocalFileReady(true);
-                    setLocalFileDownloading(false);
-                } else if (res.status === 202) {
-                    pollId = setInterval(async () => {
-                        try {
-                            const r = await fetch(fileUrl);
-                            if (r.status === 200) {
-                                setLocalFileReady(true);
-                                setLocalFileDownloading(false);
-                                if (pollId) clearInterval(pollId);
-                            }
-                        } catch {}
-                    }, 5000);
-                } else {
-                    setLocalFileDownloading(false);
-                }
-            }).catch(() => setLocalFileDownloading(false));
-            return () => { if (pollId) clearInterval(pollId); };
+            const statusUrl = api.getLocalFileStatusUrl(movie.drive_file_id);
+            const pollId = setInterval(async () => {
+                try {
+                    const r = await fetch(statusUrl);
+                    const data = await r.json();
+                    if (data.ready) {
+                        setLocalFileReady(true);
+                        setLocalFileDownloading(false);
+                        clearInterval(pollId);
+                    }
+                } catch {}
+            }, 3000);
+            return () => clearInterval(pollId);
         }
     }, [streamSource, isSafari, movie.drive_file_id, movie.file_path, movie.file_name, localFileReady]);
 

@@ -429,6 +429,11 @@ export const api = {
     return `${BACKEND_URL}/api/drive/file/${fileId}?sessionId=${sessionId || ''}`
   },
 
+  getLocalFileStatusUrl: (fileId: string) => {
+    const sessionId = localStorage.getItem('cinevault_session_id')
+    return `${BACKEND_URL}/api/drive/file-status/${fileId}?sessionId=${sessionId || ''}`
+  },
+
   uploadMovieToDrive: (
     movieId: number | string,
     filePath: string,
