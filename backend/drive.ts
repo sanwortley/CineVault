@@ -82,6 +82,40 @@ interface TranscodeOptions {
 const fileMetaCache = new Map<string, { size: number; mimeType: string }>()
 const moovMetaCache = new Map<string, { ftypSize: number; moovSize: number }>()
 
+// LRU cache tracking for local file downloads (evict old files when disk is full)
+const DISK_LIMIT_BYTES = 4 * 1024 * 1024 * 1024 // 4GB
+const localFileAccess = new Map<string, number>() // fileId -> last access timestamp
+let localDiskUsed = 0
+
+function touchLocalFile(fileId: string): void {
+  localFileAccess.set(fileId, Date.now())
+}
+
+function ensureDiskSpace(fileId: string, fileSize: number): void {
+  localDiskUsed += fileSize
+  touchLocalFile(fileId)
+
+  if (localDiskUsed <= DISK_LIMIT_BYTES) return
+
+  const sorted = [...localFileAccess.entries()].sort((a, b) => a[1] - b[1])
+  const localDir = path.join(os.tmpdir(), 'cinevault-files')
+
+  for (const [id, _ts] of sorted) {
+    if (localDiskUsed <= DISK_LIMIT_BYTES * 0.7) break
+    if (id === fileId) continue
+    const fp = path.join(localDir, id)
+    try {
+      if (fs.existsSync(fp)) {
+        const stat = fs.statSync(fp)
+        fs.unlinkSync(fp)
+        localDiskUsed -= stat.size
+        localFileAccess.delete(id)
+        console.log(`[Cache] Evicted ${id} (freed ${(stat.size / 1e9).toFixed(2)}GB)`)
+      }
+    } catch {}
+  }
+}
+
 // Recursively adjusts stco/co64 chunk offsets within a moov box by the given adjustment.
 // stco entries point to absolute byte positions in the original file; after moov injection,
 // all mdat content shifts right by moovSize, so every entry must be incremented.
@@ -773,6 +807,7 @@ const driveApi = {
           writer.on('finish', () => {
             console.log(`[Drive] Download complete: ${fileId}`)
             driveApi.localDownloadsInProgress.delete(fileId)
+            try { ensureDiskSpace(fileId, fs.statSync(localPath).size) } catch {}
             resolve(localPath)
           })
           writer.on('error', (err) => {
@@ -801,6 +836,7 @@ const driveApi = {
           writer.on('finish', () => {
             console.log(`[Drive] Download complete: ${fileId}`)
             driveApi.localDownloadsInProgress.delete(fileId)
+            try { ensureDiskSpace(fileId, fs.statSync(localPath).size) } catch {}
             resolve(localPath)
           })
           writer.on('error', (err) => {
@@ -823,7 +859,11 @@ const driveApi = {
 
   getLocalFilePath: (fileId: string): string | null => {
     const localPath = path.join(os.tmpdir(), 'cinevault-files', fileId)
-    return fs.existsSync(localPath) ? localPath : null
+    if (fs.existsSync(localPath)) {
+      touchLocalFile(fileId)
+      return localPath
+    }
+    return null
   },
 
   disconnect: async (): Promise<void> => {
