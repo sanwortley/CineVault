@@ -156,6 +156,8 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
     const [subtitleSearchText, setSubtitleSearchText] = useState('');
     const [subtitleCues, setSubtitleCues] = useState<SubtitleCue[]>([]);
     const [subtitleOffset, setSubtitleOffset] = useState(0);
+    const [subtitleTrackUrl, setSubtitleTrackUrl] = useState<string | null>(null);
+    const [subtitleTrackKey, setSubtitleTrackKey] = useState(0);
     const [subQuotaReached, setSubQuotaReached] = useState(false);
 
     const [showRatingOverlay, setShowRatingOverlay] = useState(false);
@@ -954,6 +956,37 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         }
     );
 
+    const formatVTTTime = (seconds: number): string => {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${s.toFixed(3).padStart(7, '0')}`;
+    };
+
+    const cuesToVTT = (cues: SubtitleCue[], offset: number): string => {
+        let vtt = 'WEBVTT\n\n';
+        for (const cue of cues) {
+            const start = cue.start + offset;
+            const end = cue.end + offset;
+            if (start < 0) continue;
+            vtt += `${formatVTTTime(start)} --> ${formatVTTTime(end)}\n${cue.text}\n\n`;
+        }
+        return vtt;
+    };
+
+    useEffect(() => {
+        if (subtitleCues.length === 0) {
+            setSubtitleTrackUrl(null);
+            return;
+        }
+        const vtt = cuesToVTT(subtitleCues, subtitleOffset);
+        const blob = new Blob([vtt], { type: 'text/vtt' });
+        const url = URL.createObjectURL(blob);
+        setSubtitleTrackUrl(url);
+        setSubtitleTrackKey(k => k + 1);
+        return () => URL.revokeObjectURL(url);
+    }, [subtitleCues, subtitleOffset]);
+
     const handleVideoClick = (e: React.MouseEvent<HTMLDivElement>) => {
         const now = Date.now();
 
@@ -1068,6 +1101,16 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         onSeeking={() => setIsLoading(true)}
                         onSeeked={() => setIsLoading(false)}
                     >
+                        {subtitleTrackUrl && selectedSubtitle && (
+                            <track
+                                key={subtitleTrackKey}
+                                kind="subtitles"
+                                src={subtitleTrackUrl}
+                                srcLang={selectedSubtitle.language || 'en'}
+                                label={selectedSubtitle.label || 'Subtitles'}
+                                default
+                            />
+                        )}
                     </video>
                 ) : (
                     <div className="flex flex-col items-center gap-4">
