@@ -95,6 +95,8 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         /iPhone|iPad|iPod/i.test(navigator.userAgent)
     );
     const isIOS = typeof window !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const isAndroid = typeof window !== 'undefined' && /Android/i.test(navigator.userAgent);
+    const useNativeControls = isIOS || isAndroid;
     const [isPlaying, setIsPlaying] = useState(true);
     const [duration, setDuration] = useState(0);
     const [currentTime, setCurrentTime] = useState(0);
@@ -1050,13 +1052,13 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         ref={videoRef}
                         className="w-full h-full object-contain md:object-contain"
                         style={{ backgroundColor: '#000', height: '100%', width: '100%' }}
-                        playsInline={!isIOS}
+                        playsInline={!useNativeControls}
                         autoPlay
                         muted={isMuted}
-                        controls={isIOS}
+                        controls={useNativeControls}
                         preload="auto"
                         poster={activeMovie.poster_url ?? undefined}
-                        {...(!isIOS ? { webkitPlaysinline: 'true' } : {})}
+                        {...(!useNativeControls ? { webkitPlaysinline: 'true' } : {})}
                         src={videoUrl}
                         onEnded={handleVideoEnded}
                         onTimeUpdate={(e: React.SyntheticEvent<HTMLVideoElement>) => {
@@ -1094,6 +1096,9 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                         onPlay={() => {
                             setIsPlaying(true);
                             setIsLoading(false);
+                            if (isAndroid && videoRef.current?.requestFullscreen) {
+                                videoRef.current.requestFullscreen().catch(() => {});
+                            }
                         }}
                         onPlaying={() => {
                             setIsPlaying(true);
@@ -1122,7 +1127,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                     </div>
                 )}
 
-                {currentSubtitle && (
+                {currentSubtitle && !useNativeControls && (
                     <div
                         className={`absolute bottom-[12%] left-1/2 -translate-x-1/2 bg-black/80 px-6 py-3 rounded-2xl max-w-[80%] text-center pointer-events-none transition-all duration-300 z-[150] ${
                             showControls ? 'translate-y-[-60px]' : 'translate-y-0'
@@ -1230,7 +1235,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                 </div>
             )}
 
-            {isIOS && selectedSubtitle && !showSubtitleMenu && !showQualityMenu && !showAudioMenu && !showVersionMenu && !localFileDownloading && !isDisplayLoading && (
+            {useNativeControls && selectedSubtitle && !showSubtitleMenu && !showQualityMenu && !showAudioMenu && !showVersionMenu && !localFileDownloading && !isDisplayLoading && (
                 <button
                     onClick={() => setShowSubtitleMenu(true)}
                     className="absolute top-4 right-4 z-[50] p-3 bg-black/50 backdrop-blur-sm rounded-full text-white/80 hover:text-white border border-white/10 transition-all active:scale-90"
@@ -1341,7 +1346,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                 </div>
             )}
 
-            {showControls && !isIOS && (
+            {showControls && !useNativeControls && (
                 <div
                     className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 to-transparent p-4 pb-10 md:p-8 md:pb-12"
                     onClick={(e: React.MouseEvent) => e.stopPropagation()}
