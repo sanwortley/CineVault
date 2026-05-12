@@ -763,11 +763,10 @@ export const api = {
   },
 
   updateRequestStatus: (id: number, status: string) =>
-    fetch(`${BACKEND_URL}/api/admin/requests/${id}`, {
+    backendFetch(`/api/admin/requests/${id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
-    }).then((r) => r.json()),
+    }),
 
   refreshMetadata: () =>
     fetch(`${BACKEND_URL}/api/admin/refresh-metadata`, {
