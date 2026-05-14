@@ -786,6 +786,7 @@ app.get('/api/drive/stream-cloud/:movieId', async (req, res) => {
     const transcode = req.query.transcode === 'true';
     const quality = (req.query.quality || '720') as string;
     const startTime = parseFloat((req.query.t || '0') as string);
+    const audioTrack = req.query.audio ? parseInt(req.query.audio as string, 10) : null;
 
     try {
         let cloudUrl = null;
@@ -818,7 +819,7 @@ app.get('/api/drive/stream-cloud/:movieId', async (req, res) => {
                     'Connection': 'keep-alive',
                     'Cache-Control': 'no-cache'
                 });
-                const transcodeStream = getTranscodeStream(cloudUrl, startTime, quality as string);
+                const transcodeStream = getTranscodeStream(cloudUrl, startTime, quality as string, null, audioTrack);
                 transcodeStream.pipe(res);
                 res.on('close', () => {
                     if ((transcodeStream as any).ffmpegCommand) (transcodeStream as any).ffmpegCommand.kill();
@@ -834,7 +835,7 @@ app.get('/api/drive/stream-cloud/:movieId', async (req, res) => {
                 'Cache-Control': 'no-cache'
             });    
             
-            const transcodeStream = getTranscodeStream(cloudUrl, startTime, quality as string);
+            const transcodeStream = getTranscodeStream(cloudUrl, startTime, quality as string, null, audioTrack);
             transcodeStream.pipe(res);
 
             res.on('close', () => {

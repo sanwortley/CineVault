@@ -319,10 +319,14 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
 
                         const spanishTrack = audioTracksData.find(t =>
                             t.language?.toLowerCase().includes('spa') ||
+                            t.language?.toLowerCase() === 'es' ||
                             t.language?.toLowerCase().includes('lat') ||
                             t.title?.toLowerCase().includes('spa') ||
                             t.title?.toLowerCase().includes('latino') ||
-                            t.title?.toLowerCase().includes('castellano')
+                            t.title?.toLowerCase().includes('castellano') ||
+                            t.title?.toLowerCase().includes('spanish') ||
+                            t.title?.toLowerCase().includes('español') ||
+                            t.title?.toLowerCase().includes('espanol')
                         );
 
                         if (spanishTrack && spanishTrack.index > 0) {
@@ -370,7 +374,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         const isAudUnknown = !audCodec;
 
         if (quality === 'original') {
-            return isMKV || (!isVidUnknown && !isVideoCompatible) || (!isAudUnknown && !isAudioCompatible);
+            return isMKV || !isVideoCompatible || !isAudioCompatible;
         }
 
         const height = movie.video_height || 0;
