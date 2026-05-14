@@ -203,23 +203,53 @@ async function searchSolid(query: string): Promise<TorrentResult[]> {
   return []
 }
 
+function hasSpanishTerm(query: string): boolean {
+  const q = query.toLowerCase()
+  return /\b(latino|español|espanol|castellano|spanish|dual|multi|esp|spa)\b/i.test(q)
+}
+
+function isSpanishResult(title: string): boolean {
+  const t = title.toLowerCase()
+  return /\b(latino|español|espanol|castellano|spanish|dual audio|multi audio|esp|spa)\b/i.test(t)
+}
+
 async function searchGlobal(query: string): Promise<TorrentResult[]> {
-  const results = await Promise.allSettled([
+  const searches: Promise<TorrentResult[]>[] = [
     searchSolid(query),
     searchYTS(query),
     searchTPB(query),
-  ])
+  ]
+
+  if (!hasSpanishTerm(query)) {
+    searches.push(searchSolid(query + ' latino'))
+    searches.push(searchTPB(query + ' latino'))
+  }
+
+  const results = await Promise.allSettled(searches)
 
   let combined: TorrentResult[] = []
+  const seenLinks = new Set<string>()
   results.forEach((res) => {
     if (res.status === 'fulfilled') {
-      combined = [...combined, ...res.value]
+      for (const item of res.value) {
+        const key = item.link
+        if (!seenLinks.has(key)) {
+          seenLinks.add(key)
+          combined.push(item)
+        }
+      }
     }
   })
 
   return combined.sort((a, b) => {
     const aLow = a.title.toLowerCase()
     const bLow = b.title.toLowerCase()
+    const aIsSpanish = isSpanishResult(aLow)
+    const bIsSpanish = isSpanishResult(bLow)
+
+    if (aIsSpanish && !bIsSpanish) return -1
+    if (!aIsSpanish && bIsSpanish) return 1
+
     const aIsMp4 = aLow.includes('.mp4') || aLow.includes('mp4')
     const bIsMp4 = bLow.includes('.mp4') || bLow.includes('mp4')
 
@@ -231,18 +261,39 @@ async function searchGlobal(query: string): Promise<TorrentResult[]> {
 }
 
 async function searchAll(query: string): Promise<TorrentResult[]> {
-  const results = await Promise.allSettled([searchYTS(query), searchSolid(query)])
+  const searches: Promise<TorrentResult[]>[] = [searchYTS(query), searchSolid(query)]
+
+  if (!hasSpanishTerm(query)) {
+    searches.push(searchSolid(query + ' latino'))
+  }
+
+  const results = await Promise.allSettled(searches)
 
   let combined: TorrentResult[] = []
+  const seenLinks = new Set<string>()
   results.forEach((res) => {
     if (res.status === 'fulfilled') {
-      combined = [...combined, ...res.value]
+      for (const item of res.value) {
+        const key = item.link
+        if (!seenLinks.has(key)) {
+          seenLinks.add(key)
+          combined.push(item)
+        }
+      }
     }
   })
 
   return combined.sort((a, b) => {
-    const aIsMp4 = a.title.toLowerCase().includes('mp4')
-    const bIsMp4 = b.title.toLowerCase().includes('mp4')
+    const aLow = a.title.toLowerCase()
+    const bLow = b.title.toLowerCase()
+    const aIsSpanish = isSpanishResult(aLow)
+    const bIsSpanish = isSpanishResult(bLow)
+
+    if (aIsSpanish && !bIsSpanish) return -1
+    if (!aIsSpanish && bIsSpanish) return 1
+
+    const aIsMp4 = aLow.includes('mp4')
+    const bIsMp4 = bLow.includes('mp4')
 
     if (aIsMp4 && !bIsMp4) return -1
     if (!aIsMp4 && bIsMp4) return 1

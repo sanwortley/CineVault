@@ -304,6 +304,14 @@ function MovieCard({ movie, onClick }: MovieCardProps) {
   );
 }
 
+function detectResultLang(title: string): { badge: string; color: string } | null {
+  const t = title.toUpperCase()
+  if (/\b(LATINO|LAT|LAT\.)\b/.test(t)) return { badge: 'LAT', color: 'bg-green-500/20 text-green-400 border-green-500/30' }
+  if (/\b(CASTELLANO|ESPAÑOL|ESP|SPA)\b/.test(t)) return { badge: 'ESP', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' }
+  if (/\b(DUAL|MULTI)\b/.test(t)) return { badge: 'DUAL', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' }
+  return null
+}
+
 interface GlobalResultCardProps {
   result: { title: string; size: string; seeds: number; provider: string; link?: string }
   onDownload: () => void
@@ -312,13 +320,17 @@ interface GlobalResultCardProps {
 }
 
 function GlobalResultCard({ result, onDownload, isAdmin, isDownloading }: GlobalResultCardProps) {
+  const langInfo = detectResultLang(result.title)
   return (
     <div
       className={`bg-white/5 border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-6 flex flex-col justify-between transition-all group ${!isMobile ? 'hover:bg-white/[0.08]' : ''}`}
     >
       <div className="mb-4 md:mb-6">
-        <div className="flex items-center gap-2 mb-2 md:mb-3">
+        <div className="flex items-center gap-2 mb-2 md:mb-3 flex-wrap">
           <span className="px-2 py-0.5 bg-cyan-500/10 text-cyan-400 text-[7px] md:text-[8px] font-black uppercase rounded-md border border-cyan-500/20">{result.provider}</span>
+          {langInfo && (
+            <span className={`px-2 py-0.5 text-[7px] md:text-[8px] font-black uppercase rounded-md border ${langInfo.color}`}>{langInfo.badge}</span>
+          )}
         </div>
         <h3 className="text-xs md:text-sm font-black text-white leading-snug group-hover:text-cyan-400 transition-colors line-clamp-2 mb-3 md:mb-4">{result.title}</h3>
         <div className="flex items-center gap-3 md:gap-4 text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest">
