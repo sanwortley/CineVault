@@ -1075,9 +1075,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                 setIsLoading(false);
                             }
 
-                            if (duration > 60 && time > duration * 0.95 && !showRatingOverlay && userRating === 0) {
-                                setShowRatingOverlay(true);
-                            }
+
                         }}
                         onLoadedMetadata={(e: React.SyntheticEvent<HTMLVideoElement>) => {
                             const isTranscoded = needsTranscoding || useTranscoding;
