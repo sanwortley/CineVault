@@ -233,6 +233,9 @@ export default function AppContent() {
 
   const needsProfileSelection = !profileLoading && profiles.length > 0 && !activeProfile
   const needsFirstProfile = !profileLoading && profiles.length === 0 && !activeProfile
+  const shouldShowProfileSelector = needsProfileSelection || showProfileSelector
+  const shouldShowProfileManager = needsFirstProfile || (showProfileManager && !needsProfileSelection)
+  const showMainContent = !shouldShowProfileSelector && !shouldShowProfileManager
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -299,17 +302,18 @@ export default function AppContent() {
 
   return (
     <div className="min-h-screen bg-black text-white selection:bg-netflix-red/30">
-      {needsProfileSelection && (
+      {shouldShowProfileSelector && (
         <ProfileSelector onSelect={() => setShowProfileSelector(false)} />
       )}
 
-      {needsFirstProfile && (
-        <ProfileManager onClose={() => {}} />
+      {shouldShowProfileManager && (
+        <ProfileManager
+          editProfile={editingProfile}
+          onClose={() => { setShowProfileManager(false); setEditingProfile(null) }}
+        />
       )}
 
-      {(needsProfileSelection || needsFirstProfile) && null}
-
-      {!needsProfileSelection && !needsFirstProfile && (
+      {showMainContent && (
         <>
       {playerCrashError && (
         <div className="fixed inset-0 z-[2000] bg-black/95 flex items-center justify-center p-6 text-center">
@@ -786,16 +790,6 @@ export default function AppContent() {
         </div>
       )}
 
-      {showProfileSelector && (
-        <ProfileSelector onSelect={() => setShowProfileSelector(false)} />
-      )}
-
-      {showProfileManager && (
-        <ProfileManager
-          editProfile={editingProfile}
-          onClose={() => { setShowProfileManager(false); setEditingProfile(null) }}
-        />
-      )}
         </>
       )}
     </div>
