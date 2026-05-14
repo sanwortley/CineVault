@@ -94,14 +94,8 @@ function LibraryPage({
 
     const isKidSafe = (m: Movie | MovieGroup): boolean => {
         if (!isKidMode) return true
-        if (m.adult) return false
-        const adultCerts = ['R', 'NC-17', 'TV-MA']
-        if (m.certification && adultCerts.includes(m.certification)) return false
         const genreStr = (m.genres || '').toLowerCase()
-        if (genreStr.includes('animation') || genreStr.includes('family')) return true
-        const kidCerts = ['G', 'PG', 'PG-13', 'TV-Y', 'TV-Y7', 'TV-G']
-        if (m.certification && kidCerts.includes(m.certification)) return true
-        return false
+        return genreStr.includes('animation') || genreStr.includes('family')
     }
 
     const filteredMovies = moviesToFilter.filter(m => {
