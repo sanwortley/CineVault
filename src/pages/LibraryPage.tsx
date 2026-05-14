@@ -95,7 +95,8 @@ function LibraryPage({
     const isKidSafe = (m: Movie | MovieGroup): boolean => {
         if (!isKidMode) return true
         const genreStr = (m.genres || '').toLowerCase()
-        return genreStr.includes('animation') || genreStr.includes('family')
+        return genreStr.includes('animation') || genreStr.includes('animación') || 
+               genreStr.includes('family') || genreStr.includes('familia')
     }
 
     const filteredMovies = moviesToFilter.filter(m => {
