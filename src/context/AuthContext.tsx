@@ -276,18 +276,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ? `&profile_id=eq.${profileId}`
       : '&profile_id=is.null'
 
-    const save = async (uid: string, token: string) => {
-      await fetch(
+    const doSave = async (uid: string, token: string) => {
+      const headers = {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      }
+      const delRes = await fetch(
         `${SUPABASE_URL}/rest/v1/user_movie_progress?user_id=eq.${uid}&movie_id=eq.${movieId}${profileFilter}`,
-        {
-          method: 'DELETE',
-          headers: {
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
+        { method: 'DELETE', headers }
       )
+      if (delRes.status === 401 || delRes.status === 403) return 'auth_error'
       const body: Record<string, unknown> = {
         user_id: uid,
         movie_id: movieId,
@@ -295,44 +294,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updated_at: new Date().toISOString(),
       }
       if (profileId) body.profile_id = profileId
-      await fetch(`${SUPABASE_URL}/rest/v1/user_movie_progress`, {
+      const postRes = await fetch(`${SUPABASE_URL}/rest/v1/user_movie_progress`, {
         method: 'POST',
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(body),
       })
+      if (postRes.status === 401 || postRes.status === 403) return 'auth_error'
+      return 'ok'
     }
 
     try {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/user_movie_progress?user_id=eq.${user.id}&movie_id=eq.${movieId}${profileFilter}`,
-        { method: 'DELETE', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${user.access_token}`, 'Content-Type': 'application/json' } }
-      )
-
-      const body: Record<string, unknown> = {
-        user_id: user.id,
-        movie_id: movieId,
-        watched_duration: watchedDuration,
-        updated_at: new Date().toISOString(),
-      }
-      if (profileId) body.profile_id = profileId
-      await fetch(`${SUPABASE_URL}/rest/v1/user_movie_progress`, {
-        method: 'POST',
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${user.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      })
-
-      if (res.status === 401 || res.status === 403) {
+      const result = await doSave(user.id, user.access_token)
+      if (result === 'auth_error') {
         const refreshed = await refreshSession()
-        if (!refreshed) return
-        await save(refreshed.id, refreshed.access_token)
+        if (refreshed) await doSave(refreshed.id, refreshed.access_token)
       }
     } catch (_e) {
       // ignore
