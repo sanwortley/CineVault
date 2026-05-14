@@ -25,5 +25,10 @@ CREATE INDEX IF NOT EXISTS idx_user_movie_progress_profile_id ON user_movie_prog
 CREATE INDEX IF NOT EXISTS idx_user_mylist_profile_id ON user_mylist(profile_id);
 CREATE INDEX IF NOT EXISTS idx_user_movie_ratings_profile_id ON user_movie_ratings(profile_id);
 
--- Modificar unique constraints para incluir profile_id
--- Nota: En Supabase esto se maneja a nivel de aplicación via on_conflict
+-- Unique constraints para aislar datos por perfil (cada user+movie+profile es único)
+ALTER TABLE user_movie_progress DROP CONSTRAINT IF EXISTS user_movie_progress_user_id_movie_id_profile_id_key;
+ALTER TABLE user_movie_progress ADD CONSTRAINT user_movie_progress_user_id_movie_id_profile_id_key UNIQUE (user_id, movie_id, profile_id);
+ALTER TABLE user_mylist DROP CONSTRAINT IF EXISTS user_mylist_user_id_movie_id_profile_id_key;
+ALTER TABLE user_mylist ADD CONSTRAINT user_mylist_user_id_movie_id_profile_id_key UNIQUE (user_id, movie_id, profile_id);
+ALTER TABLE user_movie_ratings DROP CONSTRAINT IF EXISTS user_movie_ratings_user_id_movie_id_profile_id_key;
+ALTER TABLE user_movie_ratings ADD CONSTRAINT user_movie_ratings_user_id_movie_id_profile_id_key UNIQUE (user_id, movie_id, profile_id);

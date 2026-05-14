@@ -272,54 +272,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
     const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
     const profileId = getActiveProfileId()
-    const conflict = profileId ? 'user_id,movie_id,profile_id' : 'user_id,movie_id'
-    const body: Record<string, unknown> = {
-      user_id: user.id,
-      movie_id: movieId,
-      watched_duration: watchedDuration,
-      updated_at: new Date().toISOString(),
-    }
-    if (profileId) body.profile_id = profileId
-    try {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/user_movie_progress?on_conflict=${conflict}`,
+    const profileFilter = profileId
+      ? `&profile_id=eq.${profileId}`
+      : '&profile_id=is.null'
+
+    const save = async (uid: string, token: string) => {
+      await fetch(
+        `${SUPABASE_URL}/rest/v1/user_movie_progress?user_id=eq.${uid}&movie_id=eq.${movieId}${profileFilter}`,
         {
-          method: 'POST',
+          method: 'DELETE',
           headers: {
             apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${user.access_token}`,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
-            Prefer: 'resolution=merge-duplicates',
           },
-          body: JSON.stringify(body),
         }
       )
+      const body: Record<string, unknown> = {
+        user_id: uid,
+        movie_id: movieId,
+        watched_duration: watchedDuration,
+        updated_at: new Date().toISOString(),
+      }
+      if (profileId) body.profile_id = profileId
+      await fetch(`${SUPABASE_URL}/rest/v1/user_movie_progress`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      })
+    }
+
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/user_movie_progress?user_id=eq.${user.id}&movie_id=eq.${movieId}${profileFilter}`,
+        { method: 'DELETE', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${user.access_token}`, 'Content-Type': 'application/json' } }
+      )
+
+      const body: Record<string, unknown> = {
+        user_id: user.id,
+        movie_id: movieId,
+        watched_duration: watchedDuration,
+        updated_at: new Date().toISOString(),
+      }
+      if (profileId) body.profile_id = profileId
+      await fetch(`${SUPABASE_URL}/rest/v1/user_movie_progress`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${user.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      })
 
       if (res.status === 401 || res.status === 403) {
         const refreshed = await refreshSession()
         if (!refreshed) return
-
-        const refreshedBody: Record<string, unknown> = {
-          user_id: refreshed.id,
-          movie_id: movieId,
-          watched_duration: watchedDuration,
-          updated_at: new Date().toISOString(),
-        }
-        if (profileId) refreshedBody.profile_id = profileId
-
-        await fetch(
-          `${SUPABASE_URL}/rest/v1/user_movie_progress?on_conflict=${conflict}`,
-          {
-            method: 'POST',
-            headers: {
-              apikey: SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${refreshed.access_token}`,
-              'Content-Type': 'application/json',
-              Prefer: 'resolution=merge-duplicates',
-            },
-            body: JSON.stringify(refreshedBody),
-          }
-        )
+        await save(refreshed.id, refreshed.access_token)
       }
     } catch (_e) {
       // ignore
