@@ -217,13 +217,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const getActiveProfileId = (): string | undefined => {
+    try {
+      const stored = localStorage.getItem('cinevault_active_profile')
+      if (stored) {
+        const profile = JSON.parse(stored)
+        return profile.id || undefined
+      }
+    } catch {}
+    return undefined
+  }
+
   const getUserProgress = async (): Promise<unknown[]> => {
     if (!user?.access_token) return []
     const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
     const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+    const profileId = getActiveProfileId()
+    const profileFilter = profileId ? `&profile_id=eq.${profileId}` : ''
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/user_movie_progress?user_id=eq.${user.id}`,
+        `${SUPABASE_URL}/rest/v1/user_movie_progress?user_id=eq.${user.id}${profileFilter}`,
         {
           headers: {
             apikey: SUPABASE_ANON_KEY,
@@ -236,7 +249,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const refreshed = await refreshSession()
         if (!refreshed) return []
         const newRes = await fetch(
-          `${SUPABASE_URL}/rest/v1/user_movie_progress?user_id=eq.${refreshed.id}`,
+          `${SUPABASE_URL}/rest/v1/user_movie_progress?user_id=eq.${refreshed.id}${profileFilter}`,
           {
             headers: {
               apikey: SUPABASE_ANON_KEY,
@@ -258,9 +271,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user?.access_token) return
     const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
     const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+    const profileId = getActiveProfileId()
+    const conflict = profileId ? 'user_id,movie_id,profile_id' : 'user_id,movie_id'
+    const body: Record<string, unknown> = {
+      user_id: user.id,
+      movie_id: movieId,
+      watched_duration: watchedDuration,
+      updated_at: new Date().toISOString(),
+    }
+    if (profileId) body.profile_id = profileId
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/user_movie_progress?on_conflict=user_id,movie_id`,
+        `${SUPABASE_URL}/rest/v1/user_movie_progress?on_conflict=${conflict}`,
         {
           method: 'POST',
           headers: {
@@ -269,12 +291,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             'Content-Type': 'application/json',
             Prefer: 'resolution=merge-duplicates',
           },
-          body: JSON.stringify({
-            user_id: user.id,
-            movie_id: movieId,
-            watched_duration: watchedDuration,
-            updated_at: new Date().toISOString(),
-          }),
+          body: JSON.stringify(body),
         }
       )
 
@@ -282,8 +299,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const refreshed = await refreshSession()
         if (!refreshed) return
 
+        const refreshedBody: Record<string, unknown> = {
+          user_id: refreshed.id,
+          movie_id: movieId,
+          watched_duration: watchedDuration,
+          updated_at: new Date().toISOString(),
+        }
+        if (profileId) refreshedBody.profile_id = profileId
+
         await fetch(
-          `${SUPABASE_URL}/rest/v1/user_movie_progress?on_conflict=user_id,movie_id`,
+          `${SUPABASE_URL}/rest/v1/user_movie_progress?on_conflict=${conflict}`,
           {
             method: 'POST',
             headers: {
@@ -292,12 +317,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               'Content-Type': 'application/json',
               Prefer: 'resolution=merge-duplicates',
             },
-            body: JSON.stringify({
-              user_id: refreshed.id,
-              movie_id: movieId,
-              watched_duration: watchedDuration,
-              updated_at: new Date().toISOString(),
-            }),
+            body: JSON.stringify(refreshedBody),
           }
         )
       }
@@ -310,9 +330,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user?.access_token) return
     const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
     const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+    const profileId = getActiveProfileId()
+    const profileFilter = profileId ? `&profile_id=eq.${profileId}` : ''
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/user_movie_progress?user_id=eq.${user.id}&movie_id=eq.${movieId}`,
+        `${SUPABASE_URL}/rest/v1/user_movie_progress?user_id=eq.${user.id}&movie_id=eq.${movieId}${profileFilter}`,
         {
           method: 'PATCH',
           headers: {
@@ -329,7 +351,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!refreshed) return
 
         await fetch(
-          `${SUPABASE_URL}/rest/v1/user_movie_progress?user_id=eq.${refreshed.id}&movie_id=eq.${movieId}`,
+          `${SUPABASE_URL}/rest/v1/user_movie_progress?user_id=eq.${refreshed.id}&movie_id=eq.${movieId}${profileFilter}`,
           {
             method: 'PATCH',
             headers: {
