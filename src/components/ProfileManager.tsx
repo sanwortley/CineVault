@@ -124,7 +124,7 @@ export default function ProfileManager({ onClose, editProfile }: ProfileManagerP
                         : 'border-white/10 hover:border-white/30'
                     }`}
                   >
-                    <img src={av.url} alt="avatar" className="w-full h-full object-cover bg-zinc-800" />
+                    <img src={av.url} alt="avatar" className="w-full h-full object-cover bg-zinc-800" onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23333" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".35em" fill="%23fff" font-size="40" font-family="sans-serif"%3E%3C/text%3E%3C/svg%3E' }} />
                     {avatarUrl === av.url && (
                       <div className="absolute inset-0 bg-netflix-red/20 flex items-center justify-center">
                         <Check size={16} className="text-white" strokeWidth={3} />

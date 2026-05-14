@@ -48,6 +48,7 @@ export default function ProfileSelector({ onSelect }: ProfileSelectorProps) {
                 src={profile.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${profile.name}`}
                 alt={profile.name}
                 className="w-full h-full object-cover bg-zinc-800"
+                onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23333" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".35em" fill="%23fff" font-size="40" font-family="sans-serif"%3E%3C/text%3E%3C/svg%3E' }}
               />
               {profile.is_kid && (
                 <div className="absolute top-2 right-2 bg-green-500 text-black text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">

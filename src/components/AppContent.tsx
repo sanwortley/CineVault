@@ -455,6 +455,7 @@ export default function AppContent() {
                       src={isAdminUser ? (user?.user_metadata?.avatar_url as string) || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user?.email || 'default'}` : activeProfile?.avatar_url || (user?.user_metadata?.avatar_url as string) || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user?.email || 'default'}`}
                       alt="Avatar"
                       className="w-full h-full object-cover animate-in fade-in zoom-in duration-700"
+                      onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23333" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".35em" fill="%23fff" font-size="40" font-family="sans-serif"%3E%3C/text%3E%3C/svg%3E' }}
                     />
                   </div>
                   {isAdminUser ? (
@@ -480,7 +481,7 @@ export default function AppContent() {
                         {!isAdminUser && activeProfile && (
                           <div className="flex items-center gap-1.5 mt-2">
                             <div className="w-5 h-5 rounded-full overflow-hidden bg-white/10">
-                              <img src={activeProfile.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${activeProfile.name}`} alt="" className="w-full h-full object-cover" />
+                              <img src={activeProfile.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${activeProfile.name}`} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23333" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".35em" fill="%23fff" font-size="40" font-family="sans-serif"%3E%3C/text%3E%3C/svg%3E' }} />
                             </div>
                             <span className="text-[10px] font-bold text-slate-400">{activeProfile.name}</span>
                             {activeProfile.is_kid && <span className="text-[7px] font-black bg-green-500/20 text-green-400 px-1 py-0.5 rounded uppercase tracking-wider">KIDS</span>}
@@ -778,6 +779,7 @@ export default function AppContent() {
                           src={url}
                           alt={opt.style}
                           className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500"
+                          onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23333" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".35em" fill="%23fff" font-size="40" font-family="sans-serif"%3E%3C/text%3E%3C/svg%3E' }}
                         />
                       </div>
                       <div className="absolute inset-0 bg-netflix-red/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]">
