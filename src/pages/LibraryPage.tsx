@@ -101,7 +101,7 @@ function LibraryPage({
         if (genreStr.includes('animation') || genreStr.includes('family')) return true
         const kidCerts = ['G', 'PG', 'PG-13', 'TV-Y', 'TV-Y7', 'TV-G']
         if (m.certification && kidCerts.includes(m.certification)) return true
-        return true
+        return false
     }
 
     const filteredMovies = moviesToFilter.filter(m => {

@@ -2204,7 +2204,10 @@ app.post('/api/admin/refresh-metadata', async (req, res) => {
                             poster_url: details.poster_url,
                             backdrop_url: details.backdrop_url,
                             runtime: details.runtime,
-                            rating: details.rating
+                            rating: details.rating,
+                            genres: details.genres,
+                            certification: details.certification,
+                            adult: details.adult
                         });
                         updatedCount++;
                     }
