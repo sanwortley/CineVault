@@ -39,11 +39,21 @@ async function backendFetch<T = unknown>(
 ): Promise<T> {
   const sessionId = localStorage.getItem('cinevault_session_id')
   const storedUser = localStorage.getItem('cinevault_user')
+  const storedProfile = localStorage.getItem('cinevault_active_profile')
   let userEmail = ''
+  let profileId = ''
   if (storedUser) {
     try {
       const u = JSON.parse(storedUser)
       userEmail = u.email || ''
+    } catch (_e) {
+      // ignore
+    }
+  }
+  if (storedProfile) {
+    try {
+      const p = JSON.parse(storedProfile)
+      profileId = p.id || ''
     } catch (_e) {
       // ignore
     }
@@ -56,6 +66,7 @@ async function backendFetch<T = unknown>(
       'Content-Type': 'application/json',
       'x-session-id': sessionId || '',
       'x-user-email': userEmail,
+      'x-profile-id': profileId || '',
       ...(options.headers || {}),
       ...customHeaders,
     },
@@ -775,5 +786,30 @@ export const api = {
 
   fetchMovieNews: () => {
     return backendFetch('/api/news')
+  },
+
+  // ─── Profile API ────────────────────────────────────────────────────
+  getProfiles: () => {
+    return backendFetch<{ id: string; user_id: string; name: string; avatar_url: string | null; is_kid: boolean; created_at: string }[]>('/api/profiles')
+  },
+
+  createProfile: (name: string, avatar_url: string | null, is_kid: boolean) => {
+    return backendFetch<{ id: string; user_id: string; name: string; avatar_url: string | null; is_kid: boolean }>('/api/profiles', {
+      method: 'POST',
+      body: JSON.stringify({ name, avatar_url, is_kid }),
+    })
+  },
+
+  updateProfile: (id: string, data: Record<string, unknown>) => {
+    return backendFetch(`/api/profiles/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  },
+
+  deleteProfile: (id: string) => {
+    return backendFetch(`/api/profiles/${id}`, {
+      method: 'DELETE',
+    })
   },
 }

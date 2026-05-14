@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useProfile } from '../context/ProfileContext'
 import { api } from '../api'
 import {
   Search, RefreshCw, Settings as SettingsIcon, Key, LogOut,
@@ -12,6 +13,8 @@ import VideoPlayerErrorBoundary from './VideoPlayerErrorBoundary'
 import MovieDetailsModal from './MovieDetailsModal'
 import ActivityCenter from './ActivityCenter'
 import Disclaimer from './Disclaimer'
+import ProfileSelector from './ProfileSelector'
+import ProfileManager from './ProfileManager'
 import { groupMoviesByTitle } from '../utils/movieUtils'
 import type { Movie, MovieGroup } from '../types'
 
@@ -26,6 +29,7 @@ interface LibraryPageProps {
   viewOnlyList?: boolean
   userProgress: UserProgressMap
   onHideProgress: (movieId: number) => void
+  isKidMode?: boolean
 }
 
 interface SettingsPageProps {
@@ -81,7 +85,11 @@ interface AvatarOption {
 
 export default function AppContent() {
   const { user, isAdmin, logout, getUserMylist, getUserProgress, addToMylist, removeFromMylist, isInMylist, hideMovieFromContinue, changePassword, updateUserMetadata } = useAuth()
+  const { profiles, activeProfile, loading: profileLoading, selectProfile } = useProfile()
   const navigate = useNavigate()
+  const [showProfileSelector, setShowProfileSelector] = useState(false)
+  const [showProfileManager, setShowProfileManager] = useState(false)
+  const [editingProfile, setEditingProfile] = useState<import('../types').Profile | null>(null)
   const [activeTab, setActiveTab] = useState('library')
   const [playingMovie, setPlayingMovie] = useState<DetailMovie | null>(null)
   const [detailMovie, setDetailMovie] = useState<DetailMovie | null>(null)
@@ -223,6 +231,9 @@ export default function AppContent() {
     }
   }, [playingMovie, detailMovie])
 
+  const needsProfileSelection = !profileLoading && profiles.length > 0 && !activeProfile
+  const needsFirstProfile = !profileLoading && profiles.length === 0 && !activeProfile
+
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault()
     if (newPassword.length < 6) {
@@ -288,6 +299,18 @@ export default function AppContent() {
 
   return (
     <div className="min-h-screen bg-black text-white selection:bg-netflix-red/30">
+      {needsProfileSelection && (
+        <ProfileSelector onSelect={() => setShowProfileSelector(false)} />
+      )}
+
+      {needsFirstProfile && (
+        <ProfileManager onClose={() => {}} />
+      )}
+
+      {(needsProfileSelection || needsFirstProfile) && null}
+
+      {!needsProfileSelection && !needsFirstProfile && (
+        <>
       {playerCrashError && (
         <div className="fixed inset-0 z-[2000] bg-black/95 flex items-center justify-center p-6 text-center">
           <div className="max-w-xs flex flex-col items-center gap-4">
@@ -424,12 +447,18 @@ export default function AppContent() {
                 >
                   <div className="w-9 h-9 md:w-11 md:h-11 rounded-full border-2 border-white/10 overflow-hidden bg-white/5 transition-all group-hover:border-netflix-red group-active:scale-95 shadow-lg">
                     <img
-                      src={(user?.user_metadata?.avatar_url as string) || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user?.email || 'default'}`}
+                      src={activeProfile?.avatar_url || (user?.user_metadata?.avatar_url as string) || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user?.email || 'default'}`}
                       alt="Avatar"
                       className="w-full h-full object-cover animate-in fade-in zoom-in duration-700"
                     />
                   </div>
-                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-black rounded-full shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+                  {activeProfile?.is_kid ? (
+                    <div className="absolute -bottom-1 -right-1 px-1 py-0.5 bg-green-500 text-black text-[7px] font-black rounded uppercase tracking-wider border-2 border-black shadow-[0_0_8px_rgba(34,197,94,0.6)]">
+                      KIDS
+                    </div>
+                  ) : (
+                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-black rounded-full shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+                  )}
                 </button>
 
                 {isProfileOpen && (
@@ -439,6 +468,15 @@ export default function AppContent() {
                       <div className="p-5 border-b border-white/5 bg-white/[0.02]">
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Sesión iniciada como</p>
                         <p className="text-xs font-bold text-white truncate">{user?.email}</p>
+                        {activeProfile && (
+                          <div className="flex items-center gap-1.5 mt-2">
+                            <div className="w-5 h-5 rounded-full overflow-hidden bg-white/10">
+                              <img src={activeProfile.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${activeProfile.name}`} alt="" className="w-full h-full object-cover" />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-400">{activeProfile.name}</span>
+                            {activeProfile.is_kid && <span className="text-[7px] font-black bg-green-500/20 text-green-400 px-1 py-0.5 rounded uppercase tracking-wider">KIDS</span>}
+                          </div>
+                        )}
                       </div>
                       <div className="p-2">
                         <button
@@ -460,7 +498,25 @@ export default function AppContent() {
                           Cambiar Avatar
                         </button>
                         <button
-                          onClick={() => { logout(); navigate('/login') }}
+                          onClick={() => { setIsProfileOpen(false); setShowProfileSelector(true) }}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 rounded-xl transition-all group"
+                        >
+                          <div className="p-2 bg-green-500/10 rounded-lg group-hover:bg-green-500/20">
+                            <User size={14} className="text-green-400" />
+                          </div>
+                          Cambiar Perfil
+                        </button>
+                        <button
+                          onClick={() => { setIsProfileOpen(false); setEditingProfile(activeProfile); setShowProfileManager(true) }}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 rounded-xl transition-all group"
+                        >
+                          <div className="p-2 bg-amber-500/10 rounded-lg group-hover:bg-amber-500/20">
+                            <User size={14} className="text-amber-400" />
+                          </div>
+                          Editar Perfil Actual
+                        </button>
+                        <button
+                          onClick={() => { localStorage.removeItem('cinevault_active_profile'); logout(); navigate('/login') }}
                           className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-netflix-red hover:bg-red-500/10 rounded-xl transition-all group"
                         >
                           <div className="p-2 bg-red-500/10 rounded-lg group-hover:bg-red-500/20">
@@ -491,6 +547,7 @@ export default function AppContent() {
             toggleMyList={toggleMyList}
             userProgress={userProgress}
             onHideProgress={handleHideProgress}
+            isKidMode={activeProfile?.is_kid || false}
           />
         )}
         {activeTab === 'mylist' && (
@@ -505,6 +562,7 @@ export default function AppContent() {
             viewOnlyList={true}
             userProgress={userProgress}
             onHideProgress={handleHideProgress}
+            isKidMode={activeProfile?.is_kid || false}
           />
         )}
         {activeTab === 'explore' && (
@@ -726,6 +784,19 @@ export default function AppContent() {
             </div>
           </div>
         </div>
+      )}
+
+      {showProfileSelector && (
+        <ProfileSelector onSelect={() => setShowProfileSelector(false)} />
+      )}
+
+      {showProfileManager && (
+        <ProfileManager
+          editProfile={editingProfile}
+          onClose={() => { setShowProfileManager(false); setEditingProfile(null) }}
+        />
+      )}
+        </>
       )}
     </div>
   )

@@ -54,6 +54,7 @@ interface LibraryPageProps {
   viewOnlyList?: boolean
   userProgress?: Record<string, { duration: number; updatedAt: string; isHidden: boolean }>
   onHideProgress?: (movieId: number) => void
+  isKidMode?: boolean
 }
 
 function LibraryPage({
@@ -66,7 +67,8 @@ function LibraryPage({
     toggleMyList,
     viewOnlyList = false,
     userProgress = {} as Record<string, { duration: number; updatedAt: string; isHidden: boolean }>,
-    onHideProgress
+    onHideProgress,
+    isKidMode = false
 }: LibraryPageProps) {
     const [continueSort, setContinueSort] = useState<string>('Recientes')
     const [isContinueSortOpen, setIsContinueSortOpen] = useState(false)
@@ -90,8 +92,19 @@ function LibraryPage({
         ? (myList as unknown as (Movie | MovieGroup)[])
         : groupedMoviesRaw
 
+    const isKidSafe = (m: Movie | MovieGroup): boolean => {
+        if (!isKidMode) return true
+        if (m.adult) return false
+        const genreStr = (m.genres || '').toLowerCase()
+        if (genreStr.includes('animation') || genreStr.includes('family')) return true
+        const kidCerts = ['G', 'PG', 'PG-13', 'TV-Y', 'TV-Y7', 'TV-G']
+        if (m.certification && kidCerts.includes(m.certification)) return true
+        return false
+    }
+
     const filteredMovies = moviesToFilter.filter(m => {
         if (!m) return false
+        if (!isKidSafe(m)) return false
         const s = (search || '').toLowerCase()
         const matchesSearch = (m.official_title || m.detected_title || '').toLowerCase().includes(s) ||
                              (m.genres || '').toLowerCase().includes(s)
@@ -123,16 +136,18 @@ function LibraryPage({
 
     useEffect(() => {
         if (movies.length > 0 && !viewOnlyList && !isFiltering && search === '') {
-            const shuffled = [...movies].sort(() => 0.5 - Math.random())
+            const kidSafe = isKidMode ? movies.filter(isKidSafe) : movies
+            const shuffled = [...kidSafe].sort(() => 0.5 - Math.random())
             setFeaturedMovies(shuffled.slice(0, 3))
         } else {
             setFeaturedMovies([])
         }
-    }, [movies, viewOnlyList, isFiltering, search])
+    }, [movies, viewOnlyList, isFiltering, search, isKidMode])
 
     const continueWatching = useMemo(() => {
         return movies
             .filter(m => {
+                if (!isKidSafe(m)) return false
                 const progObj = userProgress[String(m.id)]
                 if (!progObj || progObj.isHidden) return false
                 return progObj.duration > 10
@@ -154,7 +169,7 @@ function LibraryPage({
                 return new Date(progB.updatedAt).getTime() - new Date(progA.updatedAt).getTime()
             })
             .slice(0, 15)
-    }, [movies, userProgress, continueSort])
+    }, [movies, userProgress, continueSort, isKidMode])
 
     const closeDropdowns = () => {
         setIsGenreOpen(false)

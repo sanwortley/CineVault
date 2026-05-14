@@ -39,6 +39,8 @@ export interface Movie {
   video_bitrate?: number | null
   duration_seconds?: number | null
   original_resolution?: string | null
+  certification?: string | null
+  adult?: boolean
 }
 
 export interface Folder {
@@ -79,6 +81,15 @@ export interface MovieRequest {
   year: string | null
   status: 'pending' | 'approved' | 'rejected'
   created_at: string
+}
+
+export interface Profile {
+  id: string
+  user_id: string
+  name: string
+  avatar_url: string | null
+  is_kid: boolean
+  created_at?: string
 }
 
 export interface UserRating {

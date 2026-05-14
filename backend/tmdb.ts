@@ -16,6 +16,7 @@ interface TMDBMovieRaw {
   popularity: number
   vote_average: number
   vote_count: number
+  adult?: boolean
 }
 
 interface TMDBDetailsRaw extends TMDBMovieRaw {
@@ -25,6 +26,15 @@ interface TMDBDetailsRaw extends TMDBMovieRaw {
     crew: { job: string; name: string }[]
     cast: { name: string; character: string; profile_path: string | null }[]
   }
+}
+
+interface TMDBReleaseDateResult {
+  results: {
+    iso_3166_1: string
+    release_dates: {
+      certification: string
+    }[]
+  }[]
 }
 
 interface MovieDetails {
@@ -39,6 +49,8 @@ interface MovieDetails {
   cast: string
   rating: number
   detected_year: string | null
+  certification: string | null
+  adult: boolean
 }
 
 interface OMDBRating {
@@ -93,6 +105,21 @@ async function getMovieDetails(movieId: number): Promise<MovieDetails | null> {
     })
 
     const data = response.data
+
+    // Fetch US certification from release_dates
+    let certification: string | null = null
+    try {
+      const rdRes = await axios.get<TMDBReleaseDateResult>(`${BASE_URL}/movie/${movieId}/release_dates`, {
+        params: { api_key: TMDB_API_KEY },
+      })
+      const usRelease = rdRes.data.results.find((r) => r.iso_3166_1 === 'US')
+      if (usRelease && usRelease.release_dates.length > 0) {
+        certification = usRelease.release_dates[0].certification || null
+      }
+    } catch (rdErr) {
+      // Non-critical, just skip certification
+    }
+
     return {
       official_title: data.title,
       original_title: data.original_title,
@@ -109,6 +136,8 @@ async function getMovieDetails(movieId: number): Promise<MovieDetails | null> {
         data.credits?.cast?.slice(0, 5).map((a) => a.name).join(', ') || 'N/A',
       rating: data.vote_average,
       detected_year: data.release_date ? data.release_date.substring(0, 4) : null,
+      certification,
+      adult: data.adult || false,
     }
   } catch (error: unknown) {
     const err = error as Error

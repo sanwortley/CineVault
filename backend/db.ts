@@ -56,6 +56,15 @@ interface SessionRow {
   created_at: string
 }
 
+interface ProfileRow {
+  id: string
+  user_id: string
+  name: string
+  avatar_url: string | null
+  is_kid: boolean
+  created_at: string
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type JsonValue = any
 
@@ -340,82 +349,96 @@ const database = {
     return await supabaseFetch('folders?id=gt.0', { method: 'DELETE' })
   },
 
-  getUserProgress: async (userId: string) => {
+  getUserProgress: async (userId: string, profileId?: string) => {
+    const profileFilter = profileId ? `&profile_id=eq.${profileId}` : ''
     return (
       (await supabaseFetch(
-        `user_movie_progress?user_id=eq.${userId}&select=*`
+        `user_movie_progress?user_id=eq.${userId}&select=*${profileFilter}`
       )) || []
     )
   },
 
-  saveUserProgress: async (userId: string, movieId: number, watchedDuration: number) => {
-    return await supabaseFetch('user_movie_progress?on_conflict=user_id,movie_id', {
+  saveUserProgress: async (userId: string, movieId: number, watchedDuration: number, profileId?: string) => {
+    const conflict = profileId ? 'user_id,movie_id,profile_id' : 'user_id,movie_id'
+    const payload: Record<string, unknown> = {
+      user_id: userId,
+      movie_id: movieId,
+      watched_duration: watchedDuration,
+      updated_at: new Date().toISOString(),
+    }
+    if (profileId) payload.profile_id = profileId
+    return await supabaseFetch(`user_movie_progress?on_conflict=${conflict}`, {
       method: 'POST',
-      body: JSON.stringify({
-        user_id: userId,
-        movie_id: movieId,
-        watched_duration: watchedDuration,
-        updated_at: new Date().toISOString(),
-      }),
+      body: JSON.stringify(payload),
       headers: { Prefer: 'resolution=merge-duplicates' },
     })
   },
 
-  hideUserProgress: async (userId: string, movieId: number) => {
+  hideUserProgress: async (userId: string, movieId: number, profileId?: string) => {
+    const profileFilter = profileId ? `&profile_id=eq.${profileId}` : ''
     return await supabaseFetch(
-      `user_movie_progress?user_id=eq.${userId}&movie_id=eq.${movieId}`,
+      `user_movie_progress?user_id=eq.${userId}&movie_id=eq.${movieId}${profileFilter}`,
       { method: 'PATCH', body: JSON.stringify({ is_hidden: true }) }
     )
   },
 
-  getUserMylist: async (userId: string) => {
+  getUserMylist: async (userId: string, profileId?: string) => {
+    const profileFilter = profileId ? `&profile_id=eq.${profileId}` : ''
     return (
       (await supabaseFetch(
-        `user_mylist?user_id=eq.${userId}&select=*`
+        `user_mylist?user_id=eq.${userId}&select=*${profileFilter}`
       )) || []
     )
   },
 
-  addToMylist: async (userId: string, movieId: number) => {
+  addToMylist: async (userId: string, movieId: number, profileId?: string) => {
+    const payload: Record<string, unknown> = { user_id: userId, movie_id: movieId }
+    if (profileId) payload.profile_id = profileId
     return await supabaseFetch('user_mylist', {
       method: 'POST',
-      body: JSON.stringify({ user_id: userId, movie_id: movieId }),
+      body: JSON.stringify(payload),
       headers: { Prefer: 'resolution=ignore-duplicates' },
     })
   },
 
-  removeFromMylist: async (userId: string, movieId: number) => {
+  removeFromMylist: async (userId: string, movieId: number, profileId?: string) => {
+    const profileFilter = profileId ? `&profile_id=eq.${profileId}` : ''
     return await supabaseFetch(
-      `user_mylist?user_id=eq.${userId}&movie_id=eq.${movieId}`,
+      `user_mylist?user_id=eq.${userId}&movie_id=eq.${movieId}${profileFilter}`,
       { method: 'DELETE' }
     )
   },
 
-  isInMylist: async (userId: string, movieId: number): Promise<boolean> => {
+  isInMylist: async (userId: string, movieId: number, profileId?: string): Promise<boolean> => {
+    const profileFilter = profileId ? `&profile_id=eq.${profileId}` : ''
     const result =
       (await supabaseFetch<{ id: number }[]>(
-        `user_mylist?user_id=eq.${userId}&movie_id=eq.${movieId}&select=id`
+        `user_mylist?user_id=eq.${userId}&movie_id=eq.${movieId}&select=id${profileFilter}`
       )) || []
     return result.length > 0
   },
 
-  getUserRating: async (userId: string, movieId: number): Promise<number | null> => {
+  getUserRating: async (userId: string, movieId: number, profileId?: string): Promise<number | null> => {
+    const profileFilter = profileId ? `&profile_id=eq.${profileId}` : ''
     const results =
       (await supabaseFetch<{ rating: number }[]>(
-        `user_movie_ratings?user_id=eq.${userId}&movie_id=eq.${movieId}&select=rating`
+        `user_movie_ratings?user_id=eq.${userId}&movie_id=eq.${movieId}&select=rating${profileFilter}`
       )) || []
     return results.length > 0 ? results[0].rating : null
   },
 
-  saveUserRating: async (userId: string, movieId: number, rating: number) => {
+  saveUserRating: async (userId: string, movieId: number, rating: number, profileId?: string) => {
+    const conflict = profileId ? 'user_id,movie_id,profile_id' : 'user_id,movie_id'
+    const payload: Record<string, unknown> = {
+      user_id: userId,
+      movie_id: movieId,
+      rating,
+      updated_at: new Date().toISOString(),
+    }
+    if (profileId) payload.profile_id = profileId
     return await supabaseFetch('user_movie_ratings', {
       method: 'POST',
-      body: JSON.stringify({
-        user_id: userId,
-        movie_id: movieId,
-        rating,
-        updated_at: new Date().toISOString(),
-      }),
+      body: JSON.stringify(payload),
       headers: { Prefer: 'resolution=merge-duplicates' },
     })
   },
@@ -551,6 +574,31 @@ const database = {
       const error = e as Error
       console.error(`[DB] setGlobalConfig error for ${key}:`, error.message)
     }
+  },
+
+  // ─── Profile CRUD ──────────────────────────────────────────────────
+  getProfiles: async (userId: string): Promise<ProfileRow[]> => {
+    return (await supabaseFetch<ProfileRow[]>(`profiles?user_id=eq.${userId}&select=*&order=created_at.asc`)) || []
+  },
+
+  createProfile: async (userId: string, name: string, avatar_url: string | null, is_kid: boolean): Promise<ProfileRow | null> => {
+    const result = await supabaseFetch<ProfileRow[]>('profiles', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId, name, avatar_url, is_kid }),
+      headers: { Prefer: 'return=representation' },
+    })
+    return Array.isArray(result) && result.length > 0 ? result[0] : null
+  },
+
+  updateProfile: async (profileId: string, data: Record<string, unknown>): Promise<unknown> => {
+    return await supabaseFetch(`profiles?id=eq.${profileId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  },
+
+  deleteProfile: async (profileId: string): Promise<unknown> => {
+    return await supabaseFetch(`profiles?id=eq.${profileId}`, { method: 'DELETE' })
   },
 
   supabaseFetch,

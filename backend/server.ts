@@ -305,6 +305,70 @@ app.delete('/api/admin/sessions/:id', sessionMiddleware, adminMiddleware, async 
     }
 });
 
+// ─── Profile Management ─────────────────────────────────────────────────────────
+app.get('/api/profiles', sessionMiddleware, async (req, res) => {
+    try {
+        const userId = req.session?.user_id
+        if (!userId) return res.status(401).json({ error: 'Usuario no autenticado' })
+        const profiles = await db.getProfiles(userId)
+        res.json(profiles)
+    } catch (err) {
+        console.error('[Profiles] Error listing profiles:', err.message)
+        res.status(500).json({ error: 'Error al listar perfiles' })
+    }
+})
+
+app.post('/api/profiles', sessionMiddleware, async (req, res) => {
+    try {
+        const userId = req.session?.user_id
+        if (!userId) return res.status(401).json({ error: 'Usuario no autenticado' })
+        
+        const { name, avatar_url, is_kid } = req.body
+        if (!name || !name.trim()) return res.status(400).json({ error: 'Nombre requerido' })
+        
+        // Limit to 5 profiles per user
+        const existing = await db.getProfiles(userId)
+        if (existing.length >= 5) return res.status(400).json({ error: 'Máximo 5 perfiles por cuenta' })
+        
+        const profile = await db.createProfile(userId, name.trim(), avatar_url || null, !!is_kid)
+        res.json(profile)
+    } catch (err) {
+        console.error('[Profiles] Error creating profile:', err.message)
+        res.status(500).json({ error: 'Error al crear perfil' })
+    }
+})
+
+app.put('/api/profiles/:id', sessionMiddleware, async (req, res) => {
+    try {
+        const profileId = req.params.id as string
+        const { name, avatar_url, is_kid } = req.body
+        
+        const updates: Record<string, unknown> = {}
+        if (name !== undefined) updates.name = name.trim()
+        if (avatar_url !== undefined) updates.avatar_url = avatar_url
+        if (is_kid !== undefined) updates.is_kid = !!is_kid
+        
+        if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'Sin datos para actualizar' })
+        
+        await db.updateProfile(profileId, updates)
+        res.json({ success: true })
+    } catch (err) {
+        console.error('[Profiles] Error updating profile:', err.message)
+        res.status(500).json({ error: 'Error al actualizar perfil' })
+    }
+})
+
+app.delete('/api/profiles/:id', sessionMiddleware, async (req, res) => {
+    try {
+        const profileId = req.params.id as string
+        await db.deleteProfile(profileId)
+        res.json({ success: true })
+    } catch (err) {
+        console.error('[Profiles] Error deleting profile:', err.message)
+        res.status(500).json({ error: 'Error al eliminar perfil' })
+    }
+})
+
 // ─── Movie Audio Tracks ──────────────────────────────────────────────────────────
 app.get('/api/movies/:id/audio-tracks', sessionMiddleware, async (req, res) => {
     const { id } = req.params;
@@ -1785,10 +1849,11 @@ app.get('/api/fs/ls', sessionMiddleware, adminMiddleware, (req, res) => {
 
 app.get('/api/user/progress', sessionMiddleware, async (req, res) => {
     const userId = req.headers['x-user-id'];
+    const profileId = req.headers['x-profile-id'] as string | undefined;
     if (!userId) return res.status(401).json({ error: 'Not authenticated' });
     
     try {
-        const progress = await db.getUserProgress(userId as string);
+        const progress = await db.getUserProgress(userId as string, profileId);
         res.json(progress);
     } catch (err) {
         console.error('[UserProgress] Error:', err);
@@ -1798,6 +1863,7 @@ app.get('/api/user/progress', sessionMiddleware, async (req, res) => {
 
 app.post('/api/user/progress', sessionMiddleware, async (req, res) => {
     const userId = req.headers['x-user-id'];
+    const profileId = req.headers['x-profile-id'] as string | undefined;
     if (!userId) return res.status(401).json({ error: 'Not authenticated' });
     
     const { movie_id, watched_duration } = req.body;
@@ -1815,7 +1881,7 @@ app.post('/api/user/progress', sessionMiddleware, async (req, res) => {
     if (sanitizedDuration > 86400) sanitizedDuration = 86400;
     
     try {
-        await db.saveUserProgress(userId as string, sanitizedMovieId, sanitizedDuration);
+        await db.saveUserProgress(userId as string, sanitizedMovieId, sanitizedDuration, profileId);
         res.json({ success: true });
     } catch (err) {
         console.error('[UserProgress] Save error:', err);
@@ -1825,10 +1891,11 @@ app.post('/api/user/progress', sessionMiddleware, async (req, res) => {
 
 app.get('/api/user/mylist', sessionMiddleware, async (req, res) => {
     const userId = req.headers['x-user-id'];
+    const profileId = req.headers['x-profile-id'] as string | undefined;
     if (!userId) return res.status(401).json({ error: 'Not authenticated' });
     
     try {
-        const mylist = await db.getUserMylist(userId as string);
+        const mylist = await db.getUserMylist(userId as string, profileId);
         res.json(mylist);
     } catch (err) {
         console.error('[UserMylist] Error:', err);
@@ -1838,19 +1905,19 @@ app.get('/api/user/mylist', sessionMiddleware, async (req, res) => {
 
 app.post('/api/user/mylist', sessionMiddleware, async (req, res) => {
     const userId = req.headers['x-user-id'];
+    const profileId = req.headers['x-profile-id'] as string | undefined;
     if (!userId) return res.status(401).json({ error: 'Not authenticated' });
     
     const { movie_id } = req.body;
     if (!movie_id) return res.status(400).json({ error: 'movie_id required' });
     
-    // Validate movie_id
     const sanitizedMovieId = parseInt(movie_id, 10);
     if (isNaN(sanitizedMovieId) || sanitizedMovieId < 1) {
         return res.status(400).json({ error: 'Invalid movie_id' });
     }
     
     try {
-        await db.addToMylist(userId as string, sanitizedMovieId);
+        await db.addToMylist(userId as string, sanitizedMovieId, profileId);
         res.json({ success: true });
     } catch (err) {
         console.error('[UserMylist] Add error:', err);
@@ -1860,18 +1927,17 @@ app.post('/api/user/mylist', sessionMiddleware, async (req, res) => {
 
 app.delete('/api/user/mylist/:movieId', sessionMiddleware, async (req, res) => {
     const userId = req.headers['x-user-id'];
+    const profileId = req.headers['x-profile-id'] as string | undefined;
     if (!userId) return res.status(401).json({ error: 'Not authenticated' });
     
     const movieId = req.params.movieId as string;
-    
-    // Validate movieId
     const sanitizedMovieId = parseInt(movieId, 10);
     if (isNaN(sanitizedMovieId) || sanitizedMovieId < 1) {
         return res.status(400).json({ error: 'Invalid movieId' });
     }
     
     try {
-        await db.removeFromMylist(userId as string, sanitizedMovieId);
+        await db.removeFromMylist(userId as string, sanitizedMovieId, profileId);
         res.json({ success: true });
     } catch (err) {
         console.error('[UserMylist] Remove error:', err);
@@ -1881,10 +1947,11 @@ app.delete('/api/user/mylist/:movieId', sessionMiddleware, async (req, res) => {
 
 app.get('/api/user/rating/:movieId', sessionMiddleware, async (req, res) => {
     const userId = req.headers['x-user-id'];
+    const profileId = req.headers['x-profile-id'] as string | undefined;
     if (!userId) return res.status(401).json({ error: 'Not authenticated' });
     
     try {
-        const rating = await db.getUserRating(userId as string, parseInt(req.params.movieId as string, 10));
+        const rating = await db.getUserRating(userId as string, parseInt(req.params.movieId as string, 10), profileId);
         res.json({ rating });
     } catch (err) {
         console.error('[UserRating] Get error:', err);
@@ -1894,13 +1961,14 @@ app.get('/api/user/rating/:movieId', sessionMiddleware, async (req, res) => {
 
 app.post('/api/user/rating', sessionMiddleware, async (req, res) => {
     const userId = req.headers['x-user-id'];
+    const profileId = req.headers['x-profile-id'] as string | undefined;
     if (!userId) return res.status(401).json({ error: 'Not authenticated' });
     
     const { movie_id, rating } = req.body;
     if (!movie_id || !rating) return res.status(400).json({ error: 'movie_id and rating required' });
     
     try {
-        await db.saveUserRating(userId as string, movie_id, parseInt(rating));
+        await db.saveUserRating(userId as string, movie_id, parseInt(rating), profileId);
         res.json({ success: true });
     } catch (err) {
         console.error('[UserRating] Save error:', err);

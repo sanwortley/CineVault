@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
+import { ProfileProvider } from './context/ProfileContext'
 import { UploadQueueProvider } from './context/UploadQueueContext'
 
 import ProtectedRoute from './components/ProtectedRoute'
@@ -28,9 +29,11 @@ function App() {
                         <Route path="/register" element={<RegisterPage />} />
                         <Route path="/*" element={
                             <ProtectedRoute>
-                                <UploadQueueProvider>
-                                    <AppContent />
-                                </UploadQueueProvider>
+                                <ProfileProvider>
+                                    <UploadQueueProvider>
+                                        <AppContent />
+                                    </UploadQueueProvider>
+                                </ProfileProvider>
                             </ProtectedRoute>
                         } />
                     </Routes>
