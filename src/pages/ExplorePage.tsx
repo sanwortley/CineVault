@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { Search, TrendingUp, Download, Play, Shield, Loader, Plus, X, Star, Calendar, Clock, Globe, CheckCircle2 } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useProfile } from '../context/ProfileContext';
 import { useUploadQueue } from '../context/UploadQueueContext';
 import MovieNews from '../components/MovieNews';
 import type { Movie, TorrentResult } from '../types';
@@ -13,7 +14,9 @@ interface ExplorePageProps {
 
 export default function ExplorePage({ onInfoMovie, onPlayMovie }: ExplorePageProps) {
   const { isAdmin } = useAuth();
+  const { activeProfile } = useProfile();
   const { addToQueue } = useUploadQueue();
+  const isKidMode = activeProfile?.is_kid || false;
   const [trending, setTrending] = useState<Record<string, unknown>[]>([]);
   const [searchResults, setSearchResults] = useState<Record<string, unknown>[]>([]);
   const [query, setQuery] = useState('');
@@ -60,6 +63,9 @@ export default function ExplorePage({ onInfoMovie, onPlayMovie }: ExplorePagePro
       performSearch();
     }
   }, []);
+
+  const visibleTrending = isKidMode ? trending.filter(m => !m.adult) : trending;
+  const visibleSearchResults = isKidMode ? searchResults.filter(m => !m.adult) : searchResults;
 
   const handleSearch = async (e: FormEvent) => {
     e.preventDefault();
@@ -142,6 +148,11 @@ export default function ExplorePage({ onInfoMovie, onPlayMovie }: ExplorePagePro
               <span className="bg-clip-text text-transparent bg-gradient-to-br from-white via-slate-400 to-slate-600">Explorar</span>
             </h1>
             <p className="text-slate-500 text-[8px] md:text-xs font-bold tracking-widest uppercase opacity-60 hidden md:block">Descubre y solicita contenido para tu bóveda.</p>
+            {isKidMode && (
+              <p className="text-green-400 text-[7px] md:text-[10px] font-black tracking-widest uppercase flex items-center gap-1.5 mt-1">
+                <Shield size={12} /> Modo Niños activo — Solo contenido apto
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
@@ -231,14 +242,14 @@ export default function ExplorePage({ onInfoMovie, onPlayMovie }: ExplorePagePro
               </div>
             )}
           </section>
-        ) : (isSearching || searchResults.length > 0) ? (
+        ) : (isSearching || visibleSearchResults.length > 0 || (hasSearched && searchResults.length > 0)) ? (
           <section className="mb-20">
             <div className="flex items-center gap-3 mb-8">
               <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Catálogo Internacional</h2>
               {isSearching && <Loader className="animate-spin text-netflix-red" size={20} />}
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 md:gap-8 pb-32">
-              {searchResults.map(movie => (
+              {visibleSearchResults.map(movie => (
                 <MovieCard key={movie.id as number} movie={movie as Record<string, unknown>} onClick={() => openMovieModal(movie)} />
               ))}
             </div>
@@ -250,7 +261,7 @@ export default function ExplorePage({ onInfoMovie, onPlayMovie }: ExplorePagePro
               <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Lo más visto esta semana</h2>
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 md:gap-8 pb-32">
-              {trending.map(movie => (
+              {visibleTrending.map(movie => (
                 <MovieCard key={movie.id as number} movie={movie as Record<string, unknown>} onClick={() => openMovieModal(movie)} />
               ))}
             </div>

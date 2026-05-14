@@ -86,6 +86,7 @@ interface AvatarOption {
 export default function AppContent() {
   const { user, isAdmin, logout, getUserMylist, getUserProgress, addToMylist, removeFromMylist, isInMylist, hideMovieFromContinue, changePassword, updateUserMetadata } = useAuth()
   const { profiles, activeProfile, loading: profileLoading, selectProfile } = useProfile()
+  const isAdminUser = isAdmin()
   const navigate = useNavigate()
   const [showProfileSelector, setShowProfileSelector] = useState(false)
   const [showProfileManager, setShowProfileManager] = useState(false)
@@ -231,10 +232,10 @@ export default function AppContent() {
     }
   }, [playingMovie, detailMovie])
 
-  const needsProfileSelection = !profileLoading && profiles.length > 0 && !activeProfile
-  const needsFirstProfile = !profileLoading && profiles.length === 0 && !activeProfile
-  const shouldShowProfileSelector = needsProfileSelection || showProfileSelector
-  const shouldShowProfileManager = needsFirstProfile || (showProfileManager && !needsProfileSelection)
+  const needsProfileSelection = !isAdminUser && !profileLoading && profiles.length > 0 && !activeProfile
+  const needsFirstProfile = !isAdminUser && !profileLoading && profiles.length === 0 && !activeProfile
+  const shouldShowProfileSelector = needsProfileSelection || (showProfileSelector && !isAdminUser)
+  const shouldShowProfileManager = (needsFirstProfile || showProfileManager) && !isAdminUser
   const showMainContent = !shouldShowProfileSelector && !shouldShowProfileManager
 
   const handlePasswordChange = async (e: React.FormEvent) => {
@@ -451,12 +452,16 @@ export default function AppContent() {
                 >
                   <div className="w-9 h-9 md:w-11 md:h-11 rounded-full border-2 border-white/10 overflow-hidden bg-white/5 transition-all group-hover:border-netflix-red group-active:scale-95 shadow-lg">
                     <img
-                      src={activeProfile?.avatar_url || (user?.user_metadata?.avatar_url as string) || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user?.email || 'default'}`}
+                      src={isAdminUser ? (user?.user_metadata?.avatar_url as string) || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user?.email || 'default'}` : activeProfile?.avatar_url || (user?.user_metadata?.avatar_url as string) || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user?.email || 'default'}`}
                       alt="Avatar"
                       className="w-full h-full object-cover animate-in fade-in zoom-in duration-700"
                     />
                   </div>
-                  {activeProfile?.is_kid ? (
+                  {isAdminUser ? (
+                    <div className="absolute -bottom-1 -right-1 px-1 py-0.5 bg-netflix-red text-white text-[7px] font-black rounded uppercase tracking-wider border-2 border-black shadow-[0_0_8px_rgba(229,9,20,0.6)]">
+                      ADMIN
+                    </div>
+                  ) : activeProfile?.is_kid ? (
                     <div className="absolute -bottom-1 -right-1 px-1 py-0.5 bg-green-500 text-black text-[7px] font-black rounded uppercase tracking-wider border-2 border-black shadow-[0_0_8px_rgba(34,197,94,0.6)]">
                       KIDS
                     </div>
@@ -472,7 +477,7 @@ export default function AppContent() {
                       <div className="p-5 border-b border-white/5 bg-white/[0.02]">
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Sesión iniciada como</p>
                         <p className="text-xs font-bold text-white truncate">{user?.email}</p>
-                        {activeProfile && (
+                        {!isAdminUser && activeProfile && (
                           <div className="flex items-center gap-1.5 mt-2">
                             <div className="w-5 h-5 rounded-full overflow-hidden bg-white/10">
                               <img src={activeProfile.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${activeProfile.name}`} alt="" className="w-full h-full object-cover" />
@@ -501,24 +506,28 @@ export default function AppContent() {
                           </div>
                           Cambiar Avatar
                         </button>
-                        <button
-                          onClick={() => { setIsProfileOpen(false); setShowProfileSelector(true) }}
-                          className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 rounded-xl transition-all group"
-                        >
-                          <div className="p-2 bg-green-500/10 rounded-lg group-hover:bg-green-500/20">
-                            <User size={14} className="text-green-400" />
-                          </div>
-                          Cambiar Perfil
-                        </button>
-                        <button
-                          onClick={() => { setIsProfileOpen(false); setEditingProfile(activeProfile); setShowProfileManager(true) }}
-                          className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 rounded-xl transition-all group"
-                        >
-                          <div className="p-2 bg-amber-500/10 rounded-lg group-hover:bg-amber-500/20">
-                            <User size={14} className="text-amber-400" />
-                          </div>
-                          Editar Perfil Actual
-                        </button>
+                        {!isAdminUser && (
+                          <button
+                            onClick={() => { setIsProfileOpen(false); setShowProfileSelector(true) }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 rounded-xl transition-all group"
+                          >
+                            <div className="p-2 bg-green-500/10 rounded-lg group-hover:bg-green-500/20">
+                              <User size={14} className="text-green-400" />
+                            </div>
+                            Cambiar Perfil
+                          </button>
+                        )}
+                        {!isAdminUser && (
+                          <button
+                            onClick={() => { setIsProfileOpen(false); setEditingProfile(activeProfile); setShowProfileManager(true) }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 rounded-xl transition-all group"
+                          >
+                            <div className="p-2 bg-amber-500/10 rounded-lg group-hover:bg-amber-500/20">
+                              <User size={14} className="text-amber-400" />
+                            </div>
+                            Editar Perfil Actual
+                          </button>
+                        )}
                         <button
                           onClick={() => { localStorage.removeItem('cinevault_active_profile'); logout(); navigate('/login') }}
                           className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-netflix-red hover:bg-red-500/10 rounded-xl transition-all group"

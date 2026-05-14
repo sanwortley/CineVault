@@ -136,7 +136,7 @@ function SettingsPage({ onClose, onTabChange }: SettingsPageProps) {
     };
 
     const handleRefreshLatino = async () => {
-        if (!window.confirm('¿Quieres actualizar toda tu biblioteca al Español Latino? Esto cambiará títulos y sinopsis de las películas que ya tienes agregadas.')) return;
+        if (!window.confirm('¿Quieres actualizar toda tu biblioteca al Español Latino? También se refrescarán certificaciones y géneros necesarios para el Modo Niños.')) return;
         try {
             const result = await api.refreshMetadata() as { message?: string };
             alert(result.message || 'Biblioteca actualizada correctamente.');
@@ -351,7 +351,7 @@ function SettingsPage({ onClose, onTabChange }: SettingsPageProps) {
                                                 className="flex items-center gap-3 px-6 py-3 bg-netflix-red/10 hover:bg-netflix-red border border-netflix-red/20 rounded-full text-[10px] font-black uppercase tracking-widest text-netflix-red hover:text-white transition-all group"
                                             >
                                                 <RefreshCw size={14} className="group-hover:rotate-180 transition-transform duration-500" />
-                                                Pasar Biblioteca a Latino
+                                                Actualizar Metadata
                                             </button>
                                             {isOMDBSaved && (
                                                 <button 
