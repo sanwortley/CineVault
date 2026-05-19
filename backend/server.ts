@@ -2239,6 +2239,7 @@ app.get('*splat', (req, res) => {
     
     const indexPath = path.join(__dirname, '../dist/index.html');
     if (fs.existsSync(indexPath)) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.sendFile(indexPath);
     } else {
         res.status(502).send('Frontend not built yet. Please wait for the build process to finish on Railway.');

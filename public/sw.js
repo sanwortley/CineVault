@@ -7,13 +7,19 @@ const ASSETS_TO_CACHE = [
   '/assets/logo.png'
 ];
 
-// Instalar sin forzar el control (espera a que el usuario cierre/navegue)
 self.addEventListener('install', (event) => {
   console.log('[SW] Instalando nueva versión...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => cache.addAll(ASSETS_TO_CACHE))
   );
+});
+
+// Activar inmediatamente cuando el usuario hace clic en "Recargar"
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // Limpiar cachés antiguos

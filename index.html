@@ -19,15 +19,7 @@
 <body class="bg-black text-white transition-colors duration-500">
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-          .then(reg => console.log('SW registrado', reg))
-          .catch(err => console.log('SW falló', err));
-      });
-    }
-  </script>
+
 </body>
 
 </html>
