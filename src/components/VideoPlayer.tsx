@@ -215,16 +215,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         }
     }, [isMobile]);
 
-    useEffect(() => {
-        if (!initialSeekPerformed.current && seekOffset > 0 && isPlaying && videoRef.current) {
-            const video = videoRef.current;
-            if (video.readyState >= 1) {
-                console.log(`[VideoPlayer] Seeking to ${seekOffset}s (isPlaying=${isPlaying})`);
-                video.currentTime = seekOffset;
-                initialSeekPerformed.current = true;
-            }
-        }
-    }, [isPlaying, seekOffset]);
+
 
     useEffect(() => {
         const resolveSource = async () => {
@@ -384,6 +375,22 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         console.log('[VideoPlayer] needsTranscoding:', result, { isMKV, isVideoCompatible, isAudioCompatible, selectedAudioTrack: selectedAudioTrack?.index });
         return result;
     }, [quality, movie.video_codec, movie.audio_codec, movie.video_height, movie.file_path, movie.file_name, selectedAudioTrack]);
+
+    useEffect(() => {
+        if (!initialSeekPerformed.current && seekOffset > 0 && isPlaying && videoRef.current) {
+            const video = videoRef.current;
+            if (video.readyState >= 1) {
+                const isTranscoded = needsTranscoding || useTranscoding;
+                if (!isTranscoded) {
+                    console.log(`[VideoPlayer] Seeking to ${seekOffset}s (isPlaying=${isPlaying})`);
+                    video.currentTime = seekOffset;
+                } else {
+                    console.log(`[VideoPlayer] Transcoding active, skipping initial seek (starting at ${seekOffset}s)`);
+                }
+                initialSeekPerformed.current = true;
+            }
+        }
+    }, [isPlaying, seekOffset, needsTranscoding, useTranscoding]);
 
     useEffect(() => {
         const isMkv = movie.file_path?.toLowerCase().endsWith('.mkv') ||
