@@ -739,9 +739,9 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
             if (requestFS) {
                 try {
                     await requestFS.call(containerEl);
-                    if (window.screen.orientation?.lock) {
+                    if ((window.screen.orientation as any)?.lock) {
                         try {
-                            await window.screen.orientation.lock('landscape');
+                            await (window.screen.orientation as any).lock('landscape');
                         } catch (e) { }
                     }
                 } catch (err) {
@@ -995,6 +995,35 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
         return () => URL.revokeObjectURL(url);
     }, [subtitleCues, subtitleOffset]);
 
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        const hideNativeTracks = () => {
+            if (!useNativeControls) {
+                for (let i = 0; i < video.textTracks.length; i++) {
+                    video.textTracks[i].mode = 'hidden';
+                }
+            }
+        };
+
+        hideNativeTracks();
+
+        video.addEventListener('loadedmetadata', hideNativeTracks);
+        if (video.textTracks) {
+            video.textTracks.addEventListener('change', hideNativeTracks);
+            video.textTracks.addEventListener('addtrack', hideNativeTracks);
+        }
+
+        return () => {
+            video.removeEventListener('loadedmetadata', hideNativeTracks);
+            if (video.textTracks) {
+                video.textTracks.removeEventListener('change', hideNativeTracks);
+                video.textTracks.removeEventListener('addtrack', hideNativeTracks);
+            }
+        };
+    }, [useNativeControls, subtitleTrackUrl]);
+
     const handleVideoClick = (e: React.MouseEvent<HTMLDivElement>) => {
         const now = Date.now();
 
@@ -1118,7 +1147,7 @@ function VideoPlayer({ movie, onClose, onOpenSettings, onVersionChange, userProg
                                 src={subtitleTrackUrl}
                                 srcLang={selectedSubtitle.language || 'en'}
                                 label={selectedSubtitle.label || 'Subtitles'}
-                                default
+                                default={useNativeControls}
                             />
                         )}
                     </video>
