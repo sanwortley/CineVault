@@ -234,6 +234,16 @@ app.get('/api/auth/status', (req, res) => {
     res.json({ authenticated: driveApi.isAuthenticated() });
 });
 
+app.post('/api/auth/disconnect', sessionMiddleware, async (req, res) => {
+    try {
+        await driveApi.disconnect();
+        res.json({ success: true });
+    } catch (err: any) {
+        console.error('[Disconnect] Error:', err.message);
+        res.status(500).json({ error: 'Error al desconectar Google Drive' });
+    }
+});
+
 // High-Performance Raw Stream Proxy (Used by FFmpeg for stable streaming)
 app.get('/api/drive/raw/:fileId', async (req, res) => {
     const { fileId } = req.params;
@@ -447,7 +457,7 @@ app.get('/api/drive/hls/:fileId/playlist.m3u8', sessionMiddleware, async (req, r
     const t = parseFloat(String(req.query.t || 0));
 
     try {
-        driveApi.ensureHlsLive(fileId, t);
+        await driveApi.ensureHlsLive(fileId, t);
         const playlistPath = driveApi.getHlsPlaylistPath(fileId);
         if (!playlistPath || !fs.existsSync(playlistPath)) {
             res.writeHead(200, {

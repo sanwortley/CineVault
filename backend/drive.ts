@@ -4,6 +4,14 @@ import path from 'path'
 import fs from 'fs'
 import os from 'os'
 import { spawn } from 'child_process'
+import axios from 'axios'
+import {
+  isHlsActive,
+  startHlsLive,
+  getOptimizedUploadStream,
+  getTranscodeStream,
+  getFmp4Stream,
+} from './optimizer'
 
 import type { Response } from 'express'
 
@@ -22,6 +30,24 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_SECRET,
   `${BACKEND_URL}/api/auth/callback`
 )
+
+const originalRequest = oauth2Client.request.bind(oauth2Client)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+oauth2Client.request = async function (opts: any) {
+  try {
+    return await originalRequest(opts)
+  } catch (err: any) {
+    if (err && err.message && err.message.toLowerCase().includes('invalid_grant')) {
+      console.error('[OAuth2Client] invalid_grant detected. Disconnecting...')
+      oauth2Client.setCredentials({} as any)
+      const tokenPath = getTokenPath()
+      if (fs.existsSync(tokenPath)) {
+        try { fs.unlinkSync(tokenPath) } catch {}
+      }
+    }
+    throw err
+  }
+}
 
 try {
   const tokenPath = getTokenPath()
@@ -174,8 +200,20 @@ const driveApi = {
   },
 
   getAccessToken: async (): Promise<string> => {
-    const { token } = await oauth2Client.getAccessToken()
-    return token!
+    try {
+      const { token } = await oauth2Client.getAccessToken()
+      return token!
+    } catch (err: any) {
+      if (err && err.message && err.message.toLowerCase().includes('invalid_grant')) {
+        console.error('[Drive] getAccessToken invalid_grant detected. Disconnecting...')
+        oauth2Client.setCredentials({} as any)
+        const tokenPath = getTokenPath()
+        if (fs.existsSync(tokenPath)) {
+          try { fs.unlinkSync(tokenPath) } catch {}
+        }
+      }
+      throw err
+    }
   },
 
   getOAuthClient: () => oauth2Client,
@@ -252,7 +290,6 @@ const driveApi = {
     let body: fs.ReadStream | NodeJS.ReadableStream
     body = fs.createReadStream(filePath)
     if (options.optimize) {
-      const { getOptimizedUploadStream } = require('./optimizer')
       body = getOptimizedUploadStream(filePath)
     }
 
@@ -346,7 +383,6 @@ const driveApi = {
         return driveRes.data as unknown as NodeJS.ReadableStream
       } catch (err) {
         if (apiKey) {
-          const axios = require('axios')
           const driveRes = await axios.get(
             `https://www.googleapis.com/drive/v3/files/${fileId}`,
             {
@@ -360,7 +396,6 @@ const driveApi = {
         throw err
       }
     } else if (apiKey) {
-      const axios = require('axios')
       const driveRes = await axios.get(
         `https://www.googleapis.com/drive/v3/files/${fileId}`,
         {
@@ -379,7 +414,7 @@ const driveApi = {
     const apiKey = process.env.GOOGLE_API_KEY
     if (hasToken) {
       try {
-        const accessToken = (oauth2Client.credentials as { access_token?: string }).access_token
+        const accessToken = await driveApi.getAccessToken()
         if (accessToken) {
           return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true&access_token=${accessToken}`
         }
@@ -442,7 +477,6 @@ const driveApi = {
         fileSize = meta.size
         contentType = meta.mimeType
       } else if (apiKey) {
-        const axios = require('axios')
         const metaRes = await axios.get(
           `https://www.googleapis.com/drive/v3/files/${fileId}`,
           {
@@ -471,20 +505,16 @@ const driveApi = {
           'Cache-Control': 'no-cache',
         })
         try {
-          const { getTranscodeStream } = require('./optimizer')
           const quality = transcodeOptions.quality || '720'
           let transcodeSource: string | NodeJS.ReadableStream
           let headers: string | null = null
           if (hasToken) {
-            const accessToken = (
-              oauth2Client.credentials as { access_token?: string }
-            ).access_token
+            const accessToken = await driveApi.getAccessToken()
             headers = `Authorization: Bearer ${accessToken}`
             transcodeSource = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`
           } else if (apiKey) {
             transcodeSource = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${apiKey}&supportsAllDrives=true`
           } else {
-            const axios = require('axios')
             const driveRes = await axios.get(
               `https://www.googleapis.com/drive/v3/files/${fileId}`,
               {
@@ -495,12 +525,12 @@ const driveApi = {
             transcodeSource = driveRes.data
           }
           const transcodeStream = getTranscodeStream(
-            transcodeSource, startTime, quality, headers,
+            transcodeSource as any, startTime, quality, headers,
             transcodeOptions.audioTrack ? Number(transcodeOptions.audioTrack) : null
           )
           transcodeStream.pipe(res)
           res.on('close', () => {
-            if (transcodeStream.ffmpegCommand) transcodeStream.ffmpegCommand.kill()
+            if (transcodeStream.ffmpegCommand) transcodeStream.ffmpegCommand.kill('SIGKILL')
           })
         } catch (streamErr) {
           const err = streamErr as Error
@@ -526,13 +556,10 @@ const driveApi = {
           'Cache-Control': 'no-cache',
         })
         try {
-          const { getFmp4Stream } = require('./optimizer')
           let sourceUrl: string
           let headers: string | null = null
           if (hasToken) {
-            const accessToken = (
-              oauth2Client.credentials as { access_token?: string }
-            ).access_token
+            const accessToken = await driveApi.getAccessToken()
             headers = `Authorization: Bearer ${accessToken}`
             sourceUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`
           } else if (apiKey) {
@@ -544,7 +571,7 @@ const driveApi = {
           fmp4Stream.pipe(res)
           res.on('close', () => {
             console.log(`[DriveStream] FMP4 client disconnected at ${Date.now() - fmp4Start}ms`)
-            if (fmp4Stream.ffmpegCommand) fmp4Stream.ffmpegCommand.kill()
+            if (fmp4Stream.ffmpegCommand) fmp4Stream.ffmpegCommand.kill('SIGKILL')
           })
         } catch (fmp4Err) {
           const err = fmp4Err as Error
@@ -599,7 +626,7 @@ const driveApi = {
 
       // Only fetch if not cached and file is large enough
       if (!cachedMoov && fileSize > HEAD_SIZE + TAIL_SIZE) {
-        const accessToken = (oauth2Client.credentials as { access_token?: string }).access_token
+        const accessToken = await driveApi.getAccessToken()
         const baseUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`
         const authHeader = { Authorization: `Bearer ${accessToken}` }
 
@@ -746,14 +773,12 @@ const driveApi = {
     }
   },
 
-  ensureHlsLive: (fileId: string, startTime: number = 0): string => {
+  ensureHlsLive: async (fileId: string, startTime: number = 0): Promise<string> => {
     const outputDir = path.join(os.tmpdir(), 'cinevault-hls', fileId)
     fs.mkdirSync(outputDir, { recursive: true })
 
-    const { isHlsActive, startHlsLive } = require('./optimizer')
-
     if (!isHlsActive(fileId)) {
-      const accessToken = (oauth2Client.credentials as { access_token?: string }).access_token
+      const accessToken = await driveApi.getAccessToken()
       const sourceUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`
       const headers = `Authorization: Bearer ${accessToken}`
       startHlsLive(fileId, sourceUrl, outputDir, headers, startTime)
@@ -869,7 +894,6 @@ const driveApi = {
         )
         return pipeDownload(res.data as unknown as NodeJS.ReadableStream)
       } else if (apiKey) {
-        const axios = require('axios')
         const res = await axios.get(
           `https://www.googleapis.com/drive/v3/files/${fileId}`,
           {

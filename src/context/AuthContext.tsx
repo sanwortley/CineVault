@@ -307,7 +307,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await doSave(user.id, user.access_token)
       if (result === 'auth_error') {
         const refreshed = await refreshSession()
-        if (refreshed) await doSave(refreshed.id, refreshed.access_token)
+        if (refreshed && refreshed.access_token) await doSave(refreshed.id, refreshed.access_token)
       }
     } catch (_e) {
       // ignore
