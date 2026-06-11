@@ -203,6 +203,42 @@ async function searchSolid(query: string): Promise<TorrentResult[]> {
   return []
 }
 
+async function searchEZTV(query: string): Promise<TorrentResult[]> {
+  const mirrors = [
+    'https://eztv.re/api/get-active-torrents',
+    'https://eztv.tf/api/get-active-torrents',
+    'https://eztv.yt/api/get-active-torrents',
+  ]
+
+  for (const mirror of mirrors) {
+    try {
+      console.log(`[Searcher] Trying EZTV mirror: ${mirror}`)
+      const response = await axios.get<{ torrents?: any[] }>(mirror, {
+        params: { search: query, limit: 30 },
+        headers: COMMON_HEADERS,
+        timeout: 10000,
+      })
+
+      if (response.data?.torrents && Array.isArray(response.data.torrents)) {
+        return response.data.torrents
+          .filter(t => t.title && (t.magnet_url || t.torrent_url))
+          .map((t) => ({
+            title: t.title,
+            size: t.size_bytes ? (parseInt(t.size_bytes) / (1024 * 1024 * 1024)).toFixed(2) + ' GB' : 'N/A',
+            seeds: parseInt(t.seeds) || 0,
+            link: t.magnet_url || t.torrent_url || '',
+            isHash: false,
+            provider: 'EZTV',
+          }))
+      }
+    } catch (err: unknown) {
+      const error = err as Error
+      console.warn(`[Searcher] EZTV mirror ${mirror} failed:`, error.message)
+    }
+  }
+  return []
+}
+
 function hasSpanishTerm(query: string): boolean {
   const q = query.toLowerCase()
   return /\b(latino|español|espanol|castellano|spanish|dual|multi|esp|spa)\b/i.test(q)
@@ -218,6 +254,7 @@ async function searchGlobal(query: string): Promise<TorrentResult[]> {
     searchSolid(query),
     searchYTS(query),
     searchTPB(query),
+    searchEZTV(query),
   ]
 
   if (!hasSpanishTerm(query)) {
@@ -261,7 +298,11 @@ async function searchGlobal(query: string): Promise<TorrentResult[]> {
 }
 
 async function searchAll(query: string): Promise<TorrentResult[]> {
-  const searches: Promise<TorrentResult[]>[] = [searchYTS(query), searchSolid(query)]
+  const searches: Promise<TorrentResult[]>[] = [
+    searchYTS(query),
+    searchSolid(query),
+    searchEZTV(query),
+  ]
 
   if (!hasSpanishTerm(query)) {
     searches.push(searchSolid(query + ' latino'))
