@@ -339,6 +339,25 @@ function detectResultLang(title: string): { badge: string; color: string } | nul
   return null
 }
 
+function detectTorrentEpisode(title: string): string | null {
+  const match = title.match(/\b[Ss](\d{1,2})[Ee](\d{1,2})\b/)
+  if (match) {
+    const s = parseInt(match[1], 10)
+    const e = parseInt(match[2], 10)
+    return `T${s} • E${e}`
+  }
+  const matchSeason = title.match(/\b[Ss]eason\s*(\d{1,2})\b/i)
+  const matchEp = title.match(/\b[Ee]pisode\s*(\d{1,2})\b/i)
+  if (matchSeason && matchEp) {
+    return `T${matchSeason[1]} • E${matchEp[1]}`
+  }
+  const packMatch = title.match(/\b[Ss]ea?s?o?n?\s*(\d{1,2})\b/i)
+  if (packMatch) {
+    return `TEMP ${packMatch[1]} (PACK)`
+  }
+  return null
+}
+
 interface GlobalResultCardProps {
   result: { title: string; size: string; seeds: number; provider: string; link?: string }
   onDownload: () => void
@@ -348,6 +367,7 @@ interface GlobalResultCardProps {
 
 function GlobalResultCard({ result, onDownload, isAdmin, isDownloading }: GlobalResultCardProps) {
   const langInfo = detectResultLang(result.title)
+  const epInfo = detectTorrentEpisode(result.title)
   return (
     <div
       className={`bg-white/5 border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-6 flex flex-col justify-between transition-all group ${!isMobile ? 'hover:bg-white/[0.08]' : ''}`}
@@ -357,6 +377,11 @@ function GlobalResultCard({ result, onDownload, isAdmin, isDownloading }: Global
           <span className="px-2 py-0.5 bg-cyan-500/10 text-cyan-400 text-[7px] md:text-[8px] font-black uppercase rounded-md border border-cyan-500/20">{result.provider}</span>
           {langInfo && (
             <span className={`px-2 py-0.5 text-[7px] md:text-[8px] font-black uppercase rounded-md border ${langInfo.color}`}>{langInfo.badge}</span>
+          )}
+          {epInfo && (
+            <span className="px-2 py-0.5 bg-netflix-red/20 text-netflix-red text-[7px] md:text-[8px] font-black uppercase rounded-md border border-netflix-red/30">
+              SERIE ({epInfo})
+            </span>
           )}
         </div>
         <h3 className="text-xs md:text-sm font-black text-white leading-snug group-hover:text-cyan-400 transition-colors line-clamp-2 mb-3 md:mb-4">{result.title}</h3>
