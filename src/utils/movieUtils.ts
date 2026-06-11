@@ -75,5 +75,15 @@ export const groupMoviesByTitle = (moviesList: Movie[]): MovieGroup[] => {
     }
   })
 
-  return Object.values(groups)
+  return Object.values(groups).map((group) => {
+    if (group.media_type === 'episode' || group.versions.some((v) => v.media_type === 'episode')) {
+      group.versions.sort((a, b) => {
+        const sA = a.season_number || 1
+        const sB = b.season_number || 1
+        if (sA !== sB) return sA - sB
+        return (a.episode_number || 1) - (b.episode_number || 1)
+      })
+    }
+    return group
+  })
 }

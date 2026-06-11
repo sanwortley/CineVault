@@ -8,3 +8,4 @@ ALTER TABLE movies ADD COLUMN IF NOT EXISTS episode_title TEXT;
 -- Índices para optimizar las consultas de series
 CREATE INDEX IF NOT EXISTS idx_movies_media_type ON movies(media_type);
 CREATE INDEX IF NOT EXISTS idx_movies_series_title ON movies(series_title);
+CREATE INDEX IF NOT EXISTS idx_movies_series_season_episode ON movies(series_title, season_number, episode_number);
