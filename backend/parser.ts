@@ -3,10 +3,47 @@ interface NormalizedResult {
   year: number | null
   language: string
   quality: string
+  season: number | null
+  episode: number | null
 }
 
 function normalizeFilename(fileName: string): NormalizedResult {
   let name = fileName.replace(/\.[^/.]+$/, "")
+
+  let season: number | null = null
+  let episode: number | null = null
+
+  const sxsPattern = /(?:s|season\s*)(\d{1,2})(?:\s*e|\s*ep|\s*episode\s*|\s*x\s*)(\d{1,2})\b/i
+  const xPattern = /\b(\d{1,2})x(\d{1,2})\b/i
+
+  let match = name.match(sxsPattern)
+  if (match) {
+    season = parseInt(match[1])
+    episode = parseInt(match[2])
+    // Cut the title at the episode pattern to avoid leftover trailing text
+    const idx = name.indexOf(match[0])
+    if (idx !== -1) {
+      name = name.substring(0, idx)
+    } else {
+      name = name.replace(match[0], "")
+    }
+  } else {
+    match = name.match(xPattern)
+    if (match) {
+      const s = parseInt(match[1])
+      const e = parseInt(match[2])
+      if (s < 30 && e < 100) {
+        season = s
+        episode = e
+        const idx = name.indexOf(match[0])
+        if (idx !== -1) {
+          name = name.substring(0, idx)
+        } else {
+          name = name.replace(match[0], "")
+        }
+      }
+    }
+  }
 
   const patterns = [
     /\d{3,4}p/gi,
@@ -52,6 +89,8 @@ function normalizeFilename(fileName: string): NormalizedResult {
     year,
     language,
     quality,
+    season,
+    episode,
   }
 }
 

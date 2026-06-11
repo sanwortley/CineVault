@@ -42,8 +42,9 @@ router.get('/search', async (req: Request, res: Response) => {
     return
   }
   try {
-    const data = (await fetchTMDB('/search/movie', { query })) as { results: unknown[] }
-    res.json(data.results)
+    const data = (await fetchTMDB('/search/multi', { query })) as { results: any[] }
+    const filtered = (data.results || []).filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv')
+    res.json(filtered)
   } catch (err) {
     res.status(500).json({ error: 'Error en la búsqueda' })
   }
@@ -77,37 +78,42 @@ router.post('/download', adminMiddleware, async (req: Request, res: Response) =>
   }
 
   try {
+    const { clean_title, year: parsedYear, season, episode } = normalizeFilename(title)
+    let isTv = season !== null && episode !== null
+
     let tmdbDetails: Record<string, unknown> | null = null
     const isNumericId = !isNaN(parseInt(movieId)) && /^\d+$/.test(String(movieId))
 
     if (isNumericId) {
       try {
-        tmdbDetails = (await fetchTMDB(`/movie/${movieId}`)) as Record<string, unknown>
+        const endpoint = isTv ? `/tv/${movieId}` : `/movie/${movieId}`
+        tmdbDetails = (await fetchTMDB(endpoint)) as Record<string, unknown>
       } catch (tmdbErr) {
-        const error = tmdbErr as Error
-        console.warn(
-          `[Discover] Failed to fetch TMDB details for ID ${movieId}:`,
-          error.message
-        )
+        try {
+          const endpoint = isTv ? `/movie/${movieId}` : `/tv/${movieId}`
+          tmdbDetails = (await fetchTMDB(endpoint)) as Record<string, unknown>
+          if (tmdbDetails) isTv = !isTv
+        } catch (e) {
+          // Both failed
+        }
       }
     }
 
     if (!tmdbDetails) {
-      const { clean_title, year: parsedYear } = normalizeFilename(title)
       console.log(
         `[Discover] Pre-match normalization: "${title}" -> "${clean_title}" (${parsedYear || 'N/A'})`
       )
       try {
-        const searchResults = (await fetchTMDB('/search/movie', {
+        const searchResults = (await fetchTMDB(isTv ? '/search/tv' : '/search/movie', {
           query: clean_title,
           year: parsedYear ? String(parsedYear) : (year || ''),
         })) as { results?: { id: number }[] }
         if (searchResults.results && searchResults.results.length > 0) {
           tmdbDetails = (await fetchTMDB(
-            `/movie/${searchResults.results[0].id}`
+            isTv ? `/tv/${searchResults.results[0].id}` : `/movie/${searchResults.results[0].id}`
           )) as Record<string, unknown>
           console.log(
-            `[Discover] Encontrado match oficial en TMDB: "${(tmdbDetails as { title?: string }).title}"`
+            `[Discover] Encontrado match oficial en TMDB: "${(tmdbDetails as { title?: string; name?: string }).title || (tmdbDetails as { title?: string; name?: string }).name}"`
           )
         }
       } catch (searchErr) {
@@ -119,10 +125,12 @@ router.post('/download', adminMiddleware, async (req: Request, res: Response) =>
       }
     }
 
-    const { clean_title, year: parsedYear, language, quality } = normalizeFilename(title)
+    const { language, quality } = normalizeFilename(title)
     let finalOfficialTitle =
-      (tmdbDetails as { title?: string; original_title?: string })?.title ||
+      (tmdbDetails as { title?: string; name?: string })?.title ||
+      (tmdbDetails as { title?: string; name?: string })?.name ||
       (tmdbDetails as { original_title?: string })?.original_title ||
+      (tmdbDetails as { original_name?: string })?.original_name ||
       title ||
       ''
 
@@ -140,9 +148,9 @@ router.post('/download', adminMiddleware, async (req: Request, res: Response) =>
       const ratings = await getOMDbDetails(
         finalOfficialTitle,
         year ||
-          ((tmdbDetails as { release_date?: string })?.release_date?.substring(0, 4) as string) ||
+          ((tmdbDetails as { release_date?: string; first_air_date?: string })?.release_date || (tmdbDetails as { release_date?: string; first_air_date?: string })?.first_air_date || '')?.substring(0, 4) ||
           null,
-        (tmdbDetails as { original_title?: string })?.original_title || null
+        (tmdbDetails as { original_title?: string; original_name?: string })?.original_title || (tmdbDetails as { original_title?: string; original_name?: string })?.original_name || null
       )
       if (ratings) omdbDetails = ratings
     } catch (omdbErr) {
@@ -150,31 +158,57 @@ router.post('/download', adminMiddleware, async (req: Request, res: Response) =>
       console.warn('[Discover] OMDb fetch failed:', error.message)
     }
 
+    let epDetails: any = null
+    if (isTv && tmdbDetails && season !== null && episode !== null) {
+      try {
+        const epData = await fetchTMDB(`/tv/${tmdbDetails.id}/season/${season}/episode/${episode}`)
+        if (epData) {
+          epDetails = {
+            name: epData.name,
+            overview: epData.overview,
+            still_path: epData.still_path,
+            vote_average: epData.vote_average
+          }
+        }
+      } catch (e) {}
+    }
+
     let movie = await db.addMovie({
-      official_title: finalOfficialTitle,
+      official_title: isTv ? `${finalOfficialTitle} - S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}` : finalOfficialTitle,
       detected_title: title || '',
       detected_year: (year ||
-        (tmdbDetails as { release_date?: string })?.release_date?.substring(0, 4) ||
+        ((tmdbDetails as { release_date?: string; first_air_date?: string })?.release_date || (tmdbDetails as { release_date?: string; first_air_date?: string })?.first_air_date || '')?.substring(0, 4) ||
         String(new Date().getFullYear())) as string,
       file_name: title || 'unknown_movie',
       file_path: `remote://cloud-ingestion/${title || 'unknown'}`,
       file_size: 0,
       extension: '.mp4',
       drive_file_id: 'pending_cloud',
+      media_type: isTv ? 'episode' : 'movie',
+      series_title: isTv ? finalOfficialTitle : null,
+      season_number: isTv ? season : null,
+      episode_number: isTv ? episode : null,
+      episode_title: isTv ? (epDetails?.name || `Episodio ${episode}`) : null,
       poster_url:
         (tmdbDetails as { poster_url?: string })?.poster_url ||
         ((tmdbDetails as { poster_path?: string })?.poster_path
           ? `https://image.tmdb.org/t/p/w500${(tmdbDetails as { poster_path: string }).poster_path}`
           : ''),
-      backdrop_url: (tmdbDetails as { backdrop_url?: string })?.backdrop_url || '',
-      overview: (tmdbDetails as { overview?: string })?.overview || '',
+      backdrop_url: (tmdbDetails as { backdrop_url?: string })?.backdrop_url || 
+        ((tmdbDetails as { backdrop_path?: string })?.backdrop_path
+          ? `https://image.tmdb.org/t/p/original${(tmdbDetails as { backdrop_path: string }).backdrop_path}`
+          : ''),
+      overview: isTv ? (epDetails?.overview || (tmdbDetails as { overview?: string })?.overview || '') : ((tmdbDetails as { overview?: string })?.overview || ''),
       genres: Array.isArray((tmdbDetails as { genres?: { name: string }[] })?.genres)
         ? (tmdbDetails as { genres: { name: string }[] }).genres.map((g) => g.name).join(', ')
         : ((tmdbDetails as { genres?: string })?.genres || ''),
       director: (tmdbDetails as { director?: string })?.director || '',
       cast: (tmdbDetails as { cast?: string })?.cast || '',
-      rating: (tmdbDetails as { rating?: number })?.rating || 0,
-      runtime: (tmdbDetails as { runtime?: number })?.runtime || 0,
+      rating: isTv ? (epDetails?.vote_average || (tmdbDetails as { rating?: number })?.rating || 0) : ((tmdbDetails as { rating?: number })?.rating || 0),
+      runtime: (tmdbDetails as { runtime?: number })?.runtime || 
+        ((tmdbDetails as { episode_run_time?: number[] })?.episode_run_time && (tmdbDetails as { episode_run_time: number[] }).episode_run_time.length > 0
+          ? (tmdbDetails as { episode_run_time: number[] }).episode_run_time[0]
+          : 0),
       ...omdbDetails,
     })
 

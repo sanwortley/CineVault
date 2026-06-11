@@ -49,8 +49,26 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [] as { id: number
   const versions = movie.versions || [movie]
   const [selectedVersion, setSelectedVersion] = useState<DetailMovie>(movie)
 
+  const isSeries = versions.some(v => v.media_type === 'episode')
+  const seasonsMap: Record<number, DetailMovie[]> = {}
+  if (isSeries) {
+    versions.forEach(v => {
+      const s = v.season_number || 1
+      if (!seasonsMap[s]) seasonsMap[s] = []
+      seasonsMap[s].push(v)
+    })
+    Object.keys(seasonsMap).forEach(s => {
+      seasonsMap[Number(s)].sort((a, b) => (a.episode_number || 1) - (b.episode_number || 1))
+    })
+  }
+  const sortedSeasons = Object.keys(seasonsMap).map(Number).sort((a, b) => a - b)
+  const [activeSeason, setActiveSeason] = useState<number>(sortedSeasons[0] || 1)
+
   useEffect(() => {
     setSelectedVersion(movie)
+    if (sortedSeasons.length > 0) {
+      setActiveSeason(sortedSeasons[0])
+    }
   }, [movie])
 
   const title = official_title || detected_title || ''
@@ -188,7 +206,7 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [] as { id: number
           <div className="space-y-4 mb-8">
             <div className="flex flex-wrap items-center gap-3">
               <span className="px-3 py-1 bg-netflix-red/20 text-netflix-red text-xs font-bold tracking-widest rounded-full uppercase">
-                Película
+                {isSeries ? 'Serie' : 'Película'}
               </span>
               <div className="flex items-center gap-1 text-yellow-500">
                 <Star size={16} fill="currentColor" />
@@ -275,35 +293,136 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [] as { id: number
             </div>
           )}
 
-          {versions.length > 1 && (
-            <div className="mb-10">
-              <h3 className="text-xs uppercase font-black tracking-[0.2em] text-white/80 mb-4">Versiones Disponibles</h3>
-              <div className="flex flex-wrap gap-3">
-                {versions.map((ver) => {
-                  const vInfo = detectVersionInfo(ver)
-                  const isSelected = String(ver.id) === String(selectedVersion.id)
-                  return (
-                    <button
-                      key={ver.id}
-                      onClick={() => setSelectedVersion(ver)}
-                      className={`px-5 py-3 rounded-xl border text-xs font-black uppercase tracking-widest transition-all ${
-                        isSelected
-                        ? 'bg-netflix-red border-netflix-red text-white shadow-[0_0_20px_rgba(229,9,20,0.4)] scale-105'
-                        : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
-                      }`}
-                    >
-                      {vInfo.label}
-                    </button>
-                  )
-                })}
+          {isSeries ? (
+            <div className="space-y-6 text-left">
+              {sortedSeasons.length > 0 && (
+                <div className="mb-6 border-b border-white/5 pb-4">
+                  <h3 className="text-xs uppercase font-black tracking-[0.2em] text-white/80 mb-4">Temporadas</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {sortedSeasons.map(s => (
+                      <button
+                        key={s}
+                        onClick={() => setActiveSeason(s)}
+                        className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                          activeSeason === s
+                            ? 'bg-netflix-red text-white shadow-[0_0_15px_rgba(229,9,20,0.3)]'
+                            : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        Temporada {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-4 mb-8">
+                <h3 className="text-xs uppercase font-black tracking-[0.2em] text-white/80 mb-4">Capítulos</h3>
+                <div className="grid grid-cols-1 gap-3 max-h-[350px] overflow-y-auto pr-2 no-scrollbar">
+                  {(seasonsMap[activeSeason] || []).map(ep => {
+                    const hasDriveId = !!ep.drive_file_id
+                    const isEpInQueue = queue.some(item => String(item.id) === String(ep.id))
+
+                    return (
+                      <div key={ep.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-2xl gap-4 group/ep hover:bg-white/[0.06] hover:border-white/10 transition-all">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="text-xs font-black text-netflix-red uppercase tracking-wider">
+                              Episodio {ep.episode_number}
+                            </span>
+                            <h4 className="text-sm font-bold text-white truncate max-w-[300px]">
+                              {ep.episode_title || ep.official_title || `Capítulo ${ep.episode_number}`}
+                            </h4>
+                            {hasDriveId && (
+                              <span className="px-1.5 py-0.5 bg-green-500/10 border border-green-500/20 text-green-400 text-[8px] font-black uppercase tracking-wider rounded">Nube</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                            {ep.overview || 'Sin descripción disponible para este episodio.'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
+                          {hasDriveId ? (
+                            <button
+                              onClick={() => { onPlay(ep); onClose() }}
+                              className="px-4 py-2 bg-white text-black font-black text-xs uppercase tracking-wider rounded-xl hover:bg-zinc-200 transition-all flex items-center gap-2 shadow-lg group-hover/ep:scale-105 active:scale-95"
+                            >
+                              <Play size={14} fill="currentColor" />
+                              <span>Reproducir</span>
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              {isAdmin() && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); if(!isEpInQueue) addToQueue(ep) }}
+                                  disabled={isEpInQueue}
+                                  className="p-2 bg-slate-800 hover:bg-cyan-500/20 hover:text-cyan-400 text-slate-400 rounded-xl transition-all border border-white/5 hover:border-cyan-500/50"
+                                  title="Subir a Drive"
+                                >
+                                  <Cloud size={16} />
+                                </button>
+                              )}
+                              <span className="text-[10px] font-black uppercase text-amber-500 bg-amber-500/10 px-3 py-1.5 border border-amber-500/20 rounded-xl">Local</span>
+                            </div>
+                          )}
+                          {isAdmin() && (
+                            <button
+                              onClick={async () => {
+                                if (window.confirm(`¿Estás seguro de que deseas eliminar este capítulo?`)) {
+                                  try {
+                                    await api.deleteMovie(ep.id)
+                                    window.dispatchEvent(new Event('library-updated'))
+                                    onClose()
+                                  } catch (err) {
+                                    const error = err as Error
+                                    alert('Error al borrar: ' + error.message)
+                                  }
+                                }
+                              }}
+                              className="p-2 bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-all"
+                              title="Eliminar Capítulo"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             </div>
+          ) : (
+            versions.length > 1 && (
+              <div className="mb-10">
+                <h3 className="text-xs uppercase font-black tracking-[0.2em] text-white/80 mb-4">Versiones Disponibles</h3>
+                <div className="flex flex-wrap gap-3">
+                  {versions.map((ver) => {
+                    const vInfo = detectVersionInfo(ver)
+                    const isSelected = String(ver.id) === String(selectedVersion.id)
+                    return (
+                      <button
+                        key={ver.id}
+                        onClick={() => setSelectedVersion(ver)}
+                        className={`px-5 py-3 rounded-xl border text-xs font-black uppercase tracking-widest transition-all ${
+                          isSelected
+                          ? 'bg-netflix-red border-netflix-red text-white shadow-[0_0_20px_rgba(229,9,20,0.4)] scale-105'
+                          : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        {vInfo.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )
           )}
 
           <div className="flex flex-col gap-4 md:gap-6 mt-8">
             {isLibraryMovie ? (
               <>
-                {drive_file_id && (
+                {drive_file_id && !isSeries && (
                   <button
                     onClick={() => { onPlay(selectedVersion); onClose() }}
                     className="w-full md:w-auto px-8 py-5 bg-white text-black rounded-[2rem] font-black flex items-center justify-center md:justify-start gap-3 hover:bg-zinc-200 transition-all duration-300 transform hover:scale-[1.02] active:scale-95 shadow-2xl shadow-white/5 group"

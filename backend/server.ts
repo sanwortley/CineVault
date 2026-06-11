@@ -25,7 +25,7 @@ import ffmpeg from 'fluent-ffmpeg'
 
 import driveApi from './drive'
 import db from './db'
-import { searchMovie, getMovieDetails, getOMDbDetails } from './tmdb'
+import { searchMovie, getMovieDetails, getOMDbDetails, searchTVShow, getTVShowDetails, getEpisodeDetails } from './tmdb'
 import { getTranscodeStream, probeAudioTracks } from './optimizer'
 import discoverRouter from './discover'
 import uploadManager from './uploadManager'
@@ -1495,14 +1495,34 @@ app.post('/api/folders', sessionMiddleware, adminMiddleware, async (req, res) =>
             try {
                 const files = await scanDirectory(folder_path);
                 for (const file of files) {
-                    const { clean_title, year } = normalizeFilename(file.file_name);
-                    const movie = await searchMovie(clean_title, year as any);
-                    let metadata = {};
-                    if (movie) {
-                        const tmdbDetails = await getMovieDetails(movie.id);
-                        if (tmdbDetails) {
-                            const omdbDetails = await getOMDbDetails(tmdbDetails.official_title, year as any);
-                            metadata = { ...tmdbDetails, ...omdbDetails };
+                    const { clean_title, year, season, episode } = normalizeFilename(file.file_name);
+                    let metadata: any = {};
+                    if (season !== null && episode !== null) {
+                        const tvShow = await searchTVShow(clean_title, year as any);
+                        if (tvShow) {
+                            const tvDetails = await getTVShowDetails(tvShow.id);
+                            if (tvDetails) {
+                                const epDetails = await getEpisodeDetails(tvShow.id, season, episode);
+                                metadata = {
+                                    ...tvDetails,
+                                    media_type: 'episode',
+                                    series_title: tvDetails.official_title,
+                                    season_number: season,
+                                    episode_number: episode,
+                                    episode_title: epDetails?.name || `Episodio ${episode}`,
+                                    official_title: `${tvDetails.official_title} - S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`,
+                                    overview: epDetails?.overview || tvDetails.overview,
+                                };
+                            }
+                        }
+                    } else {
+                        const movie = await searchMovie(clean_title, year as any);
+                        if (movie) {
+                            const tmdbDetails = await getMovieDetails(movie.id);
+                            if (tmdbDetails) {
+                                const omdbDetails = await getOMDbDetails(tmdbDetails.official_title, year as any);
+                                metadata = { ...tmdbDetails, ...omdbDetails, media_type: 'movie' };
+                            }
                         }
                     }
                     
@@ -1567,14 +1587,34 @@ app.post('/api/library/refresh', sessionMiddleware, adminMiddleware, async (req,
                     const files = await scanDirectory(folder.folder_path);
                     for (const file of files) {
                         try {
-                            const { clean_title, year } = normalizeFilename(file.file_name);
-                            const movie = await searchMovie(clean_title, year as any);
-                            let metadata = {};
-                            if (movie) {
-                                const tmdbDetails = await getMovieDetails(movie.id);
-                                if (tmdbDetails) {
-                                    const omdbDetails = await getOMDbDetails(tmdbDetails.official_title, year as any);
-                                    metadata = { ...tmdbDetails, ...omdbDetails };
+                            const { clean_title, year, season, episode } = normalizeFilename(file.file_name);
+                            let metadata: any = {};
+                            if (season !== null && episode !== null) {
+                                const tvShow = await searchTVShow(clean_title, year as any);
+                                if (tvShow) {
+                                    const tvDetails = await getTVShowDetails(tvShow.id);
+                                    if (tvDetails) {
+                                        const epDetails = await getEpisodeDetails(tvShow.id, season, episode);
+                                        metadata = {
+                                            ...tvDetails,
+                                            media_type: 'episode',
+                                            series_title: tvDetails.official_title,
+                                            season_number: season,
+                                            episode_number: episode,
+                                            episode_title: epDetails?.name || `Episodio ${episode}`,
+                                            official_title: `${tvDetails.official_title} - S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`,
+                                            overview: epDetails?.overview || tvDetails.overview,
+                                        };
+                                    }
+                                }
+                            } else {
+                                const movie = await searchMovie(clean_title, year as any);
+                                if (movie) {
+                                    const tmdbDetails = await getMovieDetails(movie.id);
+                                    if (tmdbDetails) {
+                                        const omdbDetails = await getOMDbDetails(tmdbDetails.official_title, year as any);
+                                        metadata = { ...tmdbDetails, ...omdbDetails, media_type: 'movie' };
+                                    }
                                 }
                             }
 

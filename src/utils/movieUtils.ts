@@ -48,11 +48,15 @@ export const groupMoviesByTitle = (moviesList: Movie[]): MovieGroup[] => {
 
   moviesList.forEach((movie) => {
     if (!movie) return
-    const key = `${(movie.official_title || movie.detected_title || 'Unknown').trim().toLowerCase()}|${movie.detected_year || '0'}`
+
+    const isEp = movie.media_type === 'episode'
+    const titleKey = isEp ? (movie.series_title || 'Unknown Series') : (movie.official_title || movie.detected_title || 'Unknown')
+    const key = isEp ? `${titleKey.trim().toLowerCase()}|series` : `${titleKey.trim().toLowerCase()}|${movie.detected_year || '0'}`
 
     if (!groups[key]) {
       groups[key] = {
         ...movie,
+        official_title: isEp ? titleKey : movie.official_title,
         versions: [movie],
       } as MovieGroup
     } else {
@@ -64,6 +68,9 @@ export const groupMoviesByTitle = (moviesList: Movie[]): MovieGroup[] => {
         const versions = groups[key].versions
         Object.assign(groups[key], movie)
         groups[key].versions = versions
+        if (isEp) {
+          groups[key].official_title = titleKey
+        }
       }
     }
   })

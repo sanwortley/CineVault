@@ -41,6 +41,11 @@ export interface Movie {
   original_resolution?: string | null
   certification?: string | null
   adult?: boolean
+  media_type?: 'movie' | 'episode' | null
+  series_title?: string | null
+  season_number?: number | null
+  episode_number?: number | null
+  episode_title?: string | null
 }
 
 export interface Folder {

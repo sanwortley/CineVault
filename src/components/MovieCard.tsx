@@ -35,7 +35,15 @@ function MovieCard({ movie, onPlay, onInfo, compact = false, myList = [] as { id
 
   const handlePlay = (e: React.MouseEvent) => {
     e.stopPropagation()
-    onPlay?.(movie)
+    if (movie.media_type === 'episode' && 'versions' in movie && movie.versions && movie.versions.length > 0) {
+      const sorted = [...movie.versions].sort((a, b) => {
+        if (a.season_number !== b.season_number) return (a.season_number || 1) - (b.season_number || 1)
+        return (a.episode_number || 1) - (b.episode_number || 1)
+      })
+      onPlay?.(sorted[0])
+    } else {
+      onPlay?.(movie)
+    }
   }
 
   const [isImageLoaded, setIsImageLoaded] = useState(false)
@@ -82,11 +90,15 @@ function MovieCard({ movie, onPlay, onInfo, compact = false, myList = [] as { id
               <Cloud size={10} strokeWidth={3} />
             </div>
           )}
-          {'versions' in movie && movie.versions && movie.versions.length > 1 && (
+          {movie.media_type === 'episode' ? (
+            <div className="px-1.5 py-0.5 bg-netflix-red/95 rounded text-[8px] font-black text-white border border-white/10 flex items-center gap-1 shadow-lg">
+              <span>SERIE</span>
+            </div>
+          ) : ('versions' in movie && movie.versions && movie.versions.length > 1 && (
             <div className="px-1.5 py-0.5 bg-netflix-red/90 rounded text-[8px] font-black text-white border border-white/10 flex items-center gap-1 shadow-lg">
               <span>{movie.versions.length} VERSIONES</span>
             </div>
-          )}
+          ))}
         </div>
 
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-2 sm:p-4 z-10">
@@ -131,7 +143,11 @@ function MovieCard({ movie, onPlay, onInfo, compact = false, myList = [] as { id
           <div className="flex items-center gap-2 text-[10px] font-bold text-white mb-1">
             <span className="text-green-500">98% para ti</span>
             <span className="border border-white/40 px-1 rounded-[1px] text-[8px]">16+</span>
-            <span>{detected_year}</span>
+            {movie.media_type === 'episode' && 'versions' in movie && movie.versions ? (
+              <span>{movie.versions.length} {movie.versions.length === 1 ? 'Capítulo' : 'Capítulos'}</span>
+            ) : (
+              <span>{detected_year}</span>
+            )}
           </div>
         </div>
 
