@@ -41,7 +41,7 @@ export interface Movie {
   original_resolution?: string | null
   certification?: string | null
   adult?: boolean
-  media_type?: 'movie' | 'episode' | null
+  media_type?: 'movie' | 'episode' | 'tv' | null
   series_title?: string | null
   season_number?: number | null
   episode_number?: number | null

@@ -337,6 +337,14 @@ export const api = {
     )
   },
 
+  getTVDetails: (tvId: number | string): Promise<any> => {
+    return backendFetch(`/api/discover/tv/${tvId}`)
+  },
+
+  getTVSeasonDetails: (tvId: number | string, seasonNumber: number | string): Promise<any> => {
+    return backendFetch(`/api/discover/tv/${tvId}/season/${seasonNumber}`)
+  },
+
   downloadMovie: (
     tmdbId: string,
     title: string,

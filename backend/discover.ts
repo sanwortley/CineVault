@@ -310,4 +310,22 @@ router.get('/deep-search', async (req: Request, res: Response) => {
   }
 })
 
+router.get('/tv/:id', async (req: Request, res: Response) => {
+  try {
+    const data = await fetchTMDB(`/tv/${req.params.id}`, { append_to_response: 'credits' })
+    res.json(data)
+  } catch (err) {
+    res.status(500).json({ error: 'Error al obtener detalles de la serie' })
+  }
+})
+
+router.get('/tv/:id/season/:season_number', async (req: Request, res: Response) => {
+  try {
+    const data = await fetchTMDB(`/tv/${req.params.id}/season/${req.params.season_number}`)
+    res.json(data)
+  } catch (err) {
+    res.status(500).json({ error: 'Error al obtener episodios de la temporada' })
+  }
+})
+
 export default router

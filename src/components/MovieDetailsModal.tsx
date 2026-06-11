@@ -22,9 +22,10 @@ interface MovieDetailsModalProps {
   onPlay: (movie: DetailMovie) => void
   myList?: { id: number }[]
   toggleMyList?: (movie: DetailMovie) => void
+  libraryMovies?: Movie[]
 }
 
-function MovieDetailsModal({ movie, onClose, onPlay, myList = [] as { id: number }[], toggleMyList }: MovieDetailsModalProps) {
+function MovieDetailsModal({ movie, onClose, onPlay, myList = [] as { id: number }[], toggleMyList, libraryMovies = [] as Movie[] }: MovieDetailsModalProps) {
   if (!movie) return null
 
   const {
@@ -50,6 +51,16 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [] as { id: number
   const [selectedVersion, setSelectedVersion] = useState<DetailMovie>(movie)
 
   const isSeries = versions.some(v => v.media_type === 'episode')
+  const isOnlineTV = movie.media_type === 'tv' && !movie.file_path
+
+  const [onlineSeasons, setOnlineSeasons] = useState<any[]>([])
+  const [onlineEpisodes, setOnlineEpisodes] = useState<any[]>([])
+  const [isLoadingTV, setIsLoadingTV] = useState(false)
+
+  const [searchingTorrentsEpId, setSearchingTorrentsEpId] = useState<number | string | null>(null)
+  const [epTorrents, setEpTorrents] = useState<TorrentResult[]>([])
+  const [isSearchingEpTorrents, setIsSearchingEpTorrents] = useState(false)
+
   const seasonsMap: Record<number, DetailMovie[]> = {}
   if (isSeries) {
     versions.forEach(v => {
@@ -62,14 +73,124 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [] as { id: number
     })
   }
   const sortedSeasons = Object.keys(seasonsMap).map(Number).sort((a, b) => a - b)
-  const [activeSeason, setActiveSeason] = useState<number>(sortedSeasons[0] || 1)
+  const [activeSeason, setActiveSeason] = useState<number>(1)
 
   useEffect(() => {
     setSelectedVersion(movie)
-    if (sortedSeasons.length > 0) {
+    if (isSeries && sortedSeasons.length > 0) {
       setActiveSeason(sortedSeasons[0])
     }
-  }, [movie])
+  }, [movie, isSeries])
+
+  useEffect(() => {
+    if (isOnlineTV && movie.id) {
+      setIsLoadingTV(true)
+      api.getTVDetails(movie.tmdb_id || movie.id)
+        .then((details: any) => {
+          if (details && details.seasons) {
+            const filtered = details.seasons.filter((s: any) => s.season_number > 0)
+            setOnlineSeasons(filtered)
+            if (filtered.length > 0) {
+              setActiveSeason(filtered[0].season_number)
+            }
+          }
+        })
+        .catch(err => console.error('Error fetching TV details:', err))
+        .finally(() => setIsLoadingTV(false))
+    }
+  }, [movie.id, isOnlineTV])
+
+  useEffect(() => {
+    if (isOnlineTV && movie.id && activeSeason) {
+      setIsLoadingTV(true)
+      api.getTVSeasonDetails(movie.tmdb_id || movie.id, activeSeason)
+        .then((seasonData: any) => {
+          if (seasonData && seasonData.episodes) {
+            setOnlineEpisodes(seasonData.episodes)
+          }
+        })
+        .catch(err => console.error('Error fetching TV season details:', err))
+        .finally(() => setIsLoadingTV(false))
+    }
+  }, [movie.id, activeSeason, isOnlineTV])
+
+  const showAsSeries = isSeries || isOnlineTV
+
+  const seasonsList = isOnlineTV 
+    ? onlineSeasons.map(s => s.season_number) 
+    : sortedSeasons
+
+  const episodesList = isOnlineTV
+    ? onlineEpisodes.map(ep => {
+        const showTitle = movie.official_title || movie.title || ''
+        const downloadedEp = libraryMovies.find(m => 
+          m.media_type === 'episode' && 
+          (m.series_title?.toLowerCase() === showTitle.toLowerCase() || 
+           m.official_title?.toLowerCase().includes(showTitle.toLowerCase())) && 
+          m.season_number === activeSeason && 
+          m.episode_number === ep.episode_number
+        )
+
+        return {
+          id: downloadedEp?.id || ep.id,
+          episode_number: ep.episode_number,
+          episode_title: ep.name,
+          overview: ep.overview,
+          drive_file_id: downloadedEp?.drive_file_id || null,
+          file_path: downloadedEp?.file_path || null,
+          still_url: ep.still_path ? `https://image.tmdb.org/t/p/w500${ep.still_path}` : null,
+          downloadedVersion: downloadedEp || null
+        }
+      })
+    : (seasonsMap[activeSeason] || []).map(ep => ({
+        id: ep.id,
+        episode_number: ep.episode_number,
+        episode_title: ep.episode_title || ep.official_title || `Episodio ${ep.episode_number}`,
+        overview: ep.overview,
+        drive_file_id: ep.drive_file_id,
+        file_path: ep.file_path,
+        still_url: null,
+        downloadedVersion: ep
+      }))
+
+  const handleSearchEpTorrents = async (ep: any) => {
+    setSearchingTorrentsEpId(ep.id)
+    setIsSearchingEpTorrents(true)
+    try {
+      const q = `${movie.official_title} S${String(activeSeason).padStart(2, '0')}E${String(ep.episode_number).padStart(2, '0')}`
+      const data = await api.findTorrents(q) as TorrentResult[]
+      setEpTorrents(data)
+    } catch(err) {
+      console.error(err)
+    } finally {
+      setIsSearchingEpTorrents(false)
+    }
+  }
+
+  const handleDownloadEp = async (torrent: TorrentResult, ep: any) => {
+    setDownloadingMovieId(String(ep.id))
+    try {
+      const result = await api.downloadMovie(
+        String(movie.tmdb_id || movie.id),
+        `${movie.official_title} S${String(activeSeason).padStart(2, '0')}E${String(ep.episode_number).padStart(2, '0')}`,
+        torrent.link,
+        movie.detected_year || new Date().getFullYear().toString(),
+        { isPage: (torrent as any).isPage, isHash: (torrent as any).isHash }
+      ) as { movieId?: number }
+
+      const registeredMovieId = result?.movieId || ep.id
+      addToQueue({
+        id: registeredMovieId,
+        official_title: `${movie.official_title} S${String(activeSeason).padStart(2, '0')}E${String(ep.episode_number).padStart(2, '0')}`,
+        _directQueue: true
+      })
+      setSearchingTorrentsEpId(null)
+    } catch (err) {
+      alert('Error al iniciar la descarga: ' + (err as Error).message)
+    } finally {
+      setDownloadingMovieId(null)
+    }
+  }
 
   const title = official_title || detected_title || ''
 
@@ -80,7 +201,7 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [] as { id: number
   const [isFetchingTorrents, setIsFetchingTorrents] = useState(false)
   const [isRequesting, setIsRequesting] = useState(false)
   const [requestSuccess, setRequestSuccess] = useState(false)
-  const [downloadingMovieId, setDownloadingMovieId] = useState<number | null>(null)
+  const [downloadingMovieId, setDownloadingMovieId] = useState<number | string | null>(null)
 
   const [userRating, setUserRating] = useState(0)
   const [isSavingRating, setIsSavingRating] = useState(false)
@@ -206,7 +327,7 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [] as { id: number
           <div className="space-y-4 mb-8">
             <div className="flex flex-wrap items-center gap-3">
               <span className="px-3 py-1 bg-netflix-red/20 text-netflix-red text-xs font-bold tracking-widest rounded-full uppercase">
-                {isSeries ? 'Serie' : 'Película'}
+                {showAsSeries ? 'Serie' : 'Película'}
               </span>
               <div className="flex items-center gap-1 text-yellow-500">
                 <Star size={16} fill="currentColor" />
@@ -293,16 +414,16 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [] as { id: number
             </div>
           )}
 
-          {isSeries ? (
+          {showAsSeries ? (
             <div className="space-y-6 text-left">
-              {sortedSeasons.length > 0 && (
+              {seasonsList.length > 0 && (
                 <div className="mb-6 border-b border-white/5 pb-4">
                   <h3 className="text-xs uppercase font-black tracking-[0.2em] text-white/80 mb-4">Temporadas</h3>
                   <div className="flex flex-wrap gap-2">
-                    {sortedSeasons.map(s => (
+                    {seasonsList.map(s => (
                       <button
                         key={s}
-                        onClick={() => setActiveSeason(s)}
+                        onClick={() => { setActiveSeason(s); setSearchingTorrentsEpId(null); }}
                         className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
                           activeSeason === s
                             ? 'bg-netflix-red text-white shadow-[0_0_15px_rgba(229,9,20,0.3)]'
@@ -316,81 +437,133 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [] as { id: number
                 </div>
               )}
 
-              <div className="space-y-4 mb-8">
-                <h3 className="text-xs uppercase font-black tracking-[0.2em] text-white/80 mb-4">Capítulos</h3>
-                <div className="grid grid-cols-1 gap-3 max-h-[350px] overflow-y-auto pr-2 no-scrollbar">
-                  {(seasonsMap[activeSeason] || []).map(ep => {
-                    const hasDriveId = !!ep.drive_file_id
-                    const isEpInQueue = queue.some(item => String(item.id) === String(ep.id))
+              {isLoadingTV ? (
+                <div className="py-10 flex flex-col items-center justify-center opacity-40">
+                  <Loader className="animate-spin text-netflix-red mb-4" size={32} />
+                  <p className="text-[10px] font-black uppercase tracking-widest">Cargando episodios...</p>
+                </div>
+              ) : (
+                <div className="space-y-4 mb-8">
+                  <h3 className="text-xs uppercase font-black tracking-[0.2em] text-white/80 mb-4">Capítulos</h3>
+                  <div className="grid grid-cols-1 gap-3 max-h-[350px] overflow-y-auto pr-2 no-scrollbar">
+                    {episodesList.map(ep => {
+                      const hasDriveId = !!ep.drive_file_id
+                      const isEpInQueue = queue.some(item => String(item.id) === String(ep.id))
+                      const isSearchingThisEp = searchingTorrentsEpId === ep.id
 
-                    return (
-                      <div key={ep.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-2xl gap-4 group/ep hover:bg-white/[0.06] hover:border-white/10 transition-all">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <span className="text-xs font-black text-netflix-red uppercase tracking-wider">
-                              Episodio {ep.episode_number}
-                            </span>
-                            <h4 className="text-sm font-bold text-white truncate max-w-[300px]">
-                              {ep.episode_title || ep.official_title || `Capítulo ${ep.episode_number}`}
-                            </h4>
-                            {hasDriveId && (
-                              <span className="px-1.5 py-0.5 bg-green-500/10 border border-green-500/20 text-green-400 text-[8px] font-black uppercase tracking-wider rounded">Nube</span>
-                            )}
-                          </div>
-                          <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
-                            {ep.overview || 'Sin descripción disponible para este episodio.'}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
-                          {hasDriveId ? (
-                            <button
-                              onClick={() => { onPlay(ep); onClose() }}
-                              className="px-4 py-2 bg-white text-black font-black text-xs uppercase tracking-wider rounded-xl hover:bg-zinc-200 transition-all flex items-center gap-2 shadow-lg group-hover/ep:scale-105 active:scale-95"
-                            >
-                              <Play size={14} fill="currentColor" />
-                              <span>Reproducir</span>
-                            </button>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              {isAdmin() && (
+                      return (
+                        <div key={ep.id} className="flex flex-col p-4 bg-white/[0.02] border border-white/5 rounded-2xl gap-4 group/ep hover:bg-white/[0.06] hover:border-white/10 transition-all">
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <span className="text-xs font-black text-netflix-red uppercase tracking-wider">
+                                  Episodio {ep.episode_number}
+                                </span>
+                                <h4 className="text-sm font-bold text-white truncate max-w-[300px]">
+                                  {ep.episode_title}
+                                </h4>
+                                {hasDriveId && (
+                                  <span className="px-1.5 py-0.5 bg-green-500/10 border border-green-500/20 text-green-400 text-[8px] font-black uppercase tracking-wider rounded">Nube</span>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                                {ep.overview || 'Sin descripción disponible para este episodio.'}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
+                              {hasDriveId ? (
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); if(!isEpInQueue) addToQueue(ep) }}
-                                  disabled={isEpInQueue}
-                                  className="p-2 bg-slate-800 hover:bg-cyan-500/20 hover:text-cyan-400 text-slate-400 rounded-xl transition-all border border-white/5 hover:border-cyan-500/50"
-                                  title="Subir a Drive"
+                                  onClick={() => { onPlay(ep.downloadedVersion!); onClose() }}
+                                  className="px-4 py-2 bg-white text-black font-black text-xs uppercase tracking-wider rounded-xl hover:bg-zinc-200 transition-all flex items-center gap-2 shadow-lg group-hover/ep:scale-105 active:scale-95"
                                 >
-                                  <Cloud size={16} />
+                                  <Play size={14} fill="currentColor" />
+                                  <span>Reproducir</span>
+                                </button>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  {isAdmin() && (
+                                    <button
+                                      onClick={() => handleSearchEpTorrents(ep)}
+                                      className={`px-3 py-2 bg-slate-800 hover:bg-cyan-500/20 text-cyan-400 rounded-xl transition-all border border-white/5 hover:border-cyan-500/50 text-xs font-bold ${isSearchingThisEp ? 'opacity-50 animate-pulse' : ''}`}
+                                    >
+                                      Obtener Episodio
+                                    </button>
+                                  )}
+                                  {!isAdmin() && (
+                                    <button
+                                      onClick={() => handleRequestMovie(ep as any)}
+                                      className="px-3 py-2 bg-white/5 hover:bg-netflix-red/20 text-white hover:text-netflix-red rounded-xl transition-all border border-white/5 text-xs font-bold"
+                                    >
+                                      Solicitar
+                                    </button>
+                                  )}
+                                  <span className="text-[10px] font-black uppercase text-amber-500 bg-amber-500/10 px-3 py-1.5 border border-amber-500/20 rounded-xl">No descargado</span>
+                                </div>
+                              )}
+                              {hasDriveId && isAdmin() && (
+                                <button
+                                  onClick={async () => {
+                                    if (window.confirm(`¿Estás seguro de que deseas eliminar este capítulo?`)) {
+                                      try {
+                                        await api.deleteMovie(ep.id)
+                                        window.dispatchEvent(new Event('library-updated'))
+                                        onClose()
+                                      } catch (err) {
+                                        const error = err as Error
+                                        alert('Error al borrar: ' + error.message)
+                                      }
+                                    }
+                                  }}
+                                  className="p-2 bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-all"
+                                  title="Eliminar Capítulo"
+                                >
+                                  <Trash2 size={16} />
                                 </button>
                               )}
-                              <span className="text-[10px] font-black uppercase text-amber-500 bg-amber-500/10 px-3 py-1.5 border border-amber-500/20 rounded-xl">Local</span>
+                            </div>
+                          </div>
+
+                          {isSearchingThisEp && (
+                            <div className="border-t border-white/5 pt-4 mt-2">
+                              {isSearchingEpTorrents ? (
+                                <div className="flex items-center gap-2 py-4 justify-center text-slate-400">
+                                  <Loader className="animate-spin" size={16} />
+                                  <span className="text-xs uppercase font-black tracking-widest">Buscando fuentes...</span>
+                                </div>
+                              ) : epTorrents.length === 0 ? (
+                                <div className="text-center py-4 text-xs text-slate-500 uppercase font-black tracking-widest">
+                                  No se encontraron torrentes para este capítulo
+                                </div>
+                              ) : (
+                                <div className="space-y-2 max-h-[200px] overflow-y-auto no-scrollbar">
+                                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Fuentes Disponibles:</p>
+                                  {epTorrents.slice(0, 4).map((torrent, idx) => (
+                                    <button
+                                      key={idx}
+                                      onClick={() => handleDownloadEp(torrent, ep)}
+                                      disabled={downloadingMovieId === String(ep.id)}
+                                      className="w-full flex items-center justify-between p-3 bg-white/5 border border-white/5 hover:border-cyan-500/50 hover:bg-white/[0.08] rounded-xl group/tor transition-all text-left"
+                                    >
+                                      <div className="flex flex-col items-start min-w-0">
+                                        <span className="text-[10px] font-black text-white truncate max-w-[250px] group-hover/tor:text-cyan-400 transition-colors">{torrent.title}</span>
+                                        <div className="flex items-center gap-2 text-[8px] font-bold text-slate-500 uppercase">
+                                          <span className="text-green-500">{torrent.size}</span>
+                                          <span className="text-blue-500">{torrent.seeds} semillas</span>
+                                        </div>
+                                      </div>
+                                      <Plus size={14} className="text-slate-400 group-hover/tor:text-white" />
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           )}
-                          {isAdmin() && (
-                            <button
-                              onClick={async () => {
-                                if (window.confirm(`¿Estás seguro de que deseas eliminar este capítulo?`)) {
-                                  try {
-                                    await api.deleteMovie(ep.id)
-                                    window.dispatchEvent(new Event('library-updated'))
-                                    onClose()
-                                  } catch (err) {
-                                    const error = err as Error
-                                    alert('Error al borrar: ' + error.message)
-                                  }
-                                }
-                              }}
-                              className="p-2 bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-all"
-                              title="Eliminar Capítulo"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          )}
                         </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           ) : (
             versions.length > 1 && (
@@ -422,7 +595,7 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [] as { id: number
           <div className="flex flex-col gap-4 md:gap-6 mt-8">
             {isLibraryMovie ? (
               <>
-                {drive_file_id && !isSeries && (
+                {drive_file_id && !showAsSeries && (
                   <button
                     onClick={() => { onPlay(selectedVersion); onClose() }}
                     className="w-full md:w-auto px-8 py-5 bg-white text-black rounded-[2rem] font-black flex items-center justify-center md:justify-start gap-3 hover:bg-zinc-200 transition-all duration-300 transform hover:scale-[1.02] active:scale-95 shadow-2xl shadow-white/5 group"
@@ -487,7 +660,7 @@ function MovieDetailsModal({ movie, onClose, onPlay, myList = [] as { id: number
                   )}
                 </div>
               </>
-            ) : (
+            ) : !showAsSeries && (
               <div className="space-y-6">
                 <h3 className="text-lg font-black text-white flex items-center gap-2">
                   <Shield size={18} className="text-netflix-red" />

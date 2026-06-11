@@ -91,14 +91,20 @@ export default function ExplorePage({ onInfoMovie, onPlayMovie }: ExplorePagePro
   };
 
   const openMovieModal = (movie: Record<string, unknown>) => {
+    const isTv = movie.media_type === 'tv'
+    const titleVal = (isTv ? movie.name : movie.title) || movie.title || movie.name
+    const origTitle = (isTv ? movie.original_name : movie.original_title) || movie.original_title || movie.original_name
+    const dateVal = (isTv ? movie.first_air_date : movie.release_date) || movie.release_date || movie.first_air_date
+
     const mappedMovie: Record<string, unknown> = {
       ...movie,
-      official_title: movie.title || movie.original_title,
-      detected_year: (movie.release_date as string | undefined)?.substring(0, 4),
+      official_title: titleVal || origTitle,
+      detected_year: (dateVal as string | undefined)?.substring(0, 4),
       poster_url: movie.poster_path ? `https://image.tmdb.org/t/p/w780${movie.poster_path as string}` : null,
       backdrop_url: movie.backdrop_path ? `https://image.tmdb.org/t/p/original${movie.backdrop_path as string}` : null,
       summary: movie.overview,
-      tmdb_id: movie.id
+      tmdb_id: movie.id,
+      media_type: isTv ? 'tv' : 'movie'
     };
     onInfoMovie(mappedMovie);
   };
@@ -280,6 +286,10 @@ interface MovieCardProps {
 }
 
 function MovieCard({ movie, onClick }: MovieCardProps) {
+  const isTv = movie.media_type === 'tv'
+  const titleVal = (isTv ? movie.name : movie.title) || movie.title || movie.name
+  const dateVal = (isTv ? movie.first_air_date : movie.release_date) || movie.release_date || movie.first_air_date
+
   return (
     <div
       onClick={onClick}
@@ -288,21 +298,23 @@ function MovieCard({ movie, onClick }: MovieCardProps) {
       <div className="relative aspect-[2/3] rounded-[1rem] md:rounded-[2rem] overflow-hidden shadow-2xl transition-all duration-500 border border-white/5 group-hover:border-netflix-red/50">
         <img
           src={movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path as string}` : 'https://images.placeholders.dev/?width=500&height=750&text=Sin%20Poster&bgColor=%23141414&textColor=%23555555'}
-          alt={String(movie.title) || ''}
+          alt={String(titleVal) || ''}
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
           loading="lazy"
         />
 
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3 md:p-5">
           <div className="hidden md:flex items-center gap-2 mb-2">
-            <span className="px-2 py-0.5 bg-netflix-red text-[8px] font-black uppercase rounded-full text-white">TMDB</span>
+            <span className="px-2 py-0.5 bg-netflix-red text-[8px] font-black uppercase rounded-full text-white">
+              {isTv ? 'SERIE' : 'PELÍCULA'}
+            </span>
             <div className="flex items-center gap-1">
               <Star className="text-yellow-500" size={10} fill="currentColor" />
               <span className="text-[10px] font-black text-white">{(movie.vote_average as number | undefined)?.toFixed(1)}</span>
             </div>
           </div>
-          <h3 className="text-[9px] md:text-sm font-black text-white leading-tight mb-1 truncate">{String(movie.title)}</h3>
-          <p className="text-[8px] md:text-[10px] font-bold text-white/60 mb-1 md:mb-2">{String((movie.release_date as string | undefined)?.substring(0, 4))}</p>
+          <h3 className="text-[9px] md:text-sm font-black text-white leading-tight mb-1 truncate">{String(titleVal)}</h3>
+          <p className="text-[8px] md:text-[10px] font-bold text-white/60 mb-1 md:mb-2">{(dateVal as string | undefined)?.substring(0, 4) || 'N/A'}</p>
 
           {!isMobile && (
             <button className="w-full py-2.5 bg-white text-black text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-netflix-red hover:text-white transition-colors">

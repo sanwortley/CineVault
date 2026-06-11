@@ -365,6 +365,7 @@ export default function AppContent() {
           onPlay={(movie) => setPlayingMovie(movie)}
           myList={myList}
           toggleMyList={toggleMyList}
+          libraryMovies={movies}
         />
       )}
 
