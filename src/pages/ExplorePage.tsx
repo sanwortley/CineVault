@@ -340,21 +340,41 @@ function detectResultLang(title: string): { badge: string; color: string } | nul
 }
 
 function detectTorrentEpisode(title: string): string | null {
-  const match = title.match(/\b[Ss](\d{1,2})[Ee](\d{1,2})\b/)
-  if (match) {
-    const s = parseInt(match[1], 10)
-    const e = parseInt(match[2], 10)
-    return `T${s} • E${e}`
+  const cleanTitle = title.replace(/\b\d+bit\b/gi, '').replace(/\b\d+[kK]\b/gi, '')
+
+  // 1. Check for season & episode patterns (e.g., S01E02, T01E02, T01C02, S1 E2, etc.)
+  const epMatch = cleanTitle.match(/\b[STst](\d{1,2})\s*\.?[ECec]\s*(\d{1,2})\b/)
+  if (epMatch) {
+    return `T${parseInt(epMatch[1], 10)} • E${parseInt(epMatch[2], 10)}`
   }
-  const matchSeason = title.match(/\b[Ss]eason\s*(\d{1,2})\b/i)
-  const matchEp = title.match(/\b[Ee]pisode\s*(\d{1,2})\b/i)
-  if (matchSeason && matchEp) {
-    return `T${matchSeason[1]} • E${matchEp[1]}`
+
+  // 2. Check for written words: Season/Temporada X Episode/Capitulo Y
+  const seasonMatch = cleanTitle.match(/\b(?:season|temporada|temp|sea)\.?\s*(\d{1,2})\b/i)
+  const episodeMatch = cleanTitle.match(/\b(?:episode|episodio|ep|capitulo|capítulo|cap)\.?\s*(\d{1,2})\b/i)
+  if (seasonMatch && episodeMatch) {
+    return `T${parseInt(seasonMatch[1], 10)} • E${parseInt(episodeMatch[1], 10)}`
   }
-  const packMatch = title.match(/\b[Ss]ea?s?o?n?\s*(\d{1,2})\b/i)
-  if (packMatch) {
-    return `TEMP ${packMatch[1]} (PACK)`
+
+  // 3. Multi-season pack (e.g. S1-S5, T1-T5, Season 1-5)
+  const multiSeasonMatch = cleanTitle.match(/\b(?:season|temporada|temp|[st])\.?\s*(\d{1,2})\s*-\s*(?:[st]\.?\s*)?(\d{1,2})\b/i)
+  if (multiSeasonMatch) {
+    return `TEMPS ${multiSeasonMatch[1]}-${multiSeasonMatch[2]} (PACK)`
   }
+
+  // 4. Single-season pack (e.g. T3, Temp 3, Season 3, S02)
+  const singleSeasonMatch = cleanTitle.match(/\b(?:season|temporada|temp|[st])\.?\s*(\d{1,2})\b/i)
+  if (singleSeasonMatch) {
+    const num = parseInt(singleSeasonMatch[1], 10)
+    if (num >= 1 && num <= 50) {
+      // Verify we aren't matching resolution/codec (e.g. h264, x264, 1080p, 720p)
+      const matchIndex = singleSeasonMatch.index || 0
+      const context = cleanTitle.substring(Math.max(0, matchIndex - 5), Math.min(cleanTitle.length, matchIndex + 10)).toLowerCase()
+      if (!/\b(?:264|265|720|1080|2160|4k)\b/.test(context)) {
+        return `TEMP ${num} (PACK)`
+      }
+    }
+  }
+
   return null
 }
 

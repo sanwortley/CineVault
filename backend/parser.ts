@@ -13,7 +13,7 @@ function normalizeFilename(fileName: string): NormalizedResult {
   let season: number | null = null
   let episode: number | null = null
 
-  const sxsPattern = /(?:s|season\s*)(\d{1,2})(?:\s*e|\s*ep|\s*episode\s*|\s*x\s*)(\d{1,2})\b/i
+  const sxsPattern = /(?:s|t|season|temporada|temp\s*)(\d{1,2})(?:\s*e|\s*c|\s*ep|\s*episode|\s*capitulo|\s*capítulo|\s*cap|\s*x\s*)(\d{1,2})\b/i
   const xPattern = /\b(\d{1,2})x(\d{1,2})\b/i
 
   let match = name.match(sxsPattern)
@@ -40,6 +40,26 @@ function normalizeFilename(fileName: string): NormalizedResult {
           name = name.substring(0, idx)
         } else {
           name = name.replace(match[0], "")
+        }
+      }
+    } else {
+      // Check for season-only pattern (e.g. T3, Temp 3, Season 3, S02)
+      const sOnlyMatch = name.match(/\b(?:season|temporada|temp|[st])\.?\s*(\d{1,2})\b/i)
+      if (sOnlyMatch) {
+        const s = parseInt(sOnlyMatch[1])
+        if (s >= 1 && s <= 50) {
+          // Verify we aren't matching resolution/codec (e.g. h264, x264, 1080p, 720p)
+          const matchIndex = sOnlyMatch.index || 0
+          const context = name.substring(Math.max(0, matchIndex - 5), Math.min(name.length, matchIndex + 10)).toLowerCase()
+          if (!/\b(?:264|265|720|1080|2160|4k)\b/.test(context)) {
+            season = s
+            const idx = name.indexOf(sOnlyMatch[0])
+            if (idx !== -1) {
+              name = name.substring(0, idx)
+            } else {
+              name = name.replace(sOnlyMatch[0], "")
+            }
+          }
         }
       }
     }
