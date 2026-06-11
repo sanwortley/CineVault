@@ -303,16 +303,20 @@ function MovieCard({ movie, onClick }: MovieCardProps) {
           loading="lazy"
         />
 
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3 md:p-5">
-          <div className="hidden md:flex items-center gap-2 mb-2">
-            <span className="px-2 py-0.5 bg-netflix-red text-[8px] font-black uppercase rounded-full text-white">
-              {isTv ? 'SERIE' : 'PELÍCULA'}
-            </span>
-            <div className="flex items-center gap-1">
-              <Star className="text-yellow-500" size={10} fill="currentColor" />
-              <span className="text-[10px] font-black text-white">{(movie.vote_average as number | undefined)?.toFixed(1)}</span>
+        {/* Permanent overlay badges visible at all times, including mobile */}
+        <div className="absolute top-2 md:top-4 right-2 md:right-4 flex flex-col gap-1.5 z-20">
+          <span className={`px-2 py-0.5 md:px-2.5 md:py-1 rounded text-[7px] md:text-[9px] font-black uppercase text-white tracking-wider border border-white/10 shadow-lg ${isTv ? 'bg-netflix-red/95' : 'bg-slate-950/85'}`}>
+            {isTv ? 'SERIE' : 'PELÍCULA'}
+          </span>
+          {typeof movie.vote_average === 'number' && (
+            <div className="px-1.5 py-0.5 bg-black/80 rounded text-[7px] md:text-[9px] font-black text-white border border-white/10 flex items-center justify-center gap-1 shadow-md self-end">
+              <Star size={8} fill="currentColor" className="text-netflix-red" />
+              <span>{movie.vote_average.toFixed(1)}</span>
             </div>
-          </div>
+          )}
+        </div>
+
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3 md:p-5 z-10">
           <h3 className="text-[9px] md:text-sm font-black text-white leading-tight mb-1 truncate">{String(titleVal)}</h3>
           <p className="text-[8px] md:text-[10px] font-bold text-white/60 mb-1 md:mb-2">{(dateVal as string | undefined)?.substring(0, 4) || 'N/A'}</p>
 
