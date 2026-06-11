@@ -28,7 +28,7 @@ const fetchTMDB = async (
 
 router.get('/trending', async (req: Request, res: Response) => {
   try {
-    const data = (await fetchTMDB('/trending/movie/week')) as { results: unknown[] }
+    const data = (await fetchTMDB('/trending/all/week')) as { results: unknown[] }
     res.json(data.results)
   } catch (err) {
     res.status(500).json({ error: 'Error al obtener tendencias' })
