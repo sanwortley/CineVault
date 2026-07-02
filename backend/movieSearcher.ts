@@ -77,21 +77,22 @@ async function searchYTS(query: string): Promise<TorrentResult[]> {
       })
 
       if (response.data?.data?.movies) {
-        return response.data.data.movies.map((m) => {
-          const best = m.torrents.reduce((prev, curr) => {
-            const pSeeds = parseInt(prev.seeds) || 0
-            const cSeeds = parseInt(curr.seeds) || 0
-            return pSeeds >= cSeeds ? prev : curr
-          })
-          return {
-            title: `${m.title_long} [${best.quality}]`,
-            size: best.size,
-            seeds: parseInt(best.seeds),
-            link: best.hash,
-            isHash: true,
-            provider: 'YTS',
+        // Return every quality variant (not just the most-seeded one) so the
+        // final ranking in searchAll/searchGlobal can actually choose by quality.
+        const results: TorrentResult[] = []
+        for (const m of response.data.data.movies) {
+          for (const t of m.torrents) {
+            results.push({
+              title: `${m.title_long} [${t.quality}]`,
+              size: t.size,
+              seeds: parseInt(t.seeds) || 0,
+              link: t.hash,
+              isHash: true,
+              provider: 'YTS',
+            })
           }
-        })
+        }
+        return results
       }
     } catch (err: unknown) {
       const error = err as Error
@@ -249,6 +250,43 @@ function isSpanishResult(title: string): boolean {
   return /\b(latino|español|espanol|castellano|spanish|dual audio|multi audio|esp|spa)\b/i.test(t)
 }
 
+// Higher is better. Unknown quality (no tag found) ranks below every known resolution.
+function qualityRank(title: string): number {
+  const t = title.toLowerCase()
+  if (/\b(2160p|4k|uhd)\b/.test(t)) return 4
+  if (/\b1080p\b/.test(t)) return 3
+  if (/\b720p\b/.test(t)) return 2
+  if (/\b480p\b/.test(t)) return 1
+  return 0
+}
+
+// Below this, a torrent is unlikely to ever finish downloading, so a lower-quality
+// but viable torrent is ranked above a higher-quality one nobody is seeding.
+const MIN_VIABLE_SEEDS = 3
+
+function compareTorrents(a: TorrentResult, b: TorrentResult): number {
+  const aLow = a.title.toLowerCase()
+  const bLow = b.title.toLowerCase()
+
+  const aIsSpanish = isSpanishResult(aLow)
+  const bIsSpanish = isSpanishResult(bLow)
+  if (aIsSpanish !== bIsSpanish) return aIsSpanish ? -1 : 1
+
+  const aViable = a.seeds >= MIN_VIABLE_SEEDS
+  const bViable = b.seeds >= MIN_VIABLE_SEEDS
+  if (aViable !== bViable) return aViable ? -1 : 1
+
+  const aQuality = qualityRank(aLow)
+  const bQuality = qualityRank(bLow)
+  if (aQuality !== bQuality) return bQuality - aQuality
+
+  const aIsMp4 = aLow.includes('mp4')
+  const bIsMp4 = bLow.includes('mp4')
+  if (aIsMp4 !== bIsMp4) return aIsMp4 ? -1 : 1
+
+  return b.seeds - a.seeds
+}
+
 async function searchGlobal(query: string): Promise<TorrentResult[]> {
   const searches: Promise<TorrentResult[]>[] = [
     searchSolid(query),
@@ -278,23 +316,7 @@ async function searchGlobal(query: string): Promise<TorrentResult[]> {
     }
   })
 
-  return combined.sort((a, b) => {
-    const aLow = a.title.toLowerCase()
-    const bLow = b.title.toLowerCase()
-    const aIsSpanish = isSpanishResult(aLow)
-    const bIsSpanish = isSpanishResult(bLow)
-
-    if (aIsSpanish && !bIsSpanish) return -1
-    if (!aIsSpanish && bIsSpanish) return 1
-
-    const aIsMp4 = aLow.includes('.mp4') || aLow.includes('mp4')
-    const bIsMp4 = bLow.includes('.mp4') || bLow.includes('mp4')
-
-    if (aIsMp4 && !bIsMp4) return -1
-    if (!aIsMp4 && bIsMp4) return 1
-
-    return b.seeds - a.seeds
-  })
+  return combined.sort(compareTorrents)
 }
 
 async function searchAll(query: string): Promise<TorrentResult[]> {
@@ -324,23 +346,7 @@ async function searchAll(query: string): Promise<TorrentResult[]> {
     }
   })
 
-  return combined.sort((a, b) => {
-    const aLow = a.title.toLowerCase()
-    const bLow = b.title.toLowerCase()
-    const aIsSpanish = isSpanishResult(aLow)
-    const bIsSpanish = isSpanishResult(bLow)
-
-    if (aIsSpanish && !bIsSpanish) return -1
-    if (!aIsSpanish && bIsSpanish) return 1
-
-    const aIsMp4 = aLow.includes('mp4')
-    const bIsMp4 = bLow.includes('mp4')
-
-    if (aIsMp4 && !bIsMp4) return -1
-    if (!aIsMp4 && bIsMp4) return 1
-
-    return b.seeds - a.seeds
-  })
+  return combined.sort(compareTorrents)
 }
 
 async function searchSubtitlesFallback(
