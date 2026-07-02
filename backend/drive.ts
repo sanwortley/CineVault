@@ -12,6 +12,7 @@ import {
   getTranscodeStream,
   getFmp4Stream,
 } from './optimizer'
+import db from './db'
 
 import type { Response } from 'express'
 
@@ -107,7 +108,8 @@ interface TranscodeOptions {
 
 // In-memory metadata cache for Drive files
 const fileMetaCache = new Map<string, { size: number; mimeType: string }>()
-const moovMetaCache = new Map<string, { ftypSize: number; moovSize: number }>()
+type MoovMeta = { ftypSize: number; moovSize: number; headBuf: Buffer | null; moovBuf: Buffer | null }
+const moovMetaCache = new Map<string, MoovMeta>()
 
 // LRU cache tracking for local file downloads (evict old files when disk is full)
 const DISK_LIMIT_BYTES = 4 * 1024 * 1024 * 1024 // 4GB
@@ -174,6 +176,98 @@ function adjustStco(data: Buffer, adjustment: number): void {
     if (boxSize === 0) break
     offset += boxSize
   }
+}
+
+const MOOV_TAIL_SIZE = 10 * 1024 * 1024 // 10MB
+const MOOV_HEAD_SIZE = 100 * 1024 // 100KB
+
+// Resolves (and caches) the moov-injection header for a Drive file: in-memory first
+// (fast path within this process' lifetime), then the DB (survives restarts/redeploys),
+// and only falls back to fetching 100KB+10MB from Drive when neither has it yet.
+// Unlike the old cache, this keeps the actual moov bytes (not just their sizes) so
+// injection works on every full-file request, not only the very first one.
+async function resolveMoovMeta(fileId: string, fileSize: number): Promise<MoovMeta> {
+  const cached = moovMetaCache.get(fileId)
+  if (cached) return cached
+
+  if (fileSize <= MOOV_HEAD_SIZE + MOOV_TAIL_SIZE) {
+    return { ftypSize: 0, moovSize: 0, headBuf: null, moovBuf: null }
+  }
+
+  try {
+    const dbCache = await db.getMoovCache(fileId)
+    if (dbCache) {
+      const combined = dbCache.headerB64 ? Buffer.from(dbCache.headerB64, 'base64') : null
+      const result: MoovMeta = {
+        ftypSize: dbCache.ftypSize,
+        moovSize: dbCache.moovSize,
+        headBuf: combined ? combined.subarray(0, dbCache.ftypSize) : null,
+        moovBuf: combined && dbCache.moovSize > 0 ? combined.subarray(dbCache.ftypSize) : null,
+      }
+      moovMetaCache.set(fileId, result)
+      console.log(`[DriveStream] Moov cache hydrated from DB for ${fileId} (ftypSize=${result.ftypSize} moovSize=${result.moovSize})`)
+      return result
+    }
+  } catch (e) {
+    console.warn('[DriveStream] Failed to read moov cache from DB:', (e as Error).message)
+  }
+
+  const accessToken = await driveApi.getAccessToken()
+  const baseUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`
+  const authHeader = { Authorization: `Bearer ${accessToken}` }
+
+  const [headRes, tailRes] = await Promise.all([
+    fetch(baseUrl, { headers: { ...authHeader, Range: `bytes=0-${MOOV_HEAD_SIZE - 1}` } }),
+    fetch(baseUrl, { headers: { ...authHeader, Range: `bytes=-${MOOV_TAIL_SIZE}` } }),
+  ])
+
+  if (!headRes.ok || !tailRes.ok) {
+    // Transient failure — don't cache, let a future request retry the detection.
+    return { ftypSize: 0, moovSize: 0, headBuf: null, moovBuf: null }
+  }
+
+  const headBuf = Buffer.from(await headRes.arrayBuffer())
+  const tailBuf = Buffer.from(await tailRes.arrayBuffer())
+
+  const ftypSize = headBuf.readUInt32BE(0)
+  const moovAtStart = headBuf.length > ftypSize + 4 &&
+    headBuf.toString('ascii', ftypSize, ftypSize + 4) === 'moov'
+
+  let moovBuf: Buffer | null = null
+  let moovSize = 0
+
+  if (!moovAtStart) {
+    for (let i = 0; i <= tailBuf.length - 8; i += 4) {
+      if (tailBuf.toString('ascii', i + 4, i + 8) === 'moov') {
+        const boxSize = tailBuf.readUInt32BE(i)
+        if (boxSize >= 8 && i + boxSize <= tailBuf.length) {
+          moovBuf = tailBuf.subarray(i, i + boxSize)
+          break
+        }
+      }
+    }
+    if (moovBuf) {
+      moovSize = moovBuf.length
+      adjustStco(moovBuf, moovSize)
+      console.log(`[DriveStream] Adjusted stco offsets by +${moovSize}`)
+    }
+  }
+
+  console.log(`[DriveStream] Moov detection: ftypSize=${ftypSize} moovSize=${moovSize}`)
+
+  const result: MoovMeta = { ftypSize, moovSize, headBuf, moovBuf }
+  moovMetaCache.set(fileId, result)
+
+  // Persist in the background so future restarts/redeploys skip Drive entirely for this file.
+  db.getMovieByFileId(fileId).then((movie) => {
+    if (!movie) return
+    const headerB64 = moovBuf
+      ? Buffer.concat([headBuf.subarray(0, ftypSize), moovBuf]).toString('base64')
+      : null
+    return db.setMoovCache(movie.id, ftypSize, moovSize, headerB64)
+  }).catch((e: Error) => console.warn('[DriveStream] Failed to persist moov cache:', e.message))
+
+  return result
 }
 
 const driveApi = {
@@ -610,58 +704,9 @@ const driveApi = {
         })
       }
 
-      // ── Moov detection (runs once per fileId, cached for subsequent Range requests) ──
-      const TAIL_SIZE = 10 * 1024 * 1024 // 10MB
-      const HEAD_SIZE = 100 * 1024 // 100KB
-      let ftypSize = 0
-      let moovSize = 0
-      let moovBuf: Buffer | null = null
-      let headBuf: Buffer | null = null
-
-      const cachedMoov = moovMetaCache.get(fileId)
-      if (cachedMoov) {
-        ftypSize = cachedMoov.ftypSize
-        moovSize = cachedMoov.moovSize
-      }
-
-      // Only fetch if not cached and file is large enough
-      if (!cachedMoov && fileSize > HEAD_SIZE + TAIL_SIZE) {
-        const accessToken = await driveApi.getAccessToken()
-        const baseUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`
-        const authHeader = { Authorization: `Bearer ${accessToken}` }
-
-        const [headRes, tailRes] = await Promise.all([
-          fetch(baseUrl, { headers: { ...authHeader, Range: `bytes=0-${HEAD_SIZE - 1}` } }),
-          fetch(baseUrl, { headers: { ...authHeader, Range: `bytes=-${TAIL_SIZE}` } }),
-        ])
-        if (headRes.ok && tailRes.ok) {
-          headBuf = Buffer.from(await headRes.arrayBuffer())
-          const tailBuf = Buffer.from(await tailRes.arrayBuffer())
-
-          ftypSize = headBuf.readUInt32BE(0)
-          const moovAtStart = headBuf.length > ftypSize + 4 &&
-            headBuf.toString('ascii', ftypSize, ftypSize + 4) === 'moov'
-
-          if (!moovAtStart) {
-            for (let i = 0; i <= tailBuf.length - 8; i += 4) {
-              if (tailBuf.toString('ascii', i + 4, i + 8) === 'moov') {
-                const boxSize = tailBuf.readUInt32BE(i)
-                if (boxSize >= 8 && i + boxSize <= tailBuf.length) {
-                  moovBuf = tailBuf.subarray(i, i + boxSize)
-                  break
-                }
-              }
-            }
-            if (moovBuf) {
-              moovSize = moovBuf.length
-              adjustStco(moovBuf, moovSize)
-              console.log(`[DriveStream] Adjusted stco offsets by +${moovSize} (${Date.now() - tStart}ms)`)
-            }
-          }
-          moovMetaCache.set(fileId, { ftypSize, moovSize })
-          console.log(`[DriveStream] Moov detection: ftypSize=${ftypSize} moovSize=${moovSize} (${Date.now() - tStart}ms)`)
-        }
-      }
+      // ── Moov detection (memory -> DB -> Drive fallback; cached across restarts) ──
+      const { ftypSize, moovSize, headBuf, moovBuf } = await resolveMoovMeta(fileId, fileSize)
+      console.log(`[DriveStream] Moov meta resolved: ftypSize=${ftypSize} moovSize=${moovSize} (${Date.now() - tStart}ms)`)
 
       // ── Parse Range header ──
       let rangeStart = 0

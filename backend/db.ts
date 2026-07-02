@@ -333,6 +333,39 @@ const database = {
     return movie
   },
 
+  getMoovCache: async (
+    fileId: string
+  ): Promise<{ ftypSize: number; moovSize: number; headerB64: string | null } | null> => {
+    const results =
+      (await supabaseFetch<
+        { moov_ftyp_size: number | null; moov_box_size: number | null; moov_header_b64: string | null }[]
+      >(`movies?drive_file_id=eq.${fileId}&select=moov_ftyp_size,moov_box_size,moov_header_b64`)) || []
+    if (results.length === 0) return null
+    const row = results[0]
+    if (row.moov_ftyp_size === null || row.moov_ftyp_size === undefined) return null
+    return {
+      ftypSize: row.moov_ftyp_size,
+      moovSize: row.moov_box_size || 0,
+      headerB64: row.moov_header_b64,
+    }
+  },
+
+  setMoovCache: async (
+    movieId: number,
+    ftypSize: number,
+    moovSize: number,
+    headerB64: string | null
+  ): Promise<unknown> => {
+    return await supabaseFetch(`movies?id=eq.${movieId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        moov_ftyp_size: ftypSize,
+        moov_box_size: moovSize,
+        moov_header_b64: headerB64,
+      }),
+    })
+  },
+
   removeMoviesLike: async (matchPath: string, onlyLocal = false): Promise<unknown> => {
     let endpoint = `movies?file_path=ilike.${encodeURIComponent(matchPath)}`
     if (onlyLocal) {
