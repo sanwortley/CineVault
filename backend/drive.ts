@@ -950,7 +950,14 @@ const driveApi = {
       } else {
         throw new Error('No authentication method available')
       }
-    })()
+    })().catch((err) => {
+      // Any failure before pipeDownload (auth error, network hiccup, etc.) leaves
+      // nothing else to clean up localDownloadsInProgress — without this, the
+      // fileId gets stuck on this rejected promise forever and every future
+      // poll (e.g. iOS Safari's file-status loop) reports "not ready" forever.
+      driveApi.localDownloadsInProgress.delete(fileId)
+      throw err
+    })
 
     driveApi.localDownloadsInProgress.set(fileId, promise)
     return promise
