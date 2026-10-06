@@ -54,3 +54,6 @@ Thumbs.db
 *.swp
 # Scratch
 scratch/
+
+# Production env (no commitear)
+.env.production

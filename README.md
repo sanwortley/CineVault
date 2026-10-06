@@ -47,33 +47,33 @@
 ### Pasos de configuración
 
 1.  **Clonar el repositorio**:
-    `ash
+    ```bash
     git clone https://github.com/sanwortley/CineVault.git
     cd CineVault
-    `
+    ```
 
 2.  **Instalar dependencias**:
-    `ash
+    ```bash
     npm install
-    `
+    ```
 
 3.  **Configurar variables de entorno**:
     Crea un archivo .env en la raíz del proyecto y añade tu clave de API:
-    `env
+    ```env
     TMDB_API_KEY=tu_api_key_aqui
-    `
+    ```
 
 4.  **Ejecutar en desarrollo**:
     Necesitarás dos terminales abiertas:
     
     *   **Terminal 1 (Interfaz)**:
-        `ash
+        ```bash
         npm run dev
-        `
+        ```
     *   **Terminal 2 (Aplicación)**:
-        `ash
+        ```bash
         npm run electron
-        `
+        ```
 
 ---
 
