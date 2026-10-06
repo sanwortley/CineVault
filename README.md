@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="public/assets/banner.png" alt="CineVault Banner" width="800">
-</p>
+
 
 # <p align="center">🎬 CineVault</p>
 
