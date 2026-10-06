@@ -5,85 +5,77 @@
 # <p align="center">🎬 CineVault</p>
 
 <p align="center">
-  <strong>CineVault</strong> es una elegante aplicación de escritorio diseñada para convertir tu colección local de películas en una biblioteca cinematográfica de lujo.
+  Aplicación web full-stack para organizar, explorar y reproducir una biblioteca de películas y series, con autenticación de usuarios, metadatos automáticos y streaming adaptativo.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Electron-v28.0.0-blue?style=for-the-badge&logo=electron" alt="Electron">
-  <img src="https://img.shields.io/badge/React-v18.0.0-61DAFB?style=for-the-badge&logo=react" alt="React">
-  <img src="https://img.shields.io/badge/SQLite-v3.0.0-07405E?style=for-the-badge&logo=sqlite" alt="SQLite">
+  <img src="https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react" alt="React">
+  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
+  <img src="https://img.shields.io/badge/Node.js-Express-339933?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js">
+  <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase">
+  <img src="https://img.shields.io/badge/Railway-0B0D0E?style=for-the-badge&logo=railway&logoColor=white" alt="Railway">
 </p>
 
 ---
 
-## ✨ Características Principales
+## ✨ Qué hace
 
-*   🚀 **Escaneo Inteligente**: Detecta automáticamente archivos de video en tus carpetas locales sin mover ni copiar archivos.
-*   🎬 **Identificación Automática (TMDb)**: Conexión con *The Movie Database* para descargar arte de posters, sinopsis, calificaciones y metadatos detallados.
-*   🤫 **Sinopsis Propias**: Generación de resúmenes atractivos y libres de spoilers en español.
-*   📽️ **Reproductor Interactivo Premium**: Visualiza tus películas con soporte para saltos (seeking), botones de 10s y atajos de teclado (Espacio, Flechas, F, Esc).
-*   🧹 **Control Total de Biblioteca**: Sistema de limpieza automática al borrar carpetas y herramienta de "Limpiar Bóveda" para reseteos completos.
-*   💎 **Interfaz Glassmorphic**: Estética cinematográfica con modo oscuro, animaciones fluidas y diseño responsivo.
-*   🔒 **Privacidad Total**: Tu base de datos y tus rutas de archivos permanecen en tu equipo.
-
----
-
-## 🚀 Tecnologías Utilizadas
-
-*   **Frontend**: [React.js](https://reactjs.org/) + [Vite](https://vitejs.dev/)
-*   **Estilos**: [Tailwind CSS](https://tailwindcss.com/) + [Lucide Icons](https://lucide.dev/)
-*   **Desktop Framework**: [Electron](https://www.electronjs.org/)
-*   **Base de Datos**: [SQLite3](https://sqlite.org/)
-*   **API**: [The Movie Database (TMDb)](https://www.themoviedb.org/documentation/api)
+*   🔐 **Autenticación de usuarios** con Supabase Auth (registro, login, sesión y perfiles).
+*   🎬 **Metadatos automáticos** desde [TMDb](https://www.themoviedb.org/): posters, sinopsis, géneros, año y calificaciones.
+*   📚 **Biblioteca y exploración**: páginas de biblioteca, explorar contenido, subida y ajustes.
+*   📽️ **Reproductor propio** con streaming HLS, saltos de 10 s y atajos de teclado.
+*   ☁️ **Integraciones**: Google Drive (OAuth) y Real-Debrid como fuentes de reproducción, configurables por el usuario con su propio token.
+*   🧹 **Utilidades de biblioteca**: detector de duplicados, parser de nombres de archivo y scripts de mantenimiento en `tools/`.
+*   📱 **PWA**: manifest y service worker incluidos.
 
 ---
 
-## 🛠️ Instalación y Configuración
+## 🧱 Arquitectura
 
-### Requisitos previos
-*   [Node.js](https://nodejs.org/) (versión 16 o superior)
-*   Una API Key de [TMDb](https://www.themoviedb.org/settings/api)
+```
+src/        Frontend: React + Vite + TypeScript + Tailwind (páginas, contexto de auth, reproductor)
+backend/    API REST en Node.js + Express + TypeScript (~75 endpoints): scanner, TMDb, Drive, HLS, Real-Debrid
+database/   Migraciones SQL para Supabase (perfiles, series, caché de metadatos)
+tools/      Scripts de mantenimiento
+```
 
-### Pasos de configuración
+*   **Datos y auth**: Supabase (PostgreSQL + Auth), accedido desde el backend y el frontend.
+*   **Deploy**: Railway (`railway.json`, `nixpacks.toml`, `Dockerfile`), con healthcheck en `/health`.
 
-1.  **Clonar el repositorio**:
+---
+
+## 🛠️ Instalación y desarrollo local
+
+### Requisitos
+*   Node.js 18 o superior
+*   Un proyecto de [Supabase](https://supabase.com/) y una API key de [TMDb](https://www.themoviedb.org/settings/api)
+
+### Pasos
+
+1.  **Clonar e instalar**:
     ```bash
     git clone https://github.com/sanwortley/CineVault.git
     cd CineVault
-    ```
-
-2.  **Instalar dependencias**:
-    ```bash
     npm install
     ```
 
-3.  **Configurar variables de entorno**:
-    Crea un archivo .env en la raíz del proyecto y añade tu clave de API:
-    ```env
-    TMDB_API_KEY=tu_api_key_aqui
+2.  **Variables de entorno**: copiá `.env.example` a `.env` y completalo (Supabase, TMDb y, opcionalmente, Google OAuth). Las migraciones SQL de `database/` se aplican en el proyecto de Supabase.
+
+3.  **Levantar frontend y backend juntos**:
+    ```bash
+    npm run web:dev
     ```
 
-4.  **Ejecutar en desarrollo**:
-    Necesitarás dos terminales abiertas:
-    
-    *   **Terminal 1 (Interfaz)**:
-        ```bash
-        npm run dev
-        ```
-    *   **Terminal 2 (Aplicación)**:
-        ```bash
-        npm run electron
-        ```
+Otros scripts útiles: `npm run build`, `npm run typecheck`.
 
 ---
 
-## 🎥 Uso
+## ⚠️ Notas
 
-1.  Abre la aplicación y ve a la pestaña de **Ajustes**.
-2.  Agrega las carpetas donde guardas tus películas.
-3.  Ve a la **Biblioteca** y haz clic en **Sincronizar**.
-4.  ¡Disfruta de tu colección elevada al siguiente nivel!
+*   Las descargas directas por torrent están **deshabilitadas** en el backend (`torrentManager.ts` es un stub).
+*   La integración con Real-Debrid requiere el token del propio usuario. Usá este proyecto solo con contenido sobre el que tengas derechos.
+*   Proyecto personal de aprendizaje; todavía no tiene tests automatizados.
 
 ---
 
-<p align="center">Desarrollado con ❤️ para amantes del cine.</p>
+<p align="center">Desarrollado por <a href="https://github.com/sanwortley">Santiago Wortley</a></p>
